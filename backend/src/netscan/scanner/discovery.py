@@ -26,13 +26,17 @@ def is_elevated() -> bool:
     if platform.system() == "Windows":
         import ctypes
 
+        windll = getattr(ctypes, "windll", None)  # typeshed: Windows-only
+        if windll is None:
+            return False
         try:
-            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+            return bool(windll.shell32.IsUserAnAdmin())
         except Exception:
             return False
     import os
 
-    return hasattr(os, "geteuid") and os.geteuid() == 0
+    geteuid = getattr(os, "geteuid", None)  # typeshed: POSIX-only
+    return geteuid is not None and geteuid() == 0
 
 
 def check_prereqs() -> None:
