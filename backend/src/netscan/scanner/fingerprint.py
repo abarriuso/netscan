@@ -16,12 +16,21 @@ import ssl
 from datetime import UTC, datetime
 
 import httpx
+from cryptography import x509
 
 from netscan.models import HttpInfo, PortInfo, TlsInfo
 
 HTTP_PORTS = {80, 443, 8006, 8080, 8443, 8888, 9000, 9090, 32400, 8096}
 TLS_PORTS = {443, 8006, 8443}
 _TITLE_RE = re.compile(rb"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+
+
+def _name_part(name: x509.Name, oid: x509.ObjectIdentifier) -> str:
+    attrs = name.get_attributes_for_oid(oid)
+    if not attrs:
+        return ""
+    value = attrs[0].value
+    return value if isinstance(value, str) else value.decode("utf-8", "replace")
 
 
 def probe_tls(host: str, port: int, timeout: float = 4.0) -> TlsInfo | None:
@@ -44,42 +53,32 @@ def probe_tls(host: str, port: int, timeout: float = 4.0) -> TlsInfo | None:
 
     info = TlsInfo(version=version)
     try:
-        # CERT_NONE hides getpeercert() dict; decode the DER manually
-        # with a throwaway verified context trick: parse via ssl's internal
-        # decoder against a PEM re-encode.
-        pem = ssl.DER_cert_to_PEM_cert(der)
-        decoded = ssl._ssl._test_decode_cert(  # type: ignore[attr-defined]
-            _write_temp_pem(pem)
+        cert = x509.load_der_x509_certificate(der)
+        info.issuer = ", ".join(
+            part
+            for part in (
+                _name_part(cert.issuer, x509.NameOID.COMMON_NAME),
+                _name_part(cert.issuer, x509.NameOID.ORGANIZATION_NAME),
+            )
+            if part
         )
-        info.issuer = _name_to_str(decoded.get("issuer", ()))
-        info.subject = _name_to_str(decoded.get("subject", ()))
-        info.not_before = decoded.get("notBefore", "")
-        info.not_after = decoded.get("notAfter", "")
-        if info.not_after:
-            expiry = datetime.strptime(info.not_after, "%b %d %H:%M:%S %Y %Z")
-            expiry = expiry.replace(tzinfo=UTC)
-            info.days_remaining = (expiry - datetime.now(UTC)).days
-        info.self_signed = bool(info.issuer) and info.issuer == info.subject
-    except Exception:
-        pass
+        info.subject = ", ".join(
+            part
+            for part in (
+                _name_part(cert.subject, x509.NameOID.COMMON_NAME),
+                _name_part(cert.subject, x509.NameOID.ORGANIZATION_NAME),
+            )
+            if part
+        )
+        not_before = cert.not_valid_before_utc
+        not_after = cert.not_valid_after_utc
+        info.not_before = not_before.isoformat()
+        info.not_after = not_after.isoformat()
+        info.days_remaining = (not_after - datetime.now(UTC)).days
+        info.self_signed = cert.issuer == cert.subject
+    except ValueError:
+        pass  # unparsable cert: keep whatever we already have
     return info
-
-
-def _write_temp_pem(pem: str) -> str:
-    import tempfile
-
-    with tempfile.NamedTemporaryFile("w", suffix=".pem", delete=False) as fh:
-        fh.write(pem)
-        return fh.name
-
-
-def _name_to_str(name: tuple) -> str:
-    parts = []
-    for rdn in name:
-        for key, value in rdn:
-            if key in ("commonName", "organizationName"):
-                parts.append(str(value))
-    return ", ".join(dict.fromkeys(parts))
 
 
 def probe_http(ip: str, port: int, timeout: float = 4.0) -> HttpInfo | None:

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,14 +8,14 @@ version = "0.1.0"
 description = "Homelab network scanner, inventory and monitoring with Proxmox/TrueNAS integration"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "GPL-2.0-or-later" }
+license = "GPL-2.0-or-later"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "NetScan contributors" }]
 keywords = ["network", "scanner", "homelab", "proxmox", "truenas", "monitoring"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: System :: Networking :: Monitoring",
@@ -34,6 +34,7 @@ dependencies = [
     "apprise>=1.7.0",
     "zeroconf>=0.131.0",
     "mac-vendor-lookup>=0.1.12",
+    "cryptography>=42.0.0",
 ]
 
 [project.optional-dependencies]

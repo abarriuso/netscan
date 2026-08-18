@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import platform
+import re
 import socket
 import subprocess
 import time
@@ -101,8 +102,17 @@ def resolve_hostname(ip: str) -> str:
         return ""
 
 
+# Matches "time=12ms", "time<1ms", "tiempo=12ms" (es), "Zeit=12ms" (de), ...
+_PING_TIME_RE = re.compile(r"(?:time|tiempo|zeit|temps|tempo)\s*[=<]\s*(\d+(?:[.,]\d+)?)\s*ms", re.IGNORECASE)
+
+
 def ping_host(ip: str, timeout: float = 1.0) -> float | None:
-    """ICMP ping via the system binary. Returns latency in ms or None."""
+    """ICMP ping via the system binary. Returns latency in ms or None.
+
+    Parses the latency from ping's stdout (locale-tolerant) instead of
+    measuring the wall-clock of the whole subprocess, which mostly measures
+    process spawn time (~30-80 ms on Windows) and hides the real RTT.
+    """
     is_windows = platform.system().lower() == "windows"
     param = "-n" if is_windows else "-c"
     timeout_param = "-w" if is_windows else "-W"
@@ -112,14 +122,19 @@ def ping_host(ip: str, timeout: float = 1.0) -> float | None:
         start = time.perf_counter()
         result = subprocess.run(
             ["ping", param, "1", timeout_param, timeout_val, ip],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
             timeout=timeout + 2,
             check=False,
         )
         elapsed = (time.perf_counter() - start) * 1000
-        if result.returncode == 0:
-            return round(elapsed, 1)
+        if result.returncode != 0:
+            return None
+        match = _PING_TIME_RE.search(result.stdout)
+        if match:
+            return round(float(match.group(1).replace(",", ".")), 1)
+        # Output format not recognized: fall back to process wall-clock.
+        return round(elapsed, 1)
     except (subprocess.TimeoutExpired, OSError):
         pass
     return None

@@ -7,6 +7,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from __future__ import annotations
 
 import ipaddress
+import logging
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -15,6 +16,8 @@ from netscan.config import ScanDefaults
 from netscan.models import Device, PortInfo, ScanResult
 from netscan.scanner import discovery, enrich, mdns, tools
 from netscan.scanner.fingerprint import fingerprint_http
+
+logger = logging.getLogger(__name__)
 
 ProgressFn = Callable[[str, int, int], None]
 
@@ -113,15 +116,20 @@ def run_scan(
             for raw in raw_devices
         }
         for i, future in enumerate(as_completed(futures), 1):
-            devices.append(future.result())
+            try:
+                devices.append(future.result())
+            except Exception:
+                # A single host must not sink the whole scan.
+                logger.exception("Error enriqueciendo %s", futures[future].get("ip", "?"))
             emit("enrich", i, total)
 
     devices.sort(key=lambda d: ipaddress.IPv4Address(d.ip))
 
-    # Vulnerability pass over every discovered web UI (opt-in, needs nuclei)
+    # Vulnerability pass over discovered web UIs (opt-in, needs nuclei).
+    # Capped: nuclei is slow and noisy, so never feed it an unbounded list.
     vulnerabilities: list[dict[str, str]] = []
     if cfg.use_nuclei and caps.tools.get("nuclei"):
-        urls = [http.url for dev in devices for http in dev.http]
+        urls = [http.url for dev in devices for http in dev.http][: cfg.nuclei_max_targets]
         emit("nuclei", 0, 1)
         vulnerabilities = tools.nuclei_scan(urls)
         emit("nuclei", 1, 1)

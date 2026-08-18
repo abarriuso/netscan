@@ -9,10 +9,14 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+from sqlalchemy import event
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from netscan.db.models import AlertRecord, DeviceRecord, ScanRecord
 from netscan.models import ScanResult
+
+# How many historical scans to keep in the DB (oldest are pruned).
+SCAN_RETENTION = 200
 
 
 class InventoryStore:
@@ -22,7 +26,20 @@ class InventoryStore:
 
             Path(data_dir).mkdir(parents=True, exist_ok=True)
         self.engine = create_engine(db_url, echo=False)
+        if db_url.startswith("sqlite"):
+            self._setup_sqlite_pragmas()
         SQLModel.metadata.create_all(self.engine)
+
+    def _setup_sqlite_pragmas(self) -> None:
+        """WAL mode + busy timeout: the API and scheduler hit the DB concurrently."""
+
+        @event.listens_for(self.engine, "connect")
+        def _set_pragmas(dbapi_conn, _record) -> None:
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.close()
 
     def record_scan(
         self,
@@ -108,9 +125,25 @@ class InventoryStore:
                 )
             )
             session.commit()
+            self._prune_scans(session)
             for alert in alerts:
                 session.refresh(alert)
         return alerts
+
+    @staticmethod
+    def _prune_scans(session: Session, keep: int = SCAN_RETENTION) -> None:
+        """Drop the oldest scans beyond ``keep`` so the DB does not grow forever."""
+        ids = session.exec(
+            select(ScanRecord.id).order_by(ScanRecord.started_at.desc())  # type: ignore[attr-defined]
+        ).all()
+        stale = ids[keep:]
+        if not stale:
+            return
+        for scan_id in stale:
+            record = session.get(ScanRecord, scan_id)
+            if record is not None:
+                session.delete(record)
+        session.commit()
 
     def list_devices(self) -> list[DeviceRecord]:
         with Session(self.engine) as session:

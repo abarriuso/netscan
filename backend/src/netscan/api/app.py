@@ -15,7 +15,7 @@ import time
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -47,17 +47,13 @@ def setup_logging() -> None:
     )
 
 
-def require_token(request: Request) -> None:
-    """Global auth: only active when NETSCAN_API_TOKEN is set."""
-    token = get_state().settings.api_token
-    if not token:
-        return
-    provided = request.headers.get("x-api-key", "")
-    auth = request.headers.get("authorization", "")
+def _token_ok(headers, token: str) -> bool:
+    """Check X-API-Key / Bearer against the configured token."""
+    provided = headers.get("x-api-key", "")
+    auth = headers.get("authorization", "")
     if auth.startswith("Bearer "):
         provided = provided or auth[7:]
-    if provided != token:
-        raise HTTPException(status_code=401, detail="Invalid or missing API token")
+    return provided == token
 
 
 def _validate_network(network: str | None) -> None:
@@ -133,7 +129,6 @@ def create_app() -> FastAPI:
         title="NetScan API",
         version=__version__,
         lifespan=lifespan,
-        dependencies=[Depends(require_token)],
     )
     cors_origins = load_settings().api_cors_origins
     app.add_middleware(
@@ -142,6 +137,16 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PATCH"],
         allow_headers=["Authorization", "X-API-Key", "Content-Type"],
     )
+
+    @app.middleware("http")
+    async def auth_middleware(request: Request, call_next):
+        """Global auth for HTTP (the WebSocket checks its own ?token=)."""
+        token = get_state().settings.api_token
+        if token and not _token_ok(request.headers, token):
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(status_code=401, content={"detail": "Invalid or missing API token"})
+        return await call_next(request)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

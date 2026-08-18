@@ -70,8 +70,10 @@ def test_wol_sends_magic_packet(monkeypatch):
     import socket
 
     monkeypatch.setattr(socket, "socket", FakeSocket)
+    monkeypatch.setattr(wol, "_default_broadcast", lambda: "192.168.1.255")
+    monkeypatch.setattr(wol.time, "sleep", lambda _: None)
     wol.wake("AA:BB:CC:DD:EE:FF")
-    assert len(sent) == 1
+    assert len(sent) == 3  # repeated to survive packet loss
     packet = sent[0]
     assert packet[:6] == b"\xff" * 6
     assert packet[6:12] == bytes.fromhex("aabbccddeeff")

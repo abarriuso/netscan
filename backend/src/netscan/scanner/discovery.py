@@ -68,21 +68,44 @@ def check_prereqs() -> None:
             pass  # 'sc' missing is not a blocker by itself
 
 
+def _iface_network(iface: str) -> tuple[str, str, str] | None:
+    """(network_cidr, ip, iface) for a given interface, or None if unusable."""
+    if netifaces is None:
+        return None
+    addrs = netifaces.ifaddresses(iface)
+    if netifaces.AF_INET not in addrs:
+        return None
+    for addr in addrs[netifaces.AF_INET]:
+        ip = addr.get("addr", "")
+        netmask = addr.get("netmask", "")
+        if ip and netmask and not ip.startswith("127."):
+            try:
+                network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
+                return str(network), ip, str(iface)
+            except ValueError:
+                continue
+    return None
+
+
 def get_local_network() -> tuple[str, str, str]:
-    """Return (network_cidr, local_ip, interface_name)."""
+    """Return (network_cidr, local_ip, interface_name).
+
+    Prefers the interface that owns the default gateway — iterating all
+    interfaces picks up VPN/virtual adapters (WSL, Hyper-V, Docker) first
+    on many Windows machines.
+    """
     if netifaces:
+        gateways = netifaces.gateways()
+        default = gateways.get("default", {})
+        gw = default.get(netifaces.AF_INET)
+        if gw and len(gw) > 1:
+            primary = _iface_network(str(gw[1]))
+            if primary:
+                return primary
         for iface in netifaces.interfaces():
-            addrs = netifaces.ifaddresses(iface)
-            if netifaces.AF_INET in addrs:
-                for addr in addrs[netifaces.AF_INET]:
-                    ip = addr.get("addr", "")
-                    netmask = addr.get("netmask", "")
-                    if ip and netmask and not ip.startswith("127."):
-                        try:
-                            network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
-                            return str(network), ip, str(iface)
-                        except ValueError:
-                            continue
+            found = _iface_network(iface)
+            if found:
+                return found
     # Fallback: derive from the default route
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -125,17 +148,25 @@ def _srp_with_watchdog(packet, timeout: int, iface: str | None):
 
 
 def arp_scan(network_cidr: str, timeout: int = 3, iface: str | None = None) -> list[dict[str, str]]:
-    """Broadcast ARP discovery. Requires elevated privileges on most OSes."""
+    """Broadcast ARP discovery. Requires elevated privileges on most OSes.
+
+    Networks larger than a /24 are scanned one /24 chunk at a time: a single
+    ARP storm over a /16 (65k hosts) saturates the NIC buffer and loses
+    replies, and the watchdog would fire long before it finished.
+    """
     check_prereqs()
     from scapy.all import ARP, Ether  # type: ignore[attr-defined]
 
     network = ipaddress.IPv4Network(network_cidr, strict=False)
-    if network.num_addresses > 65536:
-        network = ipaddress.IPv4Network(f"{network.network_address}/16", strict=False)
+    chunks = [network] if network.num_addresses <= 256 else list(network.subnets(new_prefix=24))
 
-    packet = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=str(network))
-    answered = _srp_with_watchdog(packet, timeout, iface)
+    found: dict[str, dict[str, str]] = {}
+    for chunk in chunks:
+        packet = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=str(chunk))
+        answered = _srp_with_watchdog(packet, timeout, iface)
+        for _, received in answered:
+            found[received.psrc] = {"ip": received.psrc, "mac": received.hwsrc.lower()}
 
-    devices = [{"ip": received.psrc, "mac": received.hwsrc.lower()} for _, received in answered]
+    devices = list(found.values())
     devices.sort(key=lambda d: ipaddress.IPv4Address(d["ip"]))
     return devices
