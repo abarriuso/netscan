@@ -29,38 +29,56 @@ echo.
 
 REM --- 1. Python ----------------------------------------------
 echo [1/5] Comprobando Python 3.11+...
+set "PYBOOT="
+
+REM Si el venv ya existe y es 3.11+, no hace falta tocar el Python del sistema
+if exist "%VENV_PY%" (
+    "%VENV_PY%" -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo       Entorno virtual existente OK.
+        goto :backend
+    )
+    echo       El entorno virtual usa un Python antiguo; se recrea.
+    rmdir /s /q backend\.venv
+)
+
 where python >nul 2>&1
-if %errorlevel% neq 0 (
-    echo       Python no encontrado. Instalando Python 3.12 con winget...
+if !errorlevel! equ 0 (
+    python -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
+    if !errorlevel! equ 0 set "PYBOOT=python"
+)
+if not defined PYBOOT (
+    where py >nul 2>&1
+    if !errorlevel! equ 0 (
+        py -3.12 -c "import sys" >nul 2>&1 && set "PYBOOT=py -3.12"
+        if not defined PYBOOT (
+            py -3.11 -c "import sys" >nul 2>&1 && set "PYBOOT=py -3.11"
+        )
+    )
+)
+if not defined PYBOOT (
+    echo       Python 3.11+ no encontrado ^(o es demasiado viejo^). Instalando Python 3.12 con winget...
     where winget >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo ERROR: ni Python ni winget disponibles.
-        echo        Instala Python 3.11+ desde https://python.org y reintenta.
+    if !errorlevel! neq 0 (
+        echo ERROR: instala Python 3.11+ desde https://python.org y reintenta.
         pause
         exit /b 1
     )
     winget install --id Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
     echo.
-    echo Python instalado. Cierra esta ventana y vuelve a ejecutar install.bat
+    echo Python 3.12 instalado. Cierra esta ventana y vuelve a ejecutar install.bat
     echo ^(el PATH de esta sesion no se actualiza solo^).
     pause
     exit /b 0
 )
-
-python -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ERROR: se necesita Python 3.11 o superior.
-    python --version
-    pause
-    exit /b 1
-)
-echo       Python OK.
+echo       Python OK: %PYBOOT%
 
 REM --- 2. Backend ---------------------------------------------
+:backend
 echo.
 echo [2/5] Creando entorno virtual e instalando el backend...
 if not exist "%VENV_PY%" (
-    python -m venv backend\.venv
+    %PYBOOT% -m venv backend\.venv
     if !errorlevel! neq 0 goto :error
 )
 "%VENV_PY%" -m pip install --quiet --upgrade pip
