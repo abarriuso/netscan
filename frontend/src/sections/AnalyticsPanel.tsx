@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { DeviceRecord, PortInfo } from '@/types'
+import PanelError from './PanelError'
 
 function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   return (
@@ -30,7 +31,7 @@ function portsOf(dev: DeviceRecord): PortInfo[] {
 }
 
 export default function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
-  const { data: devices } = usePoll(api.devices, 20000, refreshKey)
+  const { data: devices, error } = usePoll(api.devices, 20000, refreshKey)
 
   const list = devices ?? []
 
@@ -63,6 +64,7 @@ export default function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <PanelError error={error} />
         {list.length === 0 ? (
           <p className="text-xs text-muted-foreground">sin datos — lanza un scan</p>
         ) : (

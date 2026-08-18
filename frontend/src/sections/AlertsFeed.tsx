@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
+import PanelError from './PanelError'
 
 const KIND_STYLES: Record<string, { label: string; variant: 'destructive' | 'secondary' | 'outline' }> = {
   new_device: { label: 'nuevo', variant: 'destructive' },
@@ -13,7 +14,7 @@ const KIND_STYLES: Record<string, { label: string; variant: 'destructive' | 'sec
 }
 
 export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
-  const { data: alerts, refresh } = usePoll(() => api.alerts(false), 15000, refreshKey)
+  const { data: alerts, error, refresh } = usePoll(() => api.alerts(false), 15000, refreshKey)
 
   const ack = async (id: number) => {
     await api.ackAlert(id)
@@ -28,6 +29,7 @@ export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-xs">
+        <PanelError error={error} />
         {(alerts ?? []).length === 0 && (
           <p className="text-muted-foreground">todo tranquilo por aquí</p>
         )}
@@ -50,7 +52,7 @@ export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
                 </p>
               </div>
               {!alert.acknowledged && (
-                <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => ack(alert.id)}>
+                <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => ack(alert.id)} aria-label="marcar alerta como leída">
                   <Check className="h-3.5 w-3.5" />
                 </Button>
               )}

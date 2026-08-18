@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePoll } from '@/hooks/useNetscan'
 import { fetchLatestScan } from '@/lib/api'
+import PanelError from './PanelError'
 
 function CertBadge({ days, selfSigned }: { days: number | null; selfSigned: boolean }) {
   if (days == null) return null
@@ -21,7 +22,7 @@ function CertBadge({ days, selfSigned }: { days: number | null; selfSigned: bool
 }
 
 export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
-  const { data: scan } = usePoll(fetchLatestScan, 20000, refreshKey)
+  const { data: scan, error } = usePoll(fetchLatestScan, 20000, refreshKey)
 
   const webServices = (scan?.devices ?? []).flatMap((d) =>
     d.http.map((h) => ({ ip: d.ip, name: d.hostname || d.mdns_name || d.ip, ...h })),
@@ -41,7 +42,8 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-xs">
-        {!scan && <p className="text-muted-foreground">sin scans todavía</p>}
+        <PanelError error={error} />
+        {!scan && !error && <p className="text-muted-foreground">sin scans todavía</p>}
         {scan && webServices.length === 0 && (
           <p className="text-muted-foreground">ninguna web UI detectada en el último scan</p>
         )}

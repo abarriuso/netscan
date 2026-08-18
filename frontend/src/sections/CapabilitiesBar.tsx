@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
+import PanelError from './PanelError'
 
 export default function CapabilitiesBar() {
-  const { data } = usePoll(api.capabilities, 60000)
+  const { data, error } = usePoll(api.capabilities, 60000)
   const tools = data?.tools ?? {}
 
   return (
@@ -17,6 +18,7 @@ export default function CapabilitiesBar() {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">
+        <PanelError error={error} />
         {Object.entries(tools).map(([key, tool]) => (
           <TooltipProvider key={key}>
             <Tooltip>

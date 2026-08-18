@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { DeviceRecord, PortInfo } from '@/types'
+import PanelError from './PanelError'
 
 function portsOf(dev: DeviceRecord): PortInfo[] {
   try {
@@ -25,7 +26,7 @@ function portsOf(dev: DeviceRecord): PortInfo[] {
 }
 
 export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
-  const { data: devices, refresh } = usePoll(api.devices, 15000, refreshKey)
+  const { data: devices, error, refresh } = usePoll(api.devices, 15000, refreshKey)
   const [filter, setFilter] = useState('')
 
   const filtered = useMemo(() => {
@@ -59,6 +60,9 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
         />
       </CardHeader>
       <CardContent className="p-0">
+        <div className="px-4 pt-2">
+          <PanelError error={error} />
+        </div>
         <div className="max-h-[520px] overflow-auto">
           <Table>
             <TableHeader className="sticky top-0 bg-card">
@@ -131,11 +135,15 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {!dev.online && (
-                          <button onClick={() => api.wake(dev.mac)} title="Wake-on-LAN">
+                          <button onClick={() => api.wake(dev.mac)} title="Wake-on-LAN" aria-label={`despertar ${dev.ip} por Wake-on-LAN`}>
                             <Power className="h-4 w-4 text-sky-400 hover:text-sky-300" />
                           </button>
                         )}
-                        <button onClick={() => toggleTrust(dev)} title={dev.trusted ? 'verificado' : 'marcar como de confianza'}>
+                        <button
+                          onClick={() => toggleTrust(dev)}
+                          title={dev.trusted ? 'verificado' : 'marcar como de confianza'}
+                          aria-label={dev.trusted ? `quitar confianza de ${dev.ip}` : `marcar ${dev.ip} como de confianza`}
+                        >
                           {dev.trusted ? (
                             <ShieldCheck className="h-4 w-4 text-emerald-400" />
                           ) : (

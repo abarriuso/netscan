@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { formatBytes, formatUptime, usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
+import PanelError from './PanelError'
 
 export default function Integrations() {
-  const { data: pve } = usePoll(api.proxmox, 30000)
-  const { data: tnas } = usePoll(api.truenas, 30000)
-  const { data: ag } = usePoll(api.adguard, 30000)
+  const { data: pve, error: pveError } = usePoll(api.proxmox, 30000)
+  const { data: tnas, error: tnasError } = usePoll(api.truenas, 30000)
+  const { data: ag, error: agError } = usePoll(api.adguard, 30000)
 
   return (
     <div className="grid gap-3 lg:grid-cols-3">
@@ -20,7 +21,8 @@ export default function Integrations() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
-          {(pve ?? []).length === 0 && <p className="text-muted-foreground">sin instancias configuradas</p>}
+          <PanelError error={pveError} />
+          {(pve ?? []).length === 0 && !pveError && <p className="text-muted-foreground">sin instancias configuradas</p>}
           {(pve ?? []).map((inst) =>
             inst.error ? (
               <div key={inst.name} className="rounded border border-red-900/50 p-2">
@@ -62,7 +64,8 @@ export default function Integrations() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
-          {(tnas ?? []).length === 0 && <p className="text-muted-foreground">sin instancias configuradas</p>}
+          <PanelError error={tnasError} />
+          {(tnas ?? []).length === 0 && !tnasError && <p className="text-muted-foreground">sin instancias configuradas</p>}
           {(tnas ?? []).map((inst) =>
             inst.error ? (
               <div key={inst.name} className="rounded border border-red-900/50 p-2">
@@ -122,7 +125,8 @@ export default function Integrations() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
-          {(ag ?? []).length === 0 && <p className="text-muted-foreground">sin instancias configuradas</p>}
+          <PanelError error={agError} />
+          {(ag ?? []).length === 0 && !agError && <p className="text-muted-foreground">sin instancias configuradas</p>}
           {(ag ?? []).map((inst) =>
             inst.error ? (
               <div key={inst.name} className="rounded border border-red-900/50 p-2">

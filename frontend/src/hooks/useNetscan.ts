@@ -6,15 +6,22 @@ import type { ScanProgress } from '@/types'
 export function usePoll<T>(getter: () => Promise<T>, intervalMs = 10000, refreshKey = 0) {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Keep the latest getter in a ref: inline lambdas change identity every
+  // render and would otherwise reset the interval on each render.
+  const getterRef = useRef(getter)
+  useEffect(() => {
+    getterRef.current = getter
+  })
 
   const refresh = useCallback(() => {
-    getter()
+    getterRef
+      .current()
       .then((d) => {
         setData(d)
         setError(null)
       })
       .catch((e: Error) => setError(e.message))
-  }, [getter])
+  }, [])
 
   useEffect(() => {
     refresh()
@@ -32,17 +39,31 @@ export function useScanProgress() {
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
+    let dead = false
+    let retry: ReturnType<typeof setTimeout> | undefined
     const connect = () => {
+      if (dead) return
       const ws = progressSocket((p) => {
         setProgress(p)
         if (p.stage === 'done' || p.stage.startsWith('error')) setScanning(false)
         else if (p.stage !== 'idle') setScanning(true)
       })
-      ws.onclose = () => setTimeout(connect, 3000)
+      ws.onclose = () => {
+        if (!dead) retry = setTimeout(connect, 3000)
+      }
       wsRef.current = ws
     }
     connect()
-    return () => wsRef.current?.close()
+    return () => {
+      dead = true
+      if (retry) clearTimeout(retry)
+      const ws = wsRef.current
+      wsRef.current = null
+      if (ws) {
+        ws.onclose = null // no reconnect after unmount
+        ws.close()
+      }
+    }
   }, [])
 
   const startScan = useCallback(async (full: boolean) => {
