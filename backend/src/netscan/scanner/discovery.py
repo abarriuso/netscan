@@ -7,12 +7,61 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from __future__ import annotations
 
 import ipaddress
+import platform
 import socket
+import threading
 
 try:
     import netifaces
 except ImportError:  # optional dependency
     netifaces = None
+
+
+class ScanPrereqError(RuntimeError):
+    """Raised when the machine cannot run an ARP scan (privileges/Npcap)."""
+
+
+def is_elevated() -> bool:
+    """True when running with the privileges raw packet capture needs."""
+    if platform.system() == "Windows":
+        import ctypes
+
+        try:
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except Exception:
+            return False
+    import os
+
+    return hasattr(os, "geteuid") and os.geteuid() == 0
+
+
+def check_prereqs() -> None:
+    """Fail fast with an actionable message instead of hanging in scapy."""
+    if not is_elevated():
+        raise ScanPrereqError(
+            "El escaneo ARP necesita privilegios de administrador. "
+            "En Windows lanza el servidor con netscan.bat serve (se auto-eleva) "
+            "o desde un terminal de Administrador; en Linux usa sudo."
+        )
+    if platform.system() == "Windows":
+        # scapy needs the Npcap driver; without it srp() can block forever
+        import subprocess
+
+        try:
+            out = subprocess.run(
+                ["sc", "query", "npcap"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if "RUNNING" not in out.stdout:
+                raise ScanPrereqError(
+                    "Npcap está instalado pero el driver no está en ejecución. "
+                    "Reinicia el equipo o ejecuta: sc start npcap"
+                )
+        except FileNotFoundError:
+            pass  # 'sc' missing is not a blocker by itself
 
 
 def get_local_network() -> tuple[str, str, str]:
@@ -40,17 +89,48 @@ def get_local_network() -> tuple[str, str, str]:
     return f"{ip.rsplit('.', 1)[0]}.0/24", ip, "default"
 
 
-def arp_scan(network_cidr: str, timeout: int = 3) -> list[dict[str, str]]:
-    """Broadcast ARP discovery. Requires elevated privileges on most OSes."""
-    from scapy.all import ARP, Ether, conf, srp  # type: ignore[attr-defined]
+def _srp_with_watchdog(packet, timeout: int, iface: str | None):
+    """Run scapy.srp with a hard watchdog: never hang the scan forever."""
+    from scapy.all import conf, srp
 
     conf.verbosity = 0  # type: ignore[attr-defined]
+    result: list = []
+    error: list[BaseException] = []
+
+    def _worker() -> None:
+        try:
+            kwargs: dict = {"timeout": timeout, "verbose": False}
+            if iface and iface != "default":
+                kwargs["iface"] = iface
+            answered, _ = srp(packet, **kwargs)
+            result.extend(answered)
+        except BaseException as exc:
+            error.append(exc)
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout * 4 + 20)
+    if thread.is_alive():
+        raise ScanPrereqError(
+            "El escaneo ARP no respondió a tiempo. Comprueba que el servidor "
+            "corre como administrador y que Npcap funciona (sc query npcap)."
+        )
+    if error:
+        raise ScanPrereqError(f"Fallo en el escaneo ARP: {error[0]}") from error[0]
+    return result
+
+
+def arp_scan(network_cidr: str, timeout: int = 3, iface: str | None = None) -> list[dict[str, str]]:
+    """Broadcast ARP discovery. Requires elevated privileges on most OSes."""
+    check_prereqs()
+    from scapy.all import ARP, Ether  # type: ignore[attr-defined]
+
     network = ipaddress.IPv4Network(network_cidr, strict=False)
     if network.num_addresses > 65536:
         network = ipaddress.IPv4Network(f"{network.network_address}/16", strict=False)
 
     packet = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=str(network))
-    answered, _ = srp(packet, timeout=timeout, verbose=False)
+    answered = _srp_with_watchdog(packet, timeout, iface)
 
     devices = [{"ip": received.psrc, "mac": received.hwsrc.lower()} for _, received in answered]
     devices.sort(key=lambda d: ipaddress.IPv4Address(d["ip"]))

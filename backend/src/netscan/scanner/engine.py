@@ -74,7 +74,8 @@ def run_scan(
         network_cidr, local_ip, iface = discovery.get_local_network()
 
     emit("arp", 0, 1)
-    raw_devices = discovery.arp_scan(network_cidr)
+    scan_iface = iface if iface not in ("", "default", "custom") else None
+    raw_devices = discovery.arp_scan(network_cidr, iface=scan_iface)
     emit("arp", 1, 1)
 
     use_full = cfg.full if full is None else full
