@@ -39,6 +39,8 @@ def probe_tls(host: str, port: int, timeout: float = 4.0) -> TlsInfo | None:
             version = tls.version() or ""
     except (OSError, ssl.SSLError):
         return None
+    if der is None:
+        return TlsInfo(version=version)
 
     info = TlsInfo(version=version)
     try:

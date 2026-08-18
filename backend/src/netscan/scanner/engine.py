@@ -32,7 +32,7 @@ def _enrich_device(
         mac=raw.get("mac", ""),
         vendor=vendor_cache.get(raw.get("mac", ""), ""),
         mdns_name=str(mdns_map.get(raw["ip"], {}).get("name", "")),
-        mdns_services=list(mdns_map.get(raw["ip"], {}).get("services", [])),  # type: ignore[arg-type]
+        mdns_services=list(mdns_map.get(raw["ip"], {}).get("services", []) or []),  # type: ignore[call-overload]
     )
     dev.hostname = enrich.resolve_hostname(dev.ip)
     dev.latency_ms = enrich.ping_host(dev.ip, cfg.ping_timeout)

@@ -10,9 +10,9 @@ import ipaddress
 import socket
 
 try:
-    import netifaces  # type: ignore[import-not-found]
+    import netifaces
 except ImportError:  # optional dependency
-    netifaces = None  # type: ignore[assignment]
+    netifaces = None
 
 
 def get_local_network() -> tuple[str, str, str]:
@@ -42,9 +42,9 @@ def get_local_network() -> tuple[str, str, str]:
 
 def arp_scan(network_cidr: str, timeout: int = 3) -> list[dict[str, str]]:
     """Broadcast ARP discovery. Requires elevated privileges on most OSes."""
-    from scapy.all import ARP, Ether, conf, srp  # lazy: heavy, platform-specific init
+    from scapy.all import ARP, Ether, conf, srp  # type: ignore[attr-defined]
 
-    conf.verbosity = 0
+    conf.verbosity = 0  # type: ignore[attr-defined]
     network = ipaddress.IPv4Network(network_cidr, strict=False)
     if network.num_addresses > 65536:
         network = ipaddress.IPv4Network(f"{network.network_address}/16", strict=False)
