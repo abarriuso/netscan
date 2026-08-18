@@ -7,13 +7,15 @@ SPDX-License-Identifier: GPL-2.0-or-later
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
+import logging
 import threading
 import time
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -23,6 +25,51 @@ from netscan.api.deps import AppState, get_state, init_state
 from netscan.config import load_settings
 from netscan.integrations import adguard, proxmox, truenas
 from netscan.scanner import engine, tools
+
+logger = logging.getLogger("netscan")
+
+
+def setup_logging() -> None:
+    from netscan.api.deps import _state
+
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    if _state is not None:
+        try:
+            _state.settings.data_dir.mkdir(parents=True, exist_ok=True)
+            handlers.append(logging.FileHandler(_state.settings.data_dir / "netscan.log", encoding="utf-8"))
+        except OSError:
+            pass
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        handlers=handlers,
+        force=True,
+    )
+
+
+def require_token(request: Request) -> None:
+    """Global auth: only active when NETSCAN_API_TOKEN is set."""
+    token = get_state().settings.api_token
+    if not token:
+        return
+    provided = request.headers.get("x-api-key", "")
+    auth = request.headers.get("authorization", "")
+    if auth.startswith("Bearer "):
+        provided = provided or auth[7:]
+    if provided != token:
+        raise HTTPException(status_code=401, detail="Invalid or missing API token")
+
+
+def _validate_network(network: str | None) -> None:
+    """Reject scans against non-private CIDRs (the API must not be a scan oracle)."""
+    if not network:
+        return
+    try:
+        net = ipaddress.IPv4Network(network, strict=False)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Red inválida: {network}") from exc
+    if not net.is_private:
+        raise HTTPException(status_code=400, detail="Solo se permiten redes privadas (RFC1918)")
 
 
 class ScanRequest(BaseModel):
@@ -53,8 +100,9 @@ def _run_scan_task(state: AppState, req: ScanRequest) -> None:
         )
         send_alerts(alerts, state.settings.notify_urls)
         state.scan_progress = {"stage": "done", "done": 1, "total": 1}
-    except Exception as exc:
-        state.scan_progress = {"stage": f"error: {exc}", "done": 0, "total": 0}
+    except Exception:
+        logger.exception("Scan failed")
+        state.scan_progress = {"stage": "error: fallo en el escaneo (ver netscan.log)", "done": 0, "total": 0}
     finally:
         state.scan_lock.release()
 
@@ -73,18 +121,26 @@ def _scheduler_loop(state: AppState) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     state = init_state(load_settings())
+    setup_logging()
     state.loop = asyncio.get_running_loop()
     threading.Thread(target=_scheduler_loop, args=(state,), daemon=True).start()
+    logger.info("NetScan API v%s lista", __version__)
     yield
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="NetScan API", version=__version__, lifespan=lifespan)
+    app = FastAPI(
+        title="NetScan API",
+        version=__version__,
+        lifespan=lifespan,
+        dependencies=[Depends(require_token)],
+    )
+    cors_origins = load_settings().api_cors_origins
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=cors_origins,
+        allow_methods=["GET", "POST", "PATCH"],
+        allow_headers=["Authorization", "X-API-Key", "Content-Type"],
     )
 
     @app.get("/api/health")
@@ -93,7 +149,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/capabilities")
     def capabilities() -> dict[str, object]:
-        caps = tools.Capabilities.detect()
+        caps = get_state().capabilities()
         return {
             "capabilities": caps.as_dict(),
             "tools": {
@@ -104,6 +160,7 @@ def create_app() -> FastAPI:
 
     @app.post("/api/scans", status_code=202)
     def start_scan(req: ScanRequest) -> dict[str, str]:
+        _validate_network(req.network)
         state = get_state()
         if state.scan_lock.locked():
             raise HTTPException(status_code=409, detail="Scan already in progress")
@@ -115,7 +172,10 @@ def create_app() -> FastAPI:
         record = get_state().store.last_scan()
         if not record:
             raise HTTPException(status_code=404, detail="No scans yet")
-        return {"started_at": record.started_at.isoformat(), "result": record.result_json}
+        return {
+            "started_at": record.started_at.isoformat(),
+            "result": json.loads(record.result_json),
+        }
 
     @app.get("/api/scans/progress")
     def scan_progress() -> dict[str, object]:
@@ -123,8 +183,12 @@ def create_app() -> FastAPI:
 
     @app.websocket("/ws/progress")
     async def ws_progress(ws: WebSocket) -> None:
-        await ws.accept()
         state = get_state()
+        token = state.settings.api_token
+        if token and ws.query_params.get("token") != token:
+            await ws.close(code=4401)
+            return
+        await ws.accept()
         queue: asyncio.Queue = asyncio.Queue(maxsize=100)
         state.ws_clients.add(queue)
         try:
@@ -194,7 +258,7 @@ def create_app() -> FastAPI:
             "devices_untrusted": sum(1 for d in devices if not d.trusted),
             "alerts_unacknowledged": len(state.store.list_alerts(unacknowledged_only=True)),
             "last_scan": last.started_at.isoformat() if last else None,
-            "capabilities": tools.Capabilities.detect().as_dict(),
+            "capabilities": state.capabilities().as_dict(),
         }
 
     return app

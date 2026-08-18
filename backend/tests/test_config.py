@@ -11,8 +11,10 @@ from netscan.config import Settings, load_settings
 
 def test_defaults():
     settings = Settings()
-    assert settings.scan.workers == 50
+    assert settings.scan.workers == 16
     assert settings.api_port == 8600
+    assert settings.api_host == "127.0.0.1"
+    assert settings.api_token == ""
     assert settings.proxmox == []
     assert settings.truenas == []
 

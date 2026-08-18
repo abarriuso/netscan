@@ -12,6 +12,7 @@ import threading
 
 from netscan.config import Settings, load_settings
 from netscan.db.store import InventoryStore
+from netscan.scanner import tools
 
 
 class AppState:
@@ -22,6 +23,13 @@ class AppState:
         self.scan_progress: dict[str, object] = {"stage": "idle", "done": 0, "total": 0}
         self.ws_clients: set[asyncio.Queue] = set()
         self.loop: asyncio.AbstractEventLoop | None = None
+        self._capabilities: tools.Capabilities | None = None
+
+    def capabilities(self, refresh: bool = False) -> tools.Capabilities:
+        """Cached capability detection — binaries don't change between requests."""
+        if self._capabilities is None or refresh:
+            self._capabilities = tools.Capabilities.detect()
+        return self._capabilities
 
     def progress_callback(self, stage: str, done: int, total: int) -> None:
         self.scan_progress = {"stage": stage, "done": done, "total": total}

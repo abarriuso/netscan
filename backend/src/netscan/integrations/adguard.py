@@ -19,7 +19,7 @@ class AdGuardClient:
         scheme = "https" if cfg.use_ssl else "http"
         self.base = f"{scheme}://{cfg.host}:{cfg.port}/control"
         self._client = httpx.Client(
-            verify=False,
+            verify=cfg.verify_ssl,
             timeout=timeout,
             auth=(cfg.username, cfg.password) if cfg.username else None,
         )

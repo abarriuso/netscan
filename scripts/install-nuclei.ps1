@@ -1,12 +1,30 @@
 # Instala nuclei (no disponible en winget) en %LOCALAPPDATA%\NetScan\bin
+# verificando el SHA256 contra el checksums.txt oficial de ProjectDiscovery.
+# Si el hash no coincide, aborta SIN instalar nada.
 $ErrorActionPreference = 'Stop'
 $d = "$env:LOCALAPPDATA\NetScan\bin"
 New-Item -ItemType Directory -Force -Path $d | Out-Null
+
 $rel = Invoke-RestMethod https://api.github.com/repos/projectdiscovery/nuclei/releases/latest
-$asset = $rel.assets | Where-Object { $_.name -match 'windows_amd64.zip$' } | Select-Object -First 1
-Write-Host "Descargando $($asset.name)"
+$zipAsset = $rel.assets | Where-Object { $_.name -match 'windows_amd64.zip$' } | Select-Object -First 1
+$chkAsset = $rel.assets | Where-Object { $_.name -match 'checksums' } | Select-Object -First 1
+if (-not $zipAsset -or -not $chkAsset) { Write-Error "No se encontraron los assets de la release"; exit 1 }
+
+Write-Host "Descargando $($zipAsset.name) ($($rel.tag_name))"
 $zip = "$env:TEMP\nuclei.zip"
-Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip
+Invoke-WebRequest -Uri $zipAsset.browser_download_url -OutFile $zip
+
+# Verificación de integridad ANTES de extraer
+$local = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+$chk = Invoke-RestMethod -Uri $chkAsset.browser_download_url
+$official = (($chk -split "`n" | Where-Object { $_ -match $zipAsset.name } | Select-Object -First 1) -split '\s+')[0].ToLower()
+if (-not $official -or $local -ne $official) {
+    Remove-Item $zip -ErrorAction SilentlyContinue
+    Write-Error "SHA256 NO COINCIDE (local: $local, oficial: $official). Abortando."
+    exit 1
+}
+Write-Host "SHA256 verificado: $local"
+
 Expand-Archive -Force $zip $d
 Remove-Item $zip
 $p = [Environment]::GetEnvironmentVariable('Path', 'User')

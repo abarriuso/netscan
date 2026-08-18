@@ -57,12 +57,13 @@ class AdGuardInstance(BaseModel):
     username: str = ""
     password: str = ""
     use_ssl: bool = False
+    verify_ssl: bool = False
     enabled: bool = True
 
 
 class ScanDefaults(BaseModel):
     network: str = ""  # empty = auto-detect
-    workers: int = 50
+    workers: int = 16
     port_timeout: float = 0.5
     ping_timeout: float = 1.0
     interval_minutes: int = 60  # scheduled re-scan cadence (0 = disabled)
@@ -73,6 +74,7 @@ class ScanDefaults(BaseModel):
     use_nmap_os: bool = False  # nmap -O needs privileges and is slow
     use_rustscan: bool = True  # fast full-range discovery, only if installed
     use_nuclei: bool = False  # vulnerability scan of web UIs (opt-in)
+    nuclei_max_targets: int = 20
     alert_on_new_device: bool = True
     alert_on_device_down: bool = False
 
@@ -84,9 +86,14 @@ class Settings(BaseSettings):
 
     data_dir: Path = Field(default=Path("data"))
     database_url: str = ""  # empty = sqlite under data_dir
-    api_host: str = "0.0.0.0"
+    api_host: str = "127.0.0.1"  # localhost by default; 0.0.0.0 requires api_token
     api_port: int = 8600
-    api_cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    # Empty = no auth (only safe on localhost). Set NETSCAN_API_TOKEN when
+    # exposing the API beyond this machine.
+    api_token: str = ""
+    api_cors_origins: list[str] = Field(
+        default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"]
+    )
 
     scan: ScanDefaults = Field(default_factory=ScanDefaults)
     proxmox: list[ProxmoxInstance] = Field(default_factory=list)

@@ -50,3 +50,32 @@ def test_integrations_empty(tmp_path):
         resp = client.get(path)
         assert resp.status_code == 200
         assert resp.json() == []
+
+
+def test_auth_required_when_token_set(tmp_path):
+    deps.init_state(Settings(data_dir=tmp_path, api_token="secret123"))
+    client = TestClient(create_app())
+    assert client.get("/api/devices").status_code == 401
+    assert client.get("/api/devices", headers={"X-API-Key": "wrong"}).status_code == 401
+    assert client.get("/api/devices", headers={"X-API-Key": "secret123"}).status_code == 200
+    assert client.get("/api/devices", headers={"Authorization": "Bearer secret123"}).status_code == 200
+
+
+def test_scan_rejects_public_cidr(tmp_path):
+    client = _client(tmp_path)
+    resp = client.post("/api/scans", json={"network": "8.8.8.0/24"})
+    assert resp.status_code == 400
+    resp = client.post("/api/scans", json={"network": "not-a-cidr"})
+    assert resp.status_code == 400
+
+
+def test_wake_rejects_bad_mac(tmp_path):
+    client = _client(tmp_path)
+    resp = client.post("/api/devices/not-a-mac/wake")
+    assert resp.status_code == 400
+
+
+def test_device_patch_404(tmp_path):
+    client = _client(tmp_path)
+    resp = client.patch("/api/devices/aa:bb:cc:dd:ee:ff", json={"trusted": True})
+    assert resp.status_code == 404

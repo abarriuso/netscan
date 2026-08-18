@@ -29,6 +29,8 @@ config.local.yaml
 data/
 *.db
 *.db-journal
+netscan.yaml
+config.local.yaml
 scan_result*.csv
 scan_result*.json
 netscan_*.json
