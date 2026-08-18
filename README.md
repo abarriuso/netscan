@@ -48,6 +48,22 @@ integración directa de **Proxmox VE**, **TrueNAS** y **AdGuard Home**.
 
 ## Arranque rápido
 
+**Windows — un solo comando:**
+
+```bat
+install.bat
+```
+
+Instala el backend (venv + CLI + API), las herramientas externas vía winget
+(nmap, RustScan, nuclei, Npcap) y las dependencias del dashboard. Después:
+
+```bat
+netscan.bat serve                          # API + scheduler (auto-elevado)
+cd frontend && npm run dev                 # dashboard en :3000
+```
+
+**Linux / manual:**
+
 ```bash
 # 1. Backend
 python -m venv backend/.venv
