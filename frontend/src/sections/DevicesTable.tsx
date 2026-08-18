@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ShieldCheck, ShieldQuestion } from 'lucide-react'
+import { Power, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -130,13 +130,20 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <button onClick={() => toggleTrust(dev)} title={dev.trusted ? 'verificado' : 'marcar como de confianza'}>
-                        {dev.trusted ? (
-                          <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                        ) : (
-                          <ShieldQuestion className="h-4 w-4 text-amber-400" />
+                      <div className="flex items-center gap-1">
+                        {!dev.online && (
+                          <button onClick={() => api.wake(dev.mac)} title="Wake-on-LAN">
+                            <Power className="h-4 w-4 text-sky-400 hover:text-sky-300" />
+                          </button>
                         )}
-                      </button>
+                        <button onClick={() => toggleTrust(dev)} title={dev.trusted ? 'verificado' : 'marcar como de confianza'}>
+                          {dev.trusted ? (
+                            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                          ) : (
+                            <ShieldQuestion className="h-4 w-4 text-amber-400" />
+                          )}
+                        </button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )

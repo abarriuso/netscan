@@ -70,6 +70,9 @@ class ScanDefaults(BaseModel):
     use_mdns: bool = True
     use_fingerprint: bool = True
     use_nmap: bool = True  # only if binary is present
+    use_nmap_os: bool = False  # nmap -O needs privileges and is slow
+    use_rustscan: bool = True  # fast full-range discovery, only if installed
+    use_nuclei: bool = False  # vulnerability scan of web UIs (opt-in)
     alert_on_new_device: bool = True
     alert_on_device_down: bool = False
 

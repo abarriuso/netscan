@@ -110,3 +110,68 @@ def nmap_os_scan(ip: str, timeout: int = DEFAULT_TIMEOUT) -> str:
         if line.startswith(("OS details:", "Aggressive OS guesses:")):
             return line.split(":", 1)[1].strip()
     return ""
+
+
+def rustscan_ports(ip: str, timeout: int = 60) -> list[int]:
+    """Fast full-range port discovery with RustScan (``-g`` greppable output)."""
+    out = run_tool("rustscan", ["-a", ip, "-g", "--ulimit", "5000"], timeout)
+    if not out:
+        return []
+    for line in out.splitlines():
+        if "->" in line:
+            try:
+                return [int(p) for p in line.split("->", 1)[1].strip().strip("[]").split(",")]
+            except ValueError:
+                continue
+    return []
+
+
+def parse_nuclei_line(line: str) -> dict[str, str] | None:
+    """Parse one JSON line of nuclei output."""
+    import json as _json
+
+    try:
+        data = _json.loads(line)
+    except ValueError:
+        return None
+    return {
+        "template": str(data.get("template-id", data.get("templateID", ""))),
+        "severity": str(data.get("info", {}).get("severity", "")),
+        "name": str(data.get("info", {}).get("name", "")),
+        "matched_at": str(data.get("matched-at", data.get("matched", ""))),
+    }
+
+
+def nuclei_scan(
+    urls: list[str], timeout: int = 300, severity: str = "medium,high,critical"
+) -> list[dict[str, str]]:
+    """Run nuclei against discovered web UIs. Returns parsed findings."""
+    if not urls:
+        return []
+    findings: list[dict[str, str]] = []
+    for url in urls[:20]:  # bounded: homelab scale
+        out = run_tool(
+            "nuclei",
+            ["-u", url, "-silent", "-jsonl", "-severity", severity, "-timeout", "10"],
+            timeout,
+        )
+        if not out:
+            continue
+        for line in out.splitlines():
+            parsed = parse_nuclei_line(line)
+            if parsed:
+                findings.append(parsed)
+    return findings
+
+
+def whatweb_scan(url: str, timeout: int = 30) -> list[str]:
+    """Web technology fingerprint via whatweb (``--log-json``-free, line parse)."""
+    out = run_tool("whatweb", ["--color=never", "-a", "1", url], timeout)
+    if not out:
+        return []
+    for line in out.splitlines():
+        if line.startswith("http"):
+            # "http://x [200 OK] Apache[2.4.1], PHP[8.1], ..."
+            _, _, rest = line.partition("]")
+            return [t.strip() for t in rest.split(",") if t.strip()][:20]
+    return []

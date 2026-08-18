@@ -60,4 +60,5 @@ class ScanResult(BaseModel):
     total_devices: int = 0
     duration_s: float = 0.0
     devices: list[Device] = Field(default_factory=list)
+    vulnerabilities: list[dict[str, str]] = Field(default_factory=list)
     capabilities: dict[str, bool] = Field(default_factory=dict)

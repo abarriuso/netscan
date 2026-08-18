@@ -148,6 +148,16 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="Device not found")
         return {"ok": True}
 
+    @app.post("/api/devices/{mac}/wake")
+    def wake_device(mac: str) -> dict[str, bool]:
+        from netscan import wol
+
+        try:
+            wol.wake(mac)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"ok": True}
+
     @app.get("/api/alerts")
     def list_alerts(unacknowledged: bool = False) -> list[dict[str, object]]:
         return [a.model_dump() for a in get_state().store.list_alerts(unacknowledged)]

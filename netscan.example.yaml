@@ -13,7 +13,10 @@ scan:
   full: false
   use_mdns: true
   use_fingerprint: true
-  use_nmap: true         # only when the nmap binary is installed
+  use_nmap: true         # nmap -sV para versiones reales (si está instalado)
+  use_nmap_os: false     # nmap -O (lento, requiere admin)
+  use_rustscan: true     # descubrimiento ultrarrápido de puertos (si está instalado)
+  use_nuclei: false      # auditoría de vulnerabilidades de las web UIs (opt-in)
   alert_on_new_device: true
   alert_on_device_down: false
 

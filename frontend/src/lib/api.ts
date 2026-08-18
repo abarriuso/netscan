@@ -39,6 +39,8 @@ export const api = {
   ackAlert: (id: number) => send<{ ok: boolean }>(`/api/alerts/${id}/ack`, 'POST'),
   setTrusted: (mac: string, trusted: boolean) =>
     send<{ ok: boolean }>(`/api/devices/${encodeURIComponent(mac)}`, 'PATCH', { trusted }),
+  wake: (mac: string) =>
+    send<{ ok: boolean }>(`/api/devices/${encodeURIComponent(mac)}/wake`, 'POST'),
 }
 
 export function progressSocket(onMessage: (p: { stage: string; done: number; total: number }) => void) {

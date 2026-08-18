@@ -12,7 +12,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from netscan.config import ScanDefaults
-from netscan.models import Device, ScanResult
+from netscan.models import Device, PortInfo, ScanResult
 from netscan.scanner import discovery, enrich, mdns, tools
 from netscan.scanner.fingerprint import fingerprint_http
 
@@ -38,13 +38,28 @@ def _enrich_device(
     dev.latency_ms = enrich.ping_host(dev.ip, cfg.ping_timeout)
 
     if ports_to_scan:
-        dev.open_ports = enrich.scan_ports(dev.ip, ports_to_scan, cfg.workers, cfg.port_timeout)
-        if cfg.use_nmap and caps.tools.get("nmap"):
+        # RustScan pipeline: ultra-fast full-range discovery, then nmap -sV.
+        # Falls back to the built-in threaded socket scan when unavailable.
+        rustscan_ports: list[int] = []
+        if cfg.use_rustscan and caps.tools.get("rustscan"):
+            rustscan_ports = tools.rustscan_ports(dev.ip)
+        if rustscan_ports:
+            dev.open_ports = [
+                PortInfo(port=p, service=ports_to_scan.get(p, "unknown")) for p in sorted(rustscan_ports)
+            ]
+        else:
+            dev.open_ports = enrich.scan_ports(dev.ip, ports_to_scan, cfg.workers, cfg.port_timeout)
+        if cfg.use_nmap and caps.tools.get("nmap") and dev.open_ports:
             versions = tools.nmap_service_scan(dev.ip, [p.port for p in dev.open_ports])
             for port_info in dev.open_ports:
                 if port_info.port in versions:
                     port_info.version = versions[port_info.port]
-        dev.os_guess = enrich.detect_os_from_ports(dev.open_ports)
+            if cfg.use_nmap_os:
+                os_guess = tools.nmap_os_scan(dev.ip)
+                if os_guess:
+                    dev.os_guess = os_guess
+        if not dev.os_guess:
+            dev.os_guess = enrich.detect_os_from_ports(dev.open_ports)
 
     if cfg.use_fingerprint and dev.open_ports:
         dev.http = fingerprint_http(dev.ip, dev.open_ports)
@@ -101,6 +116,15 @@ def run_scan(
             emit("enrich", i, total)
 
     devices.sort(key=lambda d: ipaddress.IPv4Address(d.ip))
+
+    # Vulnerability pass over every discovered web UI (opt-in, needs nuclei)
+    vulnerabilities: list[dict[str, str]] = []
+    if cfg.use_nuclei and caps.tools.get("nuclei"):
+        urls = [http.url for dev in devices for http in dev.http]
+        emit("nuclei", 0, 1)
+        vulnerabilities = tools.nuclei_scan(urls)
+        emit("nuclei", 1, 1)
+
     return ScanResult(
         network=network_cidr,
         interface=iface,
@@ -108,5 +132,6 @@ def run_scan(
         total_devices=len(devices),
         duration_s=round(time.perf_counter() - start, 2),
         devices=devices,
+        vulnerabilities=vulnerabilities,
         capabilities=caps.as_dict(),
     )

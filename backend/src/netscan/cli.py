@@ -128,6 +128,15 @@ def _display(result: ScanResult) -> None:
             services,
         )
     console.print(table)
+    if result.vulnerabilities:
+        console.print()
+        console.print("[bold red]Hallazgos nuclei:[/bold red]")
+        for finding in result.vulnerabilities:
+            console.print(
+                f"  [red]{finding.get('severity', '?')}[/red] "
+                f"{finding.get('name', finding.get('template', ''))} "
+                f"[dim]→ {finding.get('matched_at', '')}[/dim]"
+            )
 
 
 def _export(result: ScanResult, export: str, output: str | None) -> None:
@@ -180,6 +189,22 @@ def caps() -> None:
         "Descubrimiento de IoT vía mDNS/Bonjour",
     )
     console.print(table)
+
+
+@app.command()
+def wake(
+    mac: str = typer.Argument(..., help="MAC del equipo a despertar (aa:bb:cc:dd:ee:ff)"),
+    broadcast: str = typer.Option("255.255.255.255", help="Dirección de broadcast"),
+) -> None:
+    """Envía un magic packet Wake-on-LAN."""
+    from netscan import wol
+
+    try:
+        wol.wake(mac, broadcast)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+    console.print(f"[green]Magic packet enviado a {mac}[/green]")
 
 
 @app.command()
