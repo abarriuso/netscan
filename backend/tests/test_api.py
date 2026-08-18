@@ -79,3 +79,46 @@ def test_device_patch_404(tmp_path):
     client = _client(tmp_path)
     resp = client.patch("/api/devices/aa:bb:cc:dd:ee:ff", json={"trusted": True})
     assert resp.status_code == 404
+
+
+def test_scan_conflict_409_and_start_202(tmp_path, monkeypatch):
+    from netscan.api import app as app_module
+    from netscan.models import ScanResult
+
+    monkeypatch.setattr(
+        app_module.engine,
+        "run_scan",
+        lambda **kw: ScanResult(
+            network="192.168.1.0/24",
+            interface="test",
+            local_ip="192.168.1.2",
+            total_devices=0,
+            duration_s=0.1,
+        ),
+    )
+    client = _client(tmp_path)
+    state = deps.get_state()
+
+    # Holding the scan lock must produce a deterministic 409.
+    assert state.scan_lock.acquire(blocking=False)
+    try:
+        resp = client.post("/api/scans", json={})
+        assert resp.status_code == 409
+    finally:
+        state.scan_lock.release()
+
+    resp = client.post("/api/scans", json={})
+    assert resp.status_code == 202
+
+
+def test_ws_progress_requires_token(tmp_path):
+    import pytest
+    from starlette.websockets import WebSocketDisconnect
+
+    deps.init_state(Settings(data_dir=tmp_path, api_token="t0ken"))
+    client = TestClient(create_app())
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect("/ws/progress"):
+        pass
+    with client.websocket_connect("/ws/progress?token=t0ken") as ws:
+        data = ws.receive_json()
+        assert "stage" in data
