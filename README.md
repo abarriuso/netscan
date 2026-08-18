@@ -1,5 +1,9 @@
 # NetScan — Homelab Network & Systems Monitor
 
+[![CI](https://github.com/abarriuso/netscan/actions/workflows/ci.yml/badge.svg)](https://github.com/abarriuso/netscan/actions/workflows/ci.yml)
+[![License: GPL v2+](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+
 Escáner de red, inventario vivo y panel de monitorización para homelabs, con
 integración directa de **Proxmox VE**, **TrueNAS** y **AdGuard Home**.
 
@@ -55,7 +59,9 @@ install.bat
 ```
 
 Instala el backend (venv + CLI + API), las herramientas externas vía winget
-(nmap, RustScan, nuclei, Npcap) y las dependencias del dashboard. Después:
+(nmap, RustScan, nuclei, Npcap) y las dependencias del dashboard. Si falta
+Python o Node.js, los instala vía winget y te pedirá re-ejecutar el script.
+`install.bat --minimal` instala solo backend + frontend. Después:
 
 ```bat
 netscan.bat serve                          # API + scheduler (auto-elevado)
@@ -135,7 +141,7 @@ Docs interactivas en `http://localhost:8600/docs` (OpenAPI).
 
 ```bash
 cd backend
-pytest                    # 22 tests
+pytest                    # suite completa
 ruff check .              # lint
 ruff format --check .     # formato
 mypy src/netscan          # tipos
