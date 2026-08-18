@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Activity, Radar, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -8,7 +9,8 @@ const STAGE_LABELS: Record<string, string> = {
   idle: 'en espera',
   arp: 'descubrimiento ARP',
   mdns: 'mDNS / Bonjour',
-  enrich: 'enriqueciendo dispositivos',
+  enrich: 'puertos · versiones · fingerprint',
+  nuclei: 'auditoría nuclei',
   done: 'completado',
 }
 
@@ -16,7 +18,9 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
   const { progress, scanning, startScan } = useScanProgress()
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
 
-  if (progress.stage === 'done') onScanDone()
+  useEffect(() => {
+    if (progress.stage === 'done') onScanDone()
+  }, [progress.stage, onScanDone])
 
   const label = progress.stage.startsWith('error')
     ? progress.stage
@@ -33,20 +37,26 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
       </div>
 
       <div className="ml-auto flex items-center gap-4">
-        {scanning && (
-          <div className="flex w-64 flex-col gap-1">
+        {(scanning || progress.stage.startsWith('error')) && (
+          <div className="flex w-72 flex-col gap-1">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Activity className="h-3 w-3 animate-pulse text-emerald-400" />
-                {label}
+              <span className="flex items-center gap-1 truncate">
+                {progress.stage.startsWith('error') ? (
+                  <Badge variant="destructive" className="font-mono text-xs">{progress.stage}</Badge>
+                ) : (
+                  <>
+                    <Activity className="h-3 w-3 animate-pulse text-emerald-400" />
+                    {label}
+                    <span className="font-mono text-[10px]">
+                      {progress.done}/{progress.total}
+                    </span>
+                  </>
+                )}
               </span>
               <span className="font-mono">{pct}%</span>
             </div>
             <Progress value={pct} className="h-1.5" />
           </div>
-        )}
-        {progress.stage.startsWith('error') && (
-          <Badge variant="destructive" className="font-mono text-xs">{progress.stage}</Badge>
         )}
         <Button
           size="sm"

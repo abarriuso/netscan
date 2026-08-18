@@ -13,8 +13,7 @@ const KIND_STYLES: Record<string, { label: string; variant: 'destructive' | 'sec
 }
 
 export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
-  const { data: alerts, refresh } = usePoll(() => api.alerts(false), 15000)
-  void refreshKey
+  const { data: alerts, refresh } = usePoll(() => api.alerts(false), 15000, refreshKey)
 
   const ack = async (id: number) => {
     await api.ackAlert(id)

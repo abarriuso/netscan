@@ -106,6 +106,7 @@ def run_scan(
 
     devices: list[Device] = []
     total = len(raw_devices)
+    emit("enrich", 0, total)
     with ThreadPoolExecutor(max_workers=min(cfg.workers, max(total, 1))) as executor:
         futures = {
             executor.submit(_enrich_device, raw, ports_to_scan, vendor_cache, mdns_map, cfg, caps): raw

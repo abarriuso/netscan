@@ -41,6 +41,33 @@ export const api = {
     send<{ ok: boolean }>(`/api/devices/${encodeURIComponent(mac)}`, 'PATCH', { trusted }),
   wake: (mac: string) =>
     send<{ ok: boolean }>(`/api/devices/${encodeURIComponent(mac)}/wake`, 'POST'),
+  latestScanRaw: () => get<{ started_at: string; result: string }>('/api/scans/latest'),
+}
+
+export interface LatestScanDevice {
+  ip: string
+  hostname: string
+  mdns_name: string
+  http: { url: string; status_code: number; title: string; server: string; tls: {
+    issuer: string; days_remaining: number | null; self_signed: boolean; version: string
+  } | null }[]
+}
+
+export interface LatestScan {
+  started_at: string
+  duration_s: number
+  total_devices: number
+  devices: LatestScanDevice[]
+  vulnerabilities: { template: string; severity: string; name: string; matched_at: string }[]
+}
+
+export async function fetchLatestScan(): Promise<LatestScan | null> {
+  try {
+    const raw = await api.latestScanRaw()
+    return JSON.parse(raw.result) as LatestScan
+  } catch {
+    return null
+  }
 }
 
 export function progressSocket(onMessage: (p: { stage: string; done: number; total: number }) => void) {

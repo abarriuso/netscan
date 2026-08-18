@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, progressSocket } from '@/lib/api'
 import type { ScanProgress } from '@/types'
 
-/** Poll an API getter on an interval. */
-export function usePoll<T>(getter: () => Promise<T>, intervalMs = 10000) {
+/** Poll an API getter on an interval; refreshKey forces an extra fetch. */
+export function usePoll<T>(getter: () => Promise<T>, intervalMs = 10000, refreshKey = 0) {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -20,7 +20,7 @@ export function usePoll<T>(getter: () => Promise<T>, intervalMs = 10000) {
     refresh()
     const id = setInterval(refresh, intervalMs)
     return () => clearInterval(id)
-  }, [refresh, intervalMs])
+  }, [refresh, intervalMs, refreshKey])
 
   return { data, error, refresh }
 }

@@ -28,10 +28,7 @@ function Stat({
 }
 
 export default function StatCards({ refreshKey }: { refreshKey: number }) {
-  const { data } = usePoll(api.overview, 15000)
-
-  // refreshKey forces a re-poll cycle after scans complete
-  void refreshKey
+  const { data } = usePoll(api.overview, 15000, refreshKey)
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

@@ -25,9 +25,8 @@ function portsOf(dev: DeviceRecord): PortInfo[] {
 }
 
 export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
-  const { data: devices, refresh } = usePoll(api.devices, 15000)
+  const { data: devices, refresh } = usePoll(api.devices, 15000, refreshKey)
   const [filter, setFilter] = useState('')
-  void refreshKey
 
   const filtered = useMemo(() => {
     const list = devices ?? []
