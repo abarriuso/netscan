@@ -35,14 +35,14 @@ jobs:
         run: mypy src/netscan
 
       - name: Pytest
-        run: pytest --cov=src/netscan --cov-report=xml
+        run: pytest --cov=netscan --cov-report=xml --cov-fail-under=49
 
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
         uses: codecov/codecov-action@v4
         with:
           files: backend/coverage.xml
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   frontend:
     runs-on: ubuntu-latest
@@ -85,6 +85,8 @@ jobs:
 
       - name: Verify dependency licenses are GPL-2.0-compatible
         run: |
-          pip-licenses --format=plain --with-license-file --ignore-packages netscan-homelab \
-            | grep -viE 'MIT|BSD|Apache|LGPL|ISC|PSF|Python|HPND|MPL|GPLv2\+|GPL-2.0-or-later|Public Domain|Unlicense' \
-            && echo "::warning::Review licenses above" || true
+          if pip-licenses --format=plain --ignore-packages netscan-homelab \
+            | grep -viE 'MIT|BSD|Apache|LGPL|ISC|PSF|Python|HPND|MPL|GPLv2\+|GPL-2.0-or-later|Public Domain|Unlicense'; then
+            echo "::error::Dependencias con licencia incompatible encontradas (listadas arriba)"
+            exit 1
+          fi

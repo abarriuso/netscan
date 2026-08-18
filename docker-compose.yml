@@ -16,6 +16,9 @@ services:
       context: ./frontend
     ports:
       - "8601:80"
+    extra_hosts:
+      # Allow the nginx proxy to reach the host-published backend on :8600
+      - "host.docker.internal:host-gateway"
     depends_on:
       - backend
     restart: unless-stopped
