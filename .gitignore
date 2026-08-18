@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.local
+config.local.yaml
+
+# NetScan runtime data
+data/
+*.db
+*.db-journal
+scan_result*.csv
+scan_result*.json
+netscan_*.json
+netscan_*.csv
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

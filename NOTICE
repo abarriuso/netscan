@@ -1,0 +1,44 @@
+NetScan — Homelab Network & Systems Monitor
+Copyright (C) 2026 The NetScan contributors
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+=============================================================================
+THIRD-PARTY COMPONENTS
+=============================================================================
+
+NetScan is distributed under GPL-2.0-or-later. The following third-party
+components are used by the project. Their licenses are compatible with
+GPL-2.0-or-later as used here.
+
+Python dependencies (imported / linked):
+  - scapy                    GPL-2.0-only      https://scapy.net
+  - rich                     MIT               https://github.com/Textualize/rich
+  - fastapi                  MIT               https://github.com/fastapi/fastapi
+  - uvicorn                  BSD-3-Clause      https://github.com/encode/uvicorn
+  - pydantic / pydantic-settings MIT           https://github.com/pydantic/pydantic
+  - sqlmodel                 MIT               https://github.com/fastapi/sqlmodel
+  - zeroconf (python-zeroconf) LGPL-2.1-only   https://github.com/python-zeroconf/python-zeroconf
+  - proxmoxer                MIT               https://github.com/proxmoxer/proxmoxer
+  - websockets               BSD-3-Clause      https://github.com/python-websockets/websockets
+  - httpx                    BSD-3-Clause      https://github.com/encode/httpx
+  - apprise                  BSD-2-Clause      https://github.com/caronc/apprise
+  - mac-vendor-lookup        Apache-2.0        https://github.com/bauerj/mac_vendor_lookup
+  - cryptography             Apache-2.0 / BSD  https://github.com/pyca/cryptography
+  - netifaces                MIT               https://github.com/al45tair/netifaces
+
+External tools (invoked as separate processes when installed; NOT distributed
+with NetScan, no code from them is copied or linked — this is "mere
+aggregation" at arm's length and does not affect NetScan's license):
+  - nmap           NPSL (Nmap Public Source License)  https://nmap.org
+  - RustScan       GPL-3.0-only                       https://github.com/RustScan/RustScan
+  - masscan        AGPL-3.0-only                      https://github.com/robertdavidgraham/masscan
+  - nuclei         MIT                                https://github.com/projectdiscovery/nuclei
+  - whatweb        GPL-2.0-only                       https://github.com/urbanadventurer/WhatWeb
+  - testssl.sh     GPL-2.0-only                       https://github.com/drwetter/testssl.sh
+
+Frontend dependencies: see frontend/package.json. All are MIT, BSD, Apache-2.0
+or ISC licensed.

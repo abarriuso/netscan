@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    network_mode: host          # required for ARP discovery
+    cap_add:
+      - NET_RAW
+    volumes:
+      - ./netscan.yaml:/config/netscan.yaml:ro
+      - netscan-data:/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "8601:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  netscan-data:

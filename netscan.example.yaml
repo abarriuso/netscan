@@ -1,0 +1,48 @@
+# NetScan configuration — copy to netscan.yaml and adjust.
+# NEVER commit tokens/secrets: prefer environment variables
+# (NETSCAN_PROXMOX__0__TOKEN_SECRET, NETSCAN_TRUENAS__0__API_KEY, ...).
+
+api_host: 0.0.0.0
+api_port: 8600
+data_dir: data
+
+scan:
+  network: ""            # empty = auto-detect
+  interval_minutes: 60   # 0 disables the periodic scan
+  workers: 50
+  full: false
+  use_mdns: true
+  use_fingerprint: true
+  use_nmap: true         # only when the nmap binary is installed
+  alert_on_new_device: true
+  alert_on_device_down: false
+
+# Notification targets (Apprise URLs): ntfy, Telegram, Discord, email...
+notify_urls:
+  # - "ntfy://ntfy.sh/mi-topic-homelab"
+  # - "tgram://BOT_TOKEN/CHAT_ID"
+
+proxmox:
+  - name: pve1
+    host: 192.168.1.11
+    port: 8006
+    token_id: "root@pam!netscan"     # Datacenter → Permissions → API Tokens
+    token_secret: ""                  # better: NETSCAN_PROXMOX__0__TOKEN_SECRET
+    verify_ssl: false
+  # - name: pve2
+  #   host: 192.168.1.12
+
+truenas:
+  - name: nas
+    host: 192.168.1.20
+    port: 443
+    use_ssl: true
+    api_key: ""                       # better: NETSCAN_TRUENAS__0__API_KEY
+    verify_ssl: false
+
+adguard:
+  - name: adguard
+    host: 192.168.1.30
+    port: 80
+    username: ""
+    password: ""                      # better: NETSCAN_ADGUARD__0__PASSWORD
