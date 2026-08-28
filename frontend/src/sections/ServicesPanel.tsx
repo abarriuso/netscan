@@ -71,9 +71,9 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
                   {svc.title || svc.server || svc.name}
                   {svc.title && svc.server ? ` · ${svc.server}` : ''}
                 </p>
-                {svc.tech.length > 0 && (
+                {(svc.tech ?? []).length > 0 && (
                   <div className="mt-1 flex flex-wrap gap-1">
-                    {svc.tech.slice(0, 6).map((t) => (
+                    {(svc.tech ?? []).slice(0, 6).map((t) => (
                       <Badge key={t} variant="outline" className="font-mono text-[9px]">
                         {t}
                       </Badge>
