@@ -24,6 +24,8 @@ const STAGE_LABELS: Record<string, string> = {
   nmap: 'nmap — puertos y versión',
   rustscan: 'RustScan — descubrimiento de puertos',
   nuclei: 'auditoría nuclei',
+  whatweb: 'huella web (whatweb)',
+  testssl: 'auditoría TLS (testssl.sh)',
   enrich: 'puertos · versiones · fingerprint',
   done: 'completado',
 }
@@ -82,6 +84,18 @@ const TOOLS: ToolAction[] = [
     name: 'nuclei',
     description: 'Auditoría de vulnerabilidades por plantillas, contra las web UI encontradas.',
     requires: 'nuclei',
+  },
+  {
+    stage: 'whatweb',
+    name: 'whatweb',
+    description: 'Huella de tecnologías web (servidor, framework, CMS) de cada web UI encontrada.',
+    requires: 'whatweb',
+  },
+  {
+    stage: 'testssl',
+    name: 'testssl.sh',
+    description: 'Auditoría de configuración TLS de cada web UI con HTTPS. Lento — solo Linux/WSL.',
+    requires: 'testssl',
   },
 ]
 

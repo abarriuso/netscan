@@ -93,9 +93,14 @@ export interface LatestScanDevice {
   ip: string
   hostname: string
   mdns_name: string
-  http: { url: string; status_code: number; title: string; server: string; tls: {
-    issuer: string; days_remaining: number | null; self_signed: boolean; version: string
-  } | null }[]
+  http: {
+    url: string
+    status_code: number
+    title: string
+    server: string
+    tech: string[]
+    tls: { issuer: string; days_remaining: number | null; self_signed: boolean; version: string } | null
+  }[]
 }
 
 export interface LatestScan {
@@ -103,7 +108,7 @@ export interface LatestScan {
   duration_s: number
   total_devices: number
   devices: LatestScanDevice[]
-  vulnerabilities: { template: string; severity: string; name: string; matched_at: string }[]
+  vulnerabilities: { tool?: string; template: string; severity: string; name: string; matched_at: string }[]
 }
 
 export async function fetchLatestScan(): Promise<LatestScan | null> {

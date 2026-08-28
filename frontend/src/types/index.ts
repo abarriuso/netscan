@@ -114,7 +114,7 @@ export interface Capabilities {
 }
 
 /** Individually-launchable scan stages — mirrors backend engine.ONLY_STAGES. */
-export type ScanStage = 'arp' | 'mdns' | 'nmap' | 'rustscan' | 'nuclei'
+export type ScanStage = 'arp' | 'mdns' | 'nmap' | 'rustscan' | 'nuclei' | 'whatweb' | 'testssl'
 
 export interface ScanProgress {
   stage: string

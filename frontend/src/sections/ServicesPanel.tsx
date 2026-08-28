@@ -71,6 +71,15 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
                   {svc.title || svc.server || svc.name}
                   {svc.title && svc.server ? ` · ${svc.server}` : ''}
                 </p>
+                {svc.tech.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {svc.tech.slice(0, 6).map((t) => (
+                      <Badge key={t} variant="outline" className="font-mono text-[9px]">
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
               {svc.tls && (
                 <div className="text-right">
@@ -84,11 +93,12 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
         {vulns.length > 0 && (
           <div className="mt-3 space-y-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-destructive">
-              hallazgos nuclei ({vulns.length})
+              hallazgos de seguridad ({vulns.length})
             </p>
             {vulns.map((v, i) => (
               <div key={i} className="flex items-center gap-2 rounded bg-destructive/10 px-3 py-1.5">
                 <Badge variant="destructive" className="font-mono text-[10px]">{v.severity}</Badge>
+                {v.tool && <span className="font-mono text-[9px] text-muted-foreground">{v.tool}</span>}
                 <span className="truncate">{v.name || v.template}</span>
                 <span className="ml-auto font-mono text-[10px] text-muted-foreground">
                   {v.matched_at.replace(/^https?:\/\//, '')}
