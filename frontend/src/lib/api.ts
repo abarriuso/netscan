@@ -98,7 +98,8 @@ export interface LatestScanDevice {
     status_code: number
     title: string
     server: string
-    tech: string[]
+    // Optional: scans persisted before this field existed won't have it.
+    tech?: string[]
     tls: { issuer: string; days_remaining: number | null; self_signed: boolean; version: string } | null
   }[]
 }

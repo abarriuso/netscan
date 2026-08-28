@@ -28,6 +28,7 @@ from netscan.alerts.notify import send_alerts
 from netscan.api.deps import AppState, get_state, init_state
 from netscan.config import load_settings
 from netscan.integrations import adguard, proxmox, truenas
+from netscan.models import ScanResult
 from netscan.scanner import engine, speed, tools
 
 logger = logging.getLogger("netscan")
@@ -259,9 +260,15 @@ def create_app() -> FastAPI:
         record = get_state().store.last_scan()
         if not record:
             raise HTTPException(status_code=404, detail="No scans yet")
+        # Re-validate through the model instead of a raw json.loads: a scan
+        # stored before a field existed (e.g. HttpInfo.tech, added this
+        # session) would otherwise come back without it, and the frontend
+        # assuming the current shape crashes on `undefined.length`.
+        # model_validate backfills any such field's default.
+        result = ScanResult.model_validate_json(record.result_json)
         return {
             "started_at": record.started_at.isoformat(),
-            "result": json.loads(record.result_json),
+            "result": result.model_dump(mode="json"),
         }
 
     @app.get("/api/scans/progress")
