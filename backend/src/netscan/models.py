@@ -33,6 +33,7 @@ class HttpInfo(BaseModel):
     title: str = ""
     server: str = ""
     tls: TlsInfo | None = None
+    tech: list[str] = Field(default_factory=list)  # whatweb technology fingerprint
 
 
 class DeviceMetrics(BaseModel):

@@ -12,8 +12,11 @@ is reported as unavailable and skipped.
 
 from __future__ import annotations
 
+import contextlib
+import os
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 
 DEFAULT_TIMEOUT = 120
@@ -135,6 +138,7 @@ def parse_nuclei_line(line: str) -> dict[str, str] | None:
     except ValueError:
         return None
     return {
+        "tool": "nuclei",
         "template": str(data.get("template-id", data.get("templateID", ""))),
         "severity": str(data.get("info", {}).get("severity", "")),
         "name": str(data.get("info", {}).get("name", "")),
@@ -175,3 +179,64 @@ def whatweb_scan(url: str, timeout: int = 30) -> list[str]:
             _, _, rest = line.partition("]")
             return [t.strip() for t in rest.split(",") if t.strip()][:20]
     return []
+
+
+# Findings at these severities are noise for a homelab TLS audit — every
+# host reports dozens of "OK"/"INFO" lines even when perfectly configured.
+_TESTSSL_IGNORE_SEVERITIES = {"OK", "INFO", "DEBUG", ""}
+
+
+def testssl_scan(target: str, timeout: int = 180) -> list[dict[str, str]]:
+    """Run testssl.sh against ``host`` or ``host:port``; return parsed findings.
+
+    testssl.sh's normal stdout is a very verbose, human-formatted transcript
+    not meant for parsing, so this asks it to also write structured JSON to
+    a temp file (``--jsonfile``) and reads that instead. Not distributed —
+    "mere aggregation", like every other tool in this module (see the module
+    docstring); only reachable when the binary is on PATH (Linux/WSL — no
+    native Windows build exists).
+    """
+    if not shutil.which("testssl.sh"):
+        return []
+    fd, out_path = tempfile.mkstemp(suffix=".json")
+    os.close(fd)
+    try:
+        subprocess.run(
+            ["testssl.sh", "--quiet", "--color", "0", f"--jsonfile={out_path}", target],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        import json as _json
+
+        try:
+            with open(out_path, encoding="utf-8") as f:
+                raw = _json.load(f)
+        except (OSError, ValueError):
+            return []
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(out_path)
+
+    if not isinstance(raw, list):
+        return []
+    findings: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        severity = str(item.get("severity", "")).upper()
+        if severity in _TESTSSL_IGNORE_SEVERITIES:
+            continue
+        findings.append(
+            {
+                "tool": "testssl",
+                "template": str(item.get("id", "")),
+                "severity": severity.lower(),
+                "name": str(item.get("finding", "")),
+                "matched_at": target,
+            }
+        )
+    return findings

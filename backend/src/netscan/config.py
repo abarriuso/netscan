@@ -75,6 +75,10 @@ class ScanDefaults(BaseModel):
     use_rustscan: bool = True  # fast full-range discovery, only if installed
     use_nuclei: bool = False  # vulnerability scan of web UIs (opt-in)
     nuclei_max_targets: int = 20
+    use_whatweb: bool = False  # web technology fingerprint of discovered web UIs (opt-in)
+    whatweb_max_targets: int = 20
+    use_testssl: bool = False  # TLS configuration audit of discovered HTTPS UIs (opt-in, slow)
+    testssl_max_targets: int = 10
     alert_on_new_device: bool = True
     alert_on_device_down: bool = False
     # Speed / quality metrics

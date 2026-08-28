@@ -12,6 +12,7 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from netscan.config import ScanDefaults
 from netscan.models import Device, PortInfo, ScanResult, StageTiming
@@ -24,7 +25,11 @@ ProgressFn = Callable[[str, int, int], None]
 
 # Stages that can be launched individually (``only=`` on run_scan / POST
 # /api/scans) instead of the bundled quick/full pipeline.
-ONLY_STAGES = {"arp", "mdns", "nmap", "rustscan", "nuclei"}
+ONLY_STAGES = {"arp", "mdns", "nmap", "rustscan", "nuclei", "whatweb", "testssl"}
+
+# Stages that need dev.http populated (open ports + HTTP/TLS fingerprint)
+# to have anything to work against.
+_WEB_STAGES = {"nuclei", "whatweb", "testssl"}
 
 
 def _enrich_device(
@@ -132,11 +137,11 @@ def run_scan(
     if only in ("nmap", "rustscan"):
         use_full = True  # an explicit single-tool run should be thorough
 
-    needs_ports = only is None or only in ("nmap", "rustscan", "nuclei")
+    needs_ports = only is None or only in ("nmap", "rustscan") or only in _WEB_STAGES
     if not needs_ports:
         ports_to_scan: dict[int, str] = {}
-    elif only == "nuclei":
-        # nuclei only needs to know which ports are web UIs, not their versions.
+    elif only in _WEB_STAGES:
+        # These only need to know which ports are web UIs, not their versions.
         ports_to_scan = dict(enrich.COMMON_PORTS)
     else:
         ports_to_scan = {**enrich.COMMON_PORTS, **enrich.EXTENDED_PORTS} if use_full else enrich.COMMON_PORTS
@@ -148,7 +153,9 @@ def run_scan(
                 "use_nmap": only == "nmap",
                 "use_rustscan": only == "rustscan",
                 "use_nuclei": only == "nuclei",
-                "use_fingerprint": only == "nuclei",  # nuclei needs dev.http URLs
+                "use_whatweb": only == "whatweb",
+                "use_testssl": only == "testssl",
+                "use_fingerprint": only in _WEB_STAGES,  # these need dev.http URLs
                 "use_speedtest": False,
             }
         )
@@ -193,6 +200,32 @@ def run_scan(
         vulnerabilities = tools.nuclei_scan(urls)
         timings.append(StageTiming(stage="nuclei", duration_s=round(time.perf_counter() - _t0, 2)))
         emit("nuclei", 1, 1)
+
+    # Web technology fingerprint of discovered web UIs (opt-in, needs whatweb).
+    if cfg.use_whatweb and caps.tools.get("whatweb"):
+        http_entries = [http for dev in devices for http in dev.http][: cfg.whatweb_max_targets]
+        emit("whatweb", 0, max(len(http_entries), 1))
+        _t0 = time.perf_counter()
+        for i, http in enumerate(http_entries, 1):
+            http.tech = tools.whatweb_scan(http.url)
+            emit("whatweb", i, len(http_entries))
+        timings.append(StageTiming(stage="whatweb", duration_s=round(time.perf_counter() - _t0, 2)))
+
+    # TLS configuration audit of discovered HTTPS UIs (opt-in, needs testssl.sh).
+    # Only reachable on Linux/WSL — no native Windows build of testssl.sh exists.
+    if cfg.use_testssl and caps.tools.get("testssl"):
+        https_targets = [
+            (dev.ip, urlsplit(http.url).port or 443)
+            for dev in devices
+            for http in dev.http
+            if http.tls is not None
+        ][: cfg.testssl_max_targets]
+        emit("testssl", 0, max(len(https_targets), 1))
+        _t0 = time.perf_counter()
+        for i, (ip, port) in enumerate(https_targets, 1):
+            vulnerabilities.extend(tools.testssl_scan(f"{ip}:{port}"))
+            emit("testssl", i, len(https_targets))
+        timings.append(StageTiming(stage="testssl", duration_s=round(time.perf_counter() - _t0, 2)))
 
     ports_open_total = sum(len(d.open_ports) for d in devices)
 

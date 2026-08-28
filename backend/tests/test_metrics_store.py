@@ -45,10 +45,16 @@ def test_record_scan_persists_metrics_and_samples(tmp_path):
 def test_metrics_summary_aggregates(tmp_path):
     store = _store(tmp_path)
     devs = [
-        Device(ip="192.168.1.1", mac="aa:00:00:00:00:01",
-                metrics=DeviceMetrics(latency_avg_ms=2.0, packet_loss_pct=0.0, quality=90)),
-        Device(ip="192.168.1.2", mac="aa:00:00:00:00:02",
-                metrics=DeviceMetrics(latency_avg_ms=4.0, packet_loss_pct=10.0, quality=70)),
+        Device(
+            ip="192.168.1.1",
+            mac="aa:00:00:00:00:01",
+            metrics=DeviceMetrics(latency_avg_ms=2.0, packet_loss_pct=0.0, quality=90),
+        ),
+        Device(
+            ip="192.168.1.2",
+            mac="aa:00:00:00:00:02",
+            metrics=DeviceMetrics(latency_avg_ms=4.0, packet_loss_pct=10.0, quality=70),
+        ),
     ]
     store.record_scan(ScanResult(total_devices=2, devices=devs))
     summary = store.metrics_summary()
@@ -83,9 +89,7 @@ def test_migration_adds_columns_to_legacy_db(tmp_path):
         "trusted BOOLEAN, first_seen TIMESTAMP, last_seen TIMESTAMP, "
         "last_latency_ms FLOAT, open_ports_json TEXT, online BOOLEAN)"
     )
-    conn.execute(
-        "INSERT INTO devices (mac, ip, online) VALUES ('ca:fe:ca:fe:ca:fe', '10.0.0.1', 1)"
-    )
+    conn.execute("INSERT INTO devices (mac, ip, online) VALUES ('ca:fe:ca:fe:ca:fe', '10.0.0.1', 1)")
     conn.commit()
     conn.close()
 

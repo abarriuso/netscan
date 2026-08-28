@@ -296,6 +296,7 @@ def up(
     )
 
     if not no_browser and built:
+
         def _open() -> None:
             _time.sleep(1.5)
             with contextlib.suppress(Exception):
@@ -389,8 +390,11 @@ def doctor() -> None:
 
     py_ok = sys.version_info >= (3, 11)
     row("Python", py_ok, sys.version.split()[0])
-    row("Privilegios (ARP)", discovery.is_elevated() or None,
-        "elevado" if discovery.is_elevated() else "sin privilegios — el ARP scan requiere admin/sudo")
+    row(
+        "Privilegios (ARP)",
+        discovery.is_elevated() or None,
+        "elevado" if discovery.is_elevated() else "sin privilegios — el ARP scan requiere admin/sudo",
+    )
 
     caps = tools.Capabilities.detect()
     for key, spec in tools.TOOLS.items():
@@ -398,12 +402,18 @@ def doctor() -> None:
         row(f"tool: {spec.name}", available or None, spec.purpose)
     row("mDNS (zeroconf)", caps.mdns or None, "descubrimiento IoT")
 
-    row("Node/npm", shutil.which("npm") is not None or None,
-        shutil.which("npm") or "necesario solo para compilar el dashboard")
+    row(
+        "Node/npm",
+        shutil.which("npm") is not None or None,
+        shutil.which("npm") or "necesario solo para compilar el dashboard",
+    )
 
     fe = system.frontend_status()
-    row("Dashboard compilado", bool(fe.get("built")) or None,
-        str(fe.get("path")) if fe.get("built") else "ejecuta: netscan up --build")
+    row(
+        "Dashboard compilado",
+        bool(fe.get("built")) or None,
+        str(fe.get("path")) if fe.get("built") else "ejecuta: netscan up --build",
+    )
 
     row("Base de datos", True, settings.db_url)
 
@@ -412,8 +422,11 @@ def doctor() -> None:
     if not isinstance(ifaces, list):
         ifaces = []
     up_ifaces = [i for i in ifaces if isinstance(i, dict) and i.get("is_up")]
-    row("Interfaces activas", bool(up_ifaces) or None,
-        ", ".join(f"{i['name']} ({i.get('speed_mbps') or '?'}Mbps)" for i in up_ifaces[:4]) or "ninguna")
+    row(
+        "Interfaces activas",
+        bool(up_ifaces) or None,
+        ", ".join(f"{i['name']} ({i.get('speed_mbps') or '?'}Mbps)" for i in up_ifaces[:4]) or "ninguna",
+    )
 
     console.print(table)
 

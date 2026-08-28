@@ -35,9 +35,7 @@ from netscan.models import DeviceMetrics, PortInfo
 # One HTTP GET of at most this many bytes is enough to estimate throughput
 # on a homelab LAN without hammering the target.
 _THROUGHPUT_MAX_BYTES = 4 * 1024 * 1024  # 4 MiB
-_PING_TIME_RE = re.compile(
-    r"(?:time|tiempo|zeit|temps|tempo)\s*[=<]\s*(\d+(?:[.,]\d+)?)\s*ms", re.IGNORECASE
-)
+_PING_TIME_RE = re.compile(r"(?:time|tiempo|zeit|temps|tempo)\s*[=<]\s*(\d+(?:[.,]\d+)?)\s*ms", re.IGNORECASE)
 
 
 # --------------------------------------------------------------------------- #
@@ -121,9 +119,7 @@ def tcp_connect_ms(ip: str, port: int, timeout: float = 2.0) -> float | None:
         return None
 
 
-def port_connect_times(
-    ip: str, ports: list[int], workers: int = 8, timeout: float = 2.0
-) -> dict[int, float]:
+def port_connect_times(ip: str, ports: list[int], workers: int = 8, timeout: float = 2.0) -> dict[int, float]:
     """Measure handshake time for every port concurrently. {port: ms}."""
     results: dict[int, float] = {}
     if not ports:
