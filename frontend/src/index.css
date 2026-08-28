@@ -68,3 +68,47 @@
     }
   }
 }
+
+@layer utilities {
+  /*
+   * The one deliberate exception to "single accent, no decoration": the
+   * brand wordmark itself. Shocking pink, layered text-shadow for a 3D
+   * block-extrusion look, animated gradient shimmer across the face.
+   * Everything else in the app stays on the neutral+blue system — this is
+   * the logo, not a precedent.
+   */
+  .brand-mark {
+    display: inline-block;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    background-image: linear-gradient(
+      100deg,
+      #ff2fb0 42%,
+      #ffcdec 50%,
+      #ff2fb0 58%
+    );
+    background-size: 250% 100%;
+    background-position: 0% 0;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: #ff2fb0;
+    -webkit-text-fill-color: transparent;
+    text-shadow:
+      1px 1px 0 #b8007d,
+      2px 2px 0 #b8007d,
+      3px 3px 0 #8f0061,
+      4px 4px 0 #8f0061,
+      5px 5px 12px rgba(255, 47, 176, 0.45);
+    animation: brand-shimmer 6s ease-in-out infinite;
+  }
+
+  @keyframes brand-shimmer {
+    0%,
+    100% {
+      background-position: 0% 0;
+    }
+    50% {
+      background-position: 100% 0;
+    }
+  }
+}
