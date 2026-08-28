@@ -5,6 +5,37 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Añadido — arranque, servicio web y métricas
+- **`netscan up`**: un solo comando que sirve la API y el dashboard integrado
+  en el mismo puerto y abre el navegador. La API sirve `frontend/dist` como
+  estático (SPA con fallback), así que ya no hacen falta dos procesos.
+- **Multiplataforma, consola y "programa normal"**:
+  - `install.sh` / `netscan.sh` para Linux/macOS (un comando, `--run`,
+    `--minimal`, `--system`); auto-sudo para el ARP scan.
+  - `install.bat` ahora compila el dashboard y admite `--run`; `netscan.bat`
+    lanza `up` por defecto.
+  - Instalador Windows con **Inno Setup** (`packaging/windows/netscan.iss` →
+    `NetScan-Setup.exe`, con desinstalador y accesos del menú Inicio) y workflow
+    `installer.yml` que lo compila en CI.
+  - **Servicio web systemd** en Linux (`packaging/linux/netscan.service` +
+    `install.sh --system`): bind a `0.0.0.0`, token generado en
+    `/etc/netscan/netscan.env`, `CAP_NET_RAW`, y lanzador `.desktop`.
+- **Speed test por dispositivo** (`scanner/speed.py`): latencia media/mín/máx,
+  jitter, pérdida de paquetes, handshake TCP por puerto, throughput HTTP
+  opcional y puntuación de calidad 0–100. CLI `netscan speedtest` y endpoint
+  `POST /api/devices/{mac}/speedtest`.
+- **Estado del sistema** (`system.py`, `psutil`): CPU por núcleo, RAM/swap,
+  discos, tráfico por interfaz en vivo, link speed, proceso del backend y
+  estado del frontend. Endpoints `GET /api/system` y `GET /api/status`.
+- **Histórico de métricas**: nueva tabla `metric_samples` (con poda) +
+  `GET /api/devices/{mac}/metrics` y `GET /api/metrics/summary`; migración
+  aditiva que añade columnas a bases de datos antiguas sin borrarlas.
+- **Dashboard**: panel "Estado del sistema" (server + frontend + host con toda
+  la info), columnas de jitter/pérdida/calidad y botón de speed test por fila,
+  tarjetas y medidores **animados** (respetan `prefers-reduced-motion`).
+- `netscan doctor`: diagnóstico de Python, privilegios, toolchain, Node,
+  dashboard compilado, base de datos e interfaces de red.
+
 ### Seguridad
 - Autenticación opcional por token (`NETSCAN_API_TOKEN`) en HTTP y WebSocket.
 - La API escucha en `127.0.0.1` por defecto; CORS restringido y configurable.
@@ -12,6 +43,18 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - `install-nuclei.ps1` verifica el SHA256 del binario contra las checksums
   oficiales antes de instalarlo.
 - AdGuard: `verify_ssl` configurable (antes TLS sin verificar hardcodeado).
+- `GET /api/system` ya no filtra `db_url` en crudo: si la cadena de conexión
+  lleva credenciales (Postgres/MySQL), se redactan antes de enviarlas al
+  dashboard.
+- Comparación de token de API con `secrets.compare_digest` (antes `==`,
+  vulnerable a timing attack) en HTTP y WebSocket.
+- Rate limiting en autenticación: 429 (HTTP) / cierre 4429 (WS) tras 10
+  intentos fallidos en 60 s por IP.
+- `netscan.example.yaml` ya no trae `0.0.0.0` sin token por defecto (API
+  abierta a toda la LAN si se copiaba tal cual).
+- Job `security` en CI (`pip-audit --strict` + `npm audit`); dependencias con
+  CVEs conocidos actualizadas (scapy, zeroconf, cryptography, starlette y
+  varias transitivas del frontend).
 
 ### Añadido
 - `install.bat` instala TODO de una: Python y Node.js vía winget si faltan,
@@ -37,5 +80,18 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   proxy de nginx alcance el backend en el host.
 - CI: cobertura real (`--cov=netscan` con umbral del 49 %), subida a Codecov
   estricta y chequeo de licencias que falla de verdad.
+- `install-nuclei.ps1` ya notifica a Windows (`WM_SETTINGCHANGE`) tras añadir
+  su carpeta al PATH de usuario; antes, una terminal o acceso directo ya
+  abierto no veía `nuclei` como disponible hasta cerrar sesión, aunque el
+  binario estuviera instalado.
+- `release.yml` / `installer.yml`: ambos publicaban al mismo GitHub Release
+  en paralelo al reaccionar los dos al mismo tag (condición de carrera, y
+  `installer.yml` sin `permissions: contents: write`). `installer.yml` es
+  ahora un workflow reutilizable; `release.yml` orquesta backend, instalador
+  Windows y bundle Linux en un único job de publicación.
+- `netscan.bat` pedía elevación UAC incluso para `doctor` (solo lectura),
+  a diferencia de `netscan.sh`; ahora tiene la misma lista de excepciones.
+- `install.sh` abortaba toda la instalación si fallaba `npm run build`;
+  ahora es un aviso no fatal, igual que `install.bat`.
 - Legal: PEP 639 en `pyproject.toml`, NOTICE corregido (sin proxmoxer/websockets,
   con typer/PyYAML), LICENSE + NOTICE incluidos en el paquete.

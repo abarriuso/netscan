@@ -44,54 +44,107 @@ integración directa de **Proxmox VE**, **TrueNAS** y **AdGuard Home**.
 - **AdGuard Home**: consultas DNS, bloqueos, clientes (cruzable con el
   inventario de red)
 
+**Speed test y métricas de calidad (nuevo)**
+- Test de velocidad por dispositivo: **latencia** media/mín/máx, **jitter**,
+  **pérdida de paquetes**, **tiempo de handshake TCP por puerto** y, opcional,
+  **throughput real (Mbps)** por HTTP
+- Puntuación de **calidad 0–100** por dispositivo e histórico de muestras
+- Botón de speed test bajo demanda en cada fila del dashboard
+
+**Estado del sistema (nuevo)**
+- Panel con el estado del **terminal server (backend)** y del **frontend**:
+  uptime, peticiones servidas, escaneos, clientes WebSocket, auth, scheduler
+- Métricas del host vía `psutil`: CPU (por núcleo), RAM/swap, discos, y
+  **tráfico en vivo por interfaz** (↓/↑), con **link speed** del adaptador
+- Medidores y contadores **animados** (sin parpadeos; respeta `prefers-reduced-motion`)
+
 **Dashboard**
-- Tabla densa de dispositivos con puertos, tooltips de versión y filtrado
+- Tabla densa de dispositivos con puertos, latencia/jitter/pérdida/calidad,
+  tooltips de versión y filtrado
 - Paneles de Proxmox/TrueNAS/AdGuard con salud de pools y guests
 - Progreso de escaneo en vivo por WebSocket
 - Feed de alertas con acknowledge
 
-## Arranque rápido
+## Arranque rápido — un solo comando
 
-**Windows — un solo comando:**
+Tras instalar, **`netscan up`** arranca la API **y** el dashboard integrado en
+un único proceso y puerto (`http://localhost:8600`) y abre el navegador.
 
-```bat
-install.bat
-```
-
-Instala el backend (venv + CLI + API), las herramientas externas vía winget
-(nmap, RustScan, nuclei, Npcap) y las dependencias del dashboard. Si falta
-Python o Node.js, los instala vía winget y te pedirá re-ejecutar el script.
-`install.bat --minimal` instala solo backend + frontend. Después:
+**Windows:**
 
 ```bat
-netscan.bat serve                          # API + scheduler (auto-elevado)
-cd frontend && npm run dev                 # dashboard en :3000
+install.bat --run
 ```
 
-**Linux / manual:**
+Instala Python/Node (vía winget si faltan), crea el venv, instala el backend,
+las herramientas externas (nmap, RustScan, nuclei, Npcap), **compila el
+dashboard** y con `--run` lo lanza. Luego basta con:
+
+```bat
+netscan.bat up            REM  API + dashboard + navegador (auto-elevado)
+```
+
+`install.bat --minimal` omite las herramientas externas. Sin argumentos,
+`netscan.bat` ya ejecuta `up`.
+
+**Linux / macOS:**
 
 ```bash
-# 1. Backend
-python -m venv backend/.venv
-backend/.venv/Scripts/pip install -e "backend[dev]"   # Windows
-# backend/.venv/bin/pip install -e "backend[dev]"     # Linux
-
-# 2. Configuración (opcional pero recomendada)
-cp netscan.example.yaml netscan.yaml   # edita tus instancias Proxmox/TrueNAS
-
-# 3. CLI
-netscan scan --full      # escaneo completo
-netscan caps             # herramientas externas detectadas
-
-# 4. Servidor API + scheduler (escaneo periódico)
-netscan serve            # http://localhost:8600
-
-# 5. Dashboard
-cd frontend && npm install && npm run dev   # http://localhost:3000
+chmod +x install.sh netscan.sh
+./install.sh --run        # instala todo y lanza (o ./install.sh a secas)
+./netscan.sh up           # API + dashboard + navegador (se auto-eleva con sudo)
 ```
 
-En Windows puedes usar `netscan.bat` (se auto-eleva a Administrador, necesario
-para el ARP scan).
+`./install.sh` detecta apt/dnf/pacman/brew para las dependencias del sistema y
+degrada con elegancia lo que no pueda instalar.
+
+**Instalador de Windows (programa normal):**
+
+```bat
+winget install JRSoftware.InnoSetup
+iscc packaging\windows\netscan.iss        REM  -> packaging\windows\Output\NetScan-Setup.exe
+```
+
+`NetScan-Setup.exe` aparece en "Agregar o quitar programas", crea accesos en
+el menú Inicio y deja todo listo. En CI lo compila `installer.yml`
+(`workflow_dispatch` o reutilizado por `release.yml`), que también genera el
+paquete Linux (`.tar.gz` con backend + `frontend/dist` + `install.sh`) y
+adjunta ambos, junto al paquete Python, a cada release de un tag `v*`.
+
+> **¿Una herramienta no aparece como disponible en `netscan doctor` /
+> `netscan caps` justo después de instalarla?** En Windows, escribir el PATH
+> de usuario no actualiza por sí solo las ventanas ya abiertas ni los accesos
+> directos existentes — cierra y reabre la terminal (o el dashboard) antes de
+> reportarlo como bug. `install.bat` ya lo hace por ti en la misma ejecución;
+> solo afecta a una `netscan.bat`/consola abierta *antes* de instalar.
+
+### Servicio web en Linux (systemd)
+
+Para dejar NetScan como **servicio web** accesible en la LAN:
+
+```bash
+./install.sh --system
+```
+
+Esto crea `/etc/netscan/netscan.env` (bind a `0.0.0.0:8600` + **token de API
+generado**), instala la unidad `netscan.service` con las capacidades de red
+necesarias (`CAP_NET_RAW`) y la arranca. El dashboard queda en
+`http://<ip-del-servidor>:8600/`.
+
+```bash
+systemctl status netscan        # estado del servicio
+journalctl -u netscan -f        # logs en vivo
+```
+
+Manual (sin systemd), como servicio en primer plano:
+
+```bash
+NETSCAN_API_HOST=0.0.0.0 NETSCAN_API_TOKEN=mi-token \
+  ./netscan.sh up --no-browser --port 8600
+```
+
+Otros comandos útiles: `netscan speedtest` (test de velocidad de la red),
+`netscan doctor` (diagnóstico completo), `netscan scan --full`.
 
 ### Docker
 
@@ -134,8 +187,15 @@ NETSCAN_NOTIFY_URLS__0=ntfy://ntfy.sh/mi-topic
 | `GET /api/alerts` · `POST /api/alerts/{id}/ack` | Alertas |
 | `GET /api/integrations/proxmox|truenas|adguard` | Salud de integraciones |
 | `GET /api/overview` · `GET /api/capabilities` | Resumen y toolchain |
+| `GET /api/system` · `GET /api/status` | Estado del server/host/frontend (todo en uno) |
+| `GET /api/metrics/summary` | Métricas de calidad agregadas |
+| `GET /api/devices/{mac}/metrics` | Histórico de latencia/jitter/calidad |
+| `POST /api/devices/{mac}/speedtest` | Speed test bajo demanda de un dispositivo |
+| `POST /api/devices/{mac}/wake` | Wake-on-LAN |
 
-Docs interactivas en `http://localhost:8600/docs` (OpenAPI).
+Con el dashboard compilado, la API **y** la web se sirven en el mismo puerto
+(`/` = dashboard, `/api/...` = API). Docs interactivas en
+`http://localhost:8600/docs` (OpenAPI).
 
 ## Desarrollo
 
@@ -151,27 +211,36 @@ npm run lint && npm run typecheck && npm run build
 ```
 
 CI en `.github/workflows/ci.yml`: matriz Ubuntu/Windows × Python 3.11/3.12,
-lint+build del frontend, chequeo de licencias de dependencias y releases
-automáticos al pushear tags `v*`.
+lint+build del frontend, chequeo de licencias de dependencias, auditoría de
+vulnerabilidades (`pip-audit` + `npm audit`) y releases automáticos al
+pushear tags `v*` (backend + instalador Windows + bundle Linux, ver
+`release.yml`).
 
 ## Estructura
 
 ```
 ├── backend/src/netscan/
-│   ├── scanner/        # discovery (ARP), enrich, mDNS, fingerprint, tools, engine
-│   ├── db/             # SQLModel: inventario, escaneos, alertas
+│   ├── scanner/        # discovery (ARP), enrich, mDNS, fingerprint, tools, speed, engine
+│   ├── db/             # SQLModel: inventario, escaneos, alertas, muestras de métricas
 │   ├── integrations/   # proxmox · truenas · adguard
-│   ├── api/            # FastAPI + WebSocket + scheduler
+│   ├── api/            # FastAPI + WebSocket + scheduler + estático del dashboard
 │   ├── alerts/         # Apprise
+│   ├── system.py       # estado del host/proceso/frontend (psutil)
 │   ├── config.py       # YAML + env (pydantic-settings)
-│   └── cli.py          # typer: scan · caps · serve
+│   └── cli.py          # typer: up · scan · speedtest · doctor · caps · serve · wake
 ├── frontend/src/
-│   ├── sections/       # Header, StatCards, DevicesTable, Integrations, AlertsFeed…
-│   ├── hooks/          # polling + WebSocket
+│   ├── sections/       # Header, StatCards, SystemStatus, DevicesTable, Integrations…
+│   ├── components/     # metrics.tsx (número animado, medidor, badge de calidad)
+│   ├── hooks/          # polling + WebSocket + animaciones
 │   └── lib/api.ts      # cliente REST/WS
+├── packaging/
+│   ├── windows/        # netscan.iss (Inno Setup → NetScan-Setup.exe)
+│   └── linux/          # netscan.service (systemd) · netscan.desktop
+├── install.sh · netscan.sh   # instalador y lanzador Linux/macOS
+├── install.bat · netscan.bat # instalador y lanzador Windows
 ├── docker/             # Dockerfile.backend
 ├── legacy/             # netscan.py original (referencia histórica)
-└── .github/workflows/  # CI + release + dependabot
+└── .github/workflows/  # CI + release + installer + dependabot
 ```
 
 ## Licencias
