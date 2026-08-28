@@ -77,6 +77,10 @@ class ScanDefaults(BaseModel):
     nuclei_max_targets: int = 20
     alert_on_new_device: bool = True
     alert_on_device_down: bool = False
+    # Speed / quality metrics
+    use_speedtest: bool = True  # latency stats + TCP handshake per device
+    speedtest_pings: int = 5  # ICMP echoes per device for jitter/loss
+    use_throughput: bool = False  # HTTP download throughput estimate (heavier)
 
 
 class Settings(BaseSettings):

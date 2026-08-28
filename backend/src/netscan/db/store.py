@@ -9,14 +9,16 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
-from sqlalchemy import event
+from sqlalchemy import event, inspect, text
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from netscan.db.models import AlertRecord, DeviceRecord, ScanRecord
+from netscan.db.models import AlertRecord, DeviceRecord, MetricSample, ScanRecord
 from netscan.models import ScanResult
 
 # How many historical scans to keep in the DB (oldest are pruned).
 SCAN_RETENTION = 200
+# How many metric samples to keep per device (oldest pruned).
+METRIC_RETENTION = 500
 
 
 class InventoryStore:
@@ -29,6 +31,33 @@ class InventoryStore:
         if db_url.startswith("sqlite"):
             self._setup_sqlite_pragmas()
         SQLModel.metadata.create_all(self.engine)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Additively add columns introduced after the first release.
+
+        SQLModel.create_all() creates missing tables but never ALTERs an
+        existing one, so a DB from an older NetScan would be missing the new
+        metric columns. We add them idempotently instead of forcing a wipe.
+        """
+        new_columns = {
+            "jitter_ms": "FLOAT",
+            "packet_loss_pct": "FLOAT",
+            "tcp_connect_avg_ms": "FLOAT",
+            "throughput_mbps": "FLOAT",
+            "quality": "INTEGER",
+        }
+        try:
+            inspector = inspect(self.engine)
+            existing = {c["name"] for c in inspector.get_columns("devices")}
+        except Exception:
+            return
+        missing = {k: v for k, v in new_columns.items() if k not in existing}
+        if not missing:
+            return
+        with self.engine.begin() as conn:
+            for name, sqltype in missing.items():
+                conn.execute(text(f"ALTER TABLE devices ADD COLUMN {name} {sqltype}"))
 
     def _setup_sqlite_pragmas(self) -> None:
         """WAL mode + busy timeout: the API and scheduler hit the DB concurrently."""
@@ -89,13 +118,42 @@ class InventoryStore:
                 record.last_seen = now
                 record.online = True
                 record.last_latency_ms = dev.latency_ms
-                record.open_ports_json = json.dumps(
-                    [p.model_dump() for p in dev.open_ports], ensure_ascii=False
-                )
+                if record.last_latency_ms is None and dev.metrics is not None:
+                    record.last_latency_ms = dev.metrics.latency_avg_ms
+                if dev.open_ports:
+                    # Only overwrite when this pass actually scanned ports: a
+                    # single-tool run (mDNS-only, ARP-only...) reports no
+                    # ports at all and must not wipe out what a previous
+                    # full scan already found — same "don't clobber with an
+                    # empty result" rule already applied to hostname/vendor.
+                    record.open_ports_json = json.dumps(
+                        [p.model_dump() for p in dev.open_ports], ensure_ascii=False
+                    )
                 for attr in ("hostname", "vendor", "mdns_name", "os_guess"):
                     value = getattr(dev, attr, "")
                     if value:
                         setattr(record, attr, value)
+                # Persist the latest speed / quality metrics + a time-series sample.
+                if dev.metrics is not None:
+                    m = dev.metrics
+                    record.jitter_ms = m.jitter_ms
+                    record.packet_loss_pct = m.packet_loss_pct
+                    record.tcp_connect_avg_ms = m.tcp_connect_avg_ms
+                    record.throughput_mbps = m.throughput_mbps
+                    record.quality = m.quality
+                    session.add(
+                        MetricSample(
+                            created_at=now,
+                            device_mac=dev.mac,
+                            latency_ms=m.latency_avg_ms,
+                            jitter_ms=m.jitter_ms,
+                            packet_loss_pct=m.packet_loss_pct,
+                            tcp_connect_avg_ms=m.tcp_connect_avg_ms,
+                            throughput_mbps=m.throughput_mbps,
+                            quality=m.quality,
+                            online=True,
+                        )
+                    )
                 dev.last_seen = now
                 if dev.first_seen is None:
                     dev.first_seen = record.first_seen
@@ -126,9 +184,26 @@ class InventoryStore:
             )
             session.commit()
             self._prune_scans(session)
+            self._prune_samples(session)
             for alert in alerts:
                 session.refresh(alert)
         return alerts
+
+    @staticmethod
+    def _prune_samples(session: Session, keep: int = METRIC_RETENTION) -> None:
+        """Keep only the newest ``keep`` metric samples per device."""
+        macs = session.exec(select(MetricSample.device_mac).distinct()).all()
+        for mac in macs:
+            ids = session.exec(
+                select(MetricSample.id)
+                .where(MetricSample.device_mac == mac)
+                .order_by(MetricSample.created_at.desc())  # type: ignore[attr-defined]
+            ).all()
+            for sample_id in ids[keep:]:
+                obj = session.get(MetricSample, sample_id)
+                if obj is not None:
+                    session.delete(obj)
+        session.commit()
 
     @staticmethod
     def _prune_scans(session: Session, keep: int = SCAN_RETENTION) -> None:
@@ -183,3 +258,69 @@ class InventoryStore:
             return session.exec(
                 select(ScanRecord).order_by(ScanRecord.started_at.desc())  # type: ignore[attr-defined]
             ).first()
+
+    def metric_samples(self, mac: str, limit: int = 100) -> list[MetricSample]:
+        """Newest-first metric samples for one device (oldest last)."""
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(MetricSample)
+                .where(MetricSample.device_mac == mac)
+                .order_by(MetricSample.created_at.desc())  # type: ignore[attr-defined]
+                .limit(limit)
+            ).all()
+            return list(reversed(rows))
+
+    def metrics_summary(self) -> dict[str, object]:
+        """Aggregate quality metrics across the current inventory."""
+        with Session(self.engine) as session:
+            devices = list(session.exec(select(DeviceRecord)).all())
+        online = [d for d in devices if d.online]
+        latencies = [d.last_latency_ms for d in online if d.last_latency_ms is not None]
+        qualities = [d.quality for d in online if d.quality is not None]
+        losses = [d.packet_loss_pct for d in online if d.packet_loss_pct is not None]
+        throughputs = [d.throughput_mbps for d in online if d.throughput_mbps is not None]
+
+        def _avg(values: list[float]) -> float | None:
+            return round(sum(values) / len(values), 2) if values else None
+
+        return {
+            "devices_total": len(devices),
+            "devices_online": len(online),
+            "avg_latency_ms": _avg(latencies),
+            "avg_quality": round(sum(qualities) / len(qualities)) if qualities else None,
+            "avg_packet_loss_pct": _avg(losses),
+            "max_throughput_mbps": max(throughputs) if throughputs else None,
+            "worst_quality": min(qualities) if qualities else None,
+        }
+
+    def record_speedtest(self, mac: str, metrics) -> bool:  # metrics: DeviceMetrics
+        """Persist an on-demand speed test result for a single device."""
+        with Session(self.engine) as session:
+            record = session.exec(select(DeviceRecord).where(DeviceRecord.mac == mac)).first()
+            if not record:
+                return False
+            record.last_latency_ms = metrics.latency_avg_ms
+            record.jitter_ms = metrics.jitter_ms
+            record.packet_loss_pct = metrics.packet_loss_pct
+            record.tcp_connect_avg_ms = metrics.tcp_connect_avg_ms
+            record.throughput_mbps = metrics.throughput_mbps
+            record.quality = metrics.quality
+            session.add(record)
+            session.add(
+                MetricSample(
+                    device_mac=mac,
+                    latency_ms=metrics.latency_avg_ms,
+                    jitter_ms=metrics.jitter_ms,
+                    packet_loss_pct=metrics.packet_loss_pct,
+                    tcp_connect_avg_ms=metrics.tcp_connect_avg_ms,
+                    throughput_mbps=metrics.throughput_mbps,
+                    quality=metrics.quality,
+                    online=True,
+                )
+            )
+            session.commit()
+            return True
+
+    def device_by_mac(self, mac: str) -> DeviceRecord | None:
+        with Session(self.engine) as session:
+            return session.exec(select(DeviceRecord).where(DeviceRecord.mac == mac)).first()
