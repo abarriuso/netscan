@@ -39,6 +39,46 @@ export interface DeviceRecord {
   last_latency_ms: number | null
   open_ports_json: string
   online: boolean
+  // Speed / quality metrics (see backend scanner/speed.py)
+  jitter_ms: number | null
+  packet_loss_pct: number | null
+  tcp_connect_avg_ms: number | null
+  throughput_mbps: number | null
+  quality: number | null
+}
+
+export interface DeviceMetrics {
+  latency_avg_ms: number | null
+  latency_min_ms: number | null
+  latency_max_ms: number | null
+  jitter_ms: number | null
+  packet_loss_pct: number | null
+  tcp_connect_ms: Record<string, number>
+  tcp_connect_avg_ms: number | null
+  throughput_mbps: number | null
+  throughput_port: number | null
+  quality: number | null
+  measured_at: string | null
+}
+
+export interface MetricSamplePoint {
+  t: string
+  latency_ms: number | null
+  jitter_ms: number | null
+  packet_loss_pct: number | null
+  tcp_connect_avg_ms: number | null
+  throughput_mbps: number | null
+  quality: number | null
+}
+
+export interface MetricsSummary {
+  devices_total: number
+  devices_online: number
+  avg_latency_ms: number | null
+  avg_quality: number | null
+  avg_packet_loss_pct: number | null
+  max_throughput_mbps: number | null
+  worst_quality: number | null
 }
 
 export interface AlertRecord {
@@ -59,6 +99,7 @@ export interface Overview {
   alerts_unacknowledged: number
   last_scan: string | null
   capabilities: Record<string, boolean>
+  metrics?: MetricsSummary
 }
 
 export interface ToolInfo {
@@ -71,6 +112,9 @@ export interface Capabilities {
   capabilities: Record<string, boolean>
   tools: Record<string, ToolInfo>
 }
+
+/** Individually-launchable scan stages — mirrors backend engine.ONLY_STAGES. */
+export type ScanStage = 'arp' | 'mdns' | 'nmap' | 'rustscan' | 'nuclei'
 
 export interface ScanProgress {
   stage: string
@@ -158,4 +202,111 @@ export interface AdGuardSummary {
   num_blocked_filtering?: number
   avg_processing_time?: number
   error?: string
+}
+
+// --- System / server status (GET /api/system) ---------------------------- //
+export interface HostInfo {
+  hostname: string
+  os: string
+  os_release: string
+  os_version: string
+  arch: string
+  boot_time: string | null
+  uptime_seconds: number | null
+  cpu_model: string
+}
+
+export interface CpuInfo {
+  available: boolean
+  percent?: number
+  per_core?: number[]
+  logical?: number
+  physical?: number | null
+  freq_mhz?: number | null
+  freq_max_mhz?: number | null
+  load_avg?: number[] | null
+}
+
+export interface MemoryInfo {
+  available: boolean
+  total?: number
+  used?: number
+  free?: number
+  percent?: number
+  swap_total?: number
+  swap_used?: number
+  swap_percent?: number
+}
+
+export interface DiskInfo {
+  mount: string
+  device: string
+  fstype: string
+  total: number
+  used: number
+  free: number
+  percent: number
+}
+
+export interface NetIface {
+  name: string
+  is_up: boolean
+  speed_mbps: number | null
+  mtu: number
+  ipv4: string
+  mac: string
+  bytes_sent: number
+  bytes_recv: number
+  up_bps: number
+  down_bps: number
+}
+
+export interface ProcessInfo {
+  pid: number
+  uptime_seconds: number
+  python: string
+  executable: string
+  cpu_percent?: number
+  rss?: number | null
+  threads?: number
+  open_files?: number
+  connections?: number
+  create_time?: string
+}
+
+export interface FrontendStatus {
+  built: boolean
+  path: string | null
+  files?: number
+  size_bytes?: number
+  built_at?: string | null
+  served_by_backend?: boolean
+}
+
+export interface ServerInfo {
+  version: string
+  uptime_seconds: number
+  requests_served: number
+  scans_completed: number
+  last_scan_duration_s: number | null
+  scan_in_progress: boolean
+  ws_clients: number
+  scheduler_interval_min: number
+  api_host: string
+  api_port: number
+  auth_enabled: boolean
+  db_url: string
+}
+
+export interface SystemStatus {
+  timestamp: string
+  host: HostInfo
+  cpu: CpuInfo
+  memory: MemoryInfo
+  disks: DiskInfo[]
+  network: { available: boolean; interfaces: NetIface[] }
+  process: ProcessInfo
+  frontend: FrontendStatus
+  psutil: boolean
+  server: ServerInfo
 }

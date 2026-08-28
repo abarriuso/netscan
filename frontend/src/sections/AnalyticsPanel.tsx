@@ -57,10 +57,10 @@ export default function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
   const maxP = topPorts[0]?.[1] ?? 1
 
   return (
-    <Card className="bg-card/60">
+    <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-          <BarChart3 className="h-4 w-4 text-cyan-400" /> analítica de red
+          <BarChart3 className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> analítica de red
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -74,7 +74,7 @@ export default function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
                 vendors
               </p>
               {topVendors.map(([v, n]) => (
-                <Bar key={v} label={v} value={n} max={maxV} color="bg-amber-400/70" />
+                <Bar key={v} label={v} value={n} max={maxV} color="bg-primary/80" />
               ))}
             </div>
             <div className="space-y-1.5">
@@ -82,7 +82,7 @@ export default function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
                 sistemas operativos
               </p>
               {topOS.map(([v, n]) => (
-                <Bar key={v} label={v || 'desconocido'} value={n} max={maxO} color="bg-violet-400/70" />
+                <Bar key={v} label={v || 'desconocido'} value={n} max={maxO} color="bg-primary/80" />
               ))}
             </div>
             <div className="space-y-1.5">
@@ -90,7 +90,7 @@ export default function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
                 puertos más abiertos
               </p>
               {topPorts.map(([v, n]) => (
-                <Bar key={v} label={v} value={n} max={maxP} color="bg-emerald-400/70" />
+                <Bar key={v} label={v} value={n} max={maxP} color="bg-primary/80" />
               ))}
             </div>
           </div>

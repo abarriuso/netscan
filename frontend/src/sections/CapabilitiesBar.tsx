@@ -11,10 +11,10 @@ export default function CapabilitiesBar() {
   const tools = data?.tools ?? {}
 
   return (
-    <Card className="bg-card/60">
+    <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-          <Terminal className="h-4 w-4 text-cyan-400" /> toolchain detectada
+          <Terminal className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> toolchain detectada
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">
@@ -26,7 +26,7 @@ export default function CapabilitiesBar() {
                 <Badge
                   variant={tool.available ? 'secondary' : 'outline'}
                   className={`font-mono text-[10px] ${
-                    tool.available ? 'text-emerald-300' : 'text-muted-foreground opacity-50'
+                    tool.available ? 'text-ok' : 'text-muted-foreground opacity-50'
                   }`}
                 >
                   {key}

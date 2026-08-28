@@ -3,9 +3,14 @@ import type {
   AdGuardSummary,
   AlertRecord,
   Capabilities,
+  DeviceMetrics,
   DeviceRecord,
+  MetricSamplePoint,
+  MetricsSummary,
   Overview,
   ProxmoxSummary,
+  ScanStage,
+  SystemStatus,
   TrueNASSummary,
 } from '@/types'
 
@@ -56,13 +61,26 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
 
 export const api = {
   overview: () => get<Overview>('/api/overview'),
+  system: () => get<SystemStatus>('/api/system'),
+  metricsSummary: () => get<MetricsSummary>('/api/metrics/summary'),
+  deviceMetrics: (mac: string, limit = 60) =>
+    get<{ mac: string; samples: MetricSamplePoint[] }>(
+      `/api/devices/${encodeURIComponent(mac)}/metrics?limit=${limit}`,
+    ),
+  speedtest: (mac: string, throughput = false) =>
+    send<{ mac: string; ip: string; metrics: DeviceMetrics }>(
+      `/api/devices/${encodeURIComponent(mac)}/speedtest?throughput=${throughput}`,
+      'POST',
+    ),
   capabilities: () => get<Capabilities>('/api/capabilities'),
+  logs: (lines = 300) => get<{ path: string; lines: string[] }>(`/api/logs?lines=${lines}`),
   devices: () => get<DeviceRecord[]>('/api/devices'),
   alerts: (unack = false) => get<AlertRecord[]>(`/api/alerts${unack ? '?unacknowledged=true' : ''}`),
   proxmox: () => get<ProxmoxSummary[]>('/api/integrations/proxmox'),
   truenas: () => get<TrueNASSummary[]>('/api/integrations/truenas'),
   adguard: () => get<AdGuardSummary[]>('/api/integrations/adguard'),
-  startScan: (full = true) => send<{ status: string }>('/api/scans', 'POST', { full }),
+  startScan: (opts: { full?: boolean; only?: ScanStage } = {}) =>
+    send<{ status: string }>('/api/scans', 'POST', opts),
   ackAlert: (id: number) => send<{ ok: boolean }>(`/api/alerts/${id}/ack`, 'POST'),
   setTrusted: (mac: string, trusted: boolean) =>
     send<{ ok: boolean }>(`/api/devices/${encodeURIComponent(mac)}`, 'PATCH', { trusted }),

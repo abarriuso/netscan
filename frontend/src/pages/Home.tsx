@@ -7,6 +7,8 @@ import AlertsFeed from '@/sections/AlertsFeed'
 import CapabilitiesBar from '@/sections/CapabilitiesBar'
 import AnalyticsPanel from '@/sections/AnalyticsPanel'
 import ServicesPanel from '@/sections/ServicesPanel'
+import SystemStatus from '@/sections/SystemStatus'
+import LogConsole from '@/sections/LogConsole'
 
 export default function Home() {
   // Bumped when a scan finishes so every panel re-polls
@@ -16,8 +18,10 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header onScanDone={bump} />
-      <main className="space-y-3 p-6">
+      <main className="animate-in fade-in space-y-3 p-6 duration-500">
         <StatCards refreshKey={refreshKey} />
+        <SystemStatus />
+        <LogConsole />
         <div className="grid gap-3 xl:grid-cols-3">
           <div className="xl:col-span-2">
             <DevicesTable refreshKey={refreshKey} />

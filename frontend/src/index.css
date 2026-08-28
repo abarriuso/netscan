@@ -1,67 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.625rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
+  /*
+   * True neutral grayscale (near-zero chroma — no warm or cool tint) with
+   * exactly one accent color (--primary, a saturated blue) and three
+   * semantic status colors (--ok / --warn / --destructive). Every other
+   * color in the app must come from these tokens — no per-component
+   * one-off hues. NetScan is dark-first by design (server-room dashboard);
+   * there is no light/dark toggle wired up yet, so :root and .dark share
+   * one palette.
+   */
+  :root,
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 8% 0.002 260;
+    --foreground: 96% 0.002 260;
+    --card: 11% 0.002 260;
+    --card-foreground: 96% 0.002 260;
+    --popover: 11% 0.002 260;
+    --popover-foreground: 96% 0.002 260;
+    --primary: 62% 0.19 258;
+    --primary-foreground: 98% 0.012 258;
+    --secondary: 16% 0.003 260;
+    --secondary-foreground: 96% 0.002 260;
+    --muted: 16% 0.003 260;
+    --muted-foreground: 60% 0.006 260;
+    --accent: 16% 0.003 260;
+    --accent-foreground: 96% 0.002 260;
+    --destructive: 58% 0.19 25;
+    --destructive-foreground: 97% 0.01 80;
+    --border: 20% 0.004 260;
+    --input: 20% 0.004 260;
+    --ring: 62% 0.19 258;
+    --radius: 0.5rem;
+    --ok: 68% 0.16 152;
+    --warn: 74% 0.15 85;
+    --sidebar-background: 11% 0.002 260;
+    --sidebar-foreground: 96% 0.002 260;
+    --sidebar-primary: 62% 0.19 258;
+    --sidebar-primary-foreground: 98% 0.012 258;
+    --sidebar-accent: 16% 0.003 260;
+    --sidebar-accent-foreground: 96% 0.002 260;
+    --sidebar-border: 20% 0.004 260;
+    --sidebar-ring: 62% 0.19 258;
   }
 }
 
@@ -71,5 +55,16 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
   }
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Power, ShieldCheck, ShieldQuestion } from 'lucide-react'
+import { Gauge, Power, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { QualityBadge } from '@/components/metrics'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { DeviceRecord, PortInfo } from '@/types'
@@ -28,6 +29,21 @@ function portsOf(dev: DeviceRecord): PortInfo[] {
 export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
   const { data: devices, error, refresh } = usePoll(api.devices, 15000, refreshKey)
   const [filter, setFilter] = useState('')
+  const [testing, setTesting] = useState<Set<string>>(new Set())
+
+  const runSpeedtest = async (mac: string) => {
+    setTesting((s) => new Set(s).add(mac))
+    try {
+      await api.speedtest(mac)
+      refresh()
+    } finally {
+      setTesting((s) => {
+        const next = new Set(s)
+        next.delete(mac)
+        return next
+      })
+    }
+  }
 
   const filtered = useMemo(() => {
     const list = devices ?? []
@@ -47,16 +63,22 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
   }
 
   return (
-    <Card className="bg-card/60">
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-        <CardTitle className="font-mono text-sm uppercase tracking-wider">
-          dispositivos ({filtered.length})
-        </CardTitle>
+    <Card>
+      <CardHeader className="flex-row items-start justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="font-mono text-sm uppercase tracking-wider">
+            dispositivos ({filtered.length})
+          </CardTitle>
+          <p className="mt-1 max-w-prose text-xs text-muted-foreground">
+            Comparado contra el escaneo anterior en cada pasada: altas, bajas y cambio de
+            confianza generan una alerta.
+          </p>
+        </div>
         <Input
           placeholder="filtrar por ip, mac, hostname, vendor…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="h-8 w-72 font-mono text-xs"
+          className="h-8 w-72 shrink-0 font-mono text-xs"
         />
       </CardHeader>
       <CardContent className="p-0">
@@ -73,9 +95,12 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                 <TableHead>Nombre</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead className="text-right">Latencia</TableHead>
+                <TableHead className="text-right">Jitter</TableHead>
+                <TableHead className="text-right">Pérdida</TableHead>
+                <TableHead className="text-right">Calidad</TableHead>
                 <TableHead>OS</TableHead>
                 <TableHead>Puertos</TableHead>
-                <TableHead className="w-10"></TableHead>
+                <TableHead className="w-16"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -86,7 +111,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                     <TableCell>
                       <span
                         className={`inline-block h-2 w-2 rounded-full ${
-                          dev.online ? 'bg-emerald-400' : 'bg-zinc-600'
+                          dev.online ? 'bg-ok' : 'bg-muted-foreground/40'
                         }`}
                       />
                     </TableCell>
@@ -97,7 +122,45 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                     </TableCell>
                     <TableCell className="max-w-40 truncate text-xs">{dev.vendor || '—'}</TableCell>
                     <TableCell className="text-right font-mono text-xs">
-                      {dev.last_latency_ms != null ? `${dev.last_latency_ms}ms` : '—'}
+                      {dev.last_latency_ms != null ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>{dev.last_latency_ms}ms</TooltipTrigger>
+                            <TooltipContent className="font-mono text-xs">
+                              handshake TCP medio:{' '}
+                              {dev.tcp_connect_avg_ms != null ? `${dev.tcp_connect_avg_ms}ms` : '—'}
+                              {dev.throughput_mbps != null && (
+                                <div>throughput: {dev.throughput_mbps} Mbps</div>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                      {dev.jitter_ms != null ? `${dev.jitter_ms}ms` : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      {dev.packet_loss_pct != null ? (
+                        <span
+                          className={
+                            dev.packet_loss_pct > 20
+                              ? 'text-destructive'
+                              : dev.packet_loss_pct > 0
+                                ? 'text-warn'
+                                : 'text-ok'
+                          }
+                        >
+                          {dev.packet_loss_pct}%
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <QualityBadge score={dev.quality} />
                     </TableCell>
                     <TableCell>
                       {dev.os_guess ? (
@@ -133,10 +196,23 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => runSpeedtest(dev.mac)}
+                          disabled={testing.has(dev.mac)}
+                          title="Speed test (latencia, jitter, pérdida, TCP)"
+                          aria-label={`speed test de ${dev.ip}`}
+                        >
+                          <Gauge
+                            className={`h-4 w-4 text-muted-foreground hover:text-primary ${
+                              testing.has(dev.mac) ? 'animate-spin' : ''
+                            }`}
+                            strokeWidth={1.6}
+                          />
+                        </button>
                         {!dev.online && (
                           <button onClick={() => api.wake(dev.mac)} title="Wake-on-LAN" aria-label={`despertar ${dev.ip} por Wake-on-LAN`}>
-                            <Power className="h-4 w-4 text-sky-400 hover:text-sky-300" />
+                            <Power className="h-4 w-4 text-muted-foreground hover:text-primary" strokeWidth={1.6} />
                           </button>
                         )}
                         <button
@@ -145,9 +221,9 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                           aria-label={dev.trusted ? `quitar confianza de ${dev.ip}` : `marcar ${dev.ip} como de confianza`}
                         >
                           {dev.trusted ? (
-                            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                            <ShieldCheck className="h-4 w-4 text-ok" strokeWidth={1.6} />
                           ) : (
-                            <ShieldQuestion className="h-4 w-4 text-amber-400" />
+                            <ShieldQuestion className="h-4 w-4 text-warn" strokeWidth={1.6} />
                           )}
                         </button>
                       </div>
@@ -157,7 +233,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
               })}
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={12} className="py-8 text-center text-sm text-muted-foreground">
                     sin dispositivos — lanza un scan
                   </TableCell>
                 </TableRow>

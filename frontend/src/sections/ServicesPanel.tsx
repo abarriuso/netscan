@@ -7,12 +7,7 @@ import PanelError from './PanelError'
 
 function CertBadge({ days, selfSigned }: { days: number | null; selfSigned: boolean }) {
   if (days == null) return null
-  const cls =
-    days < 0
-      ? 'text-red-400'
-      : days < 30
-        ? 'text-amber-400'
-        : 'text-emerald-400'
+  const cls = days < 0 ? 'text-destructive' : days < 30 ? 'text-warn' : 'text-ok'
   return (
     <span className={`font-mono text-[10px] ${cls}`}>
       {days < 0 ? `caducado hace ${-days}d` : `${days}d`}
@@ -30,10 +25,10 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
   const vulns = scan?.vulnerabilities ?? []
 
   return (
-    <Card className="bg-card/60">
+    <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-          <Globe className="h-4 w-4 text-sky-400" /> servicios web &amp; tls
+          <Globe className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> servicios web &amp; tls
           {scan && (
             <span className="ml-auto font-mono text-[10px] font-normal text-muted-foreground">
               último scan: {new Date(scan.started_at).toLocaleTimeString()} · {scan.duration_s}s
@@ -54,9 +49,9 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
               className="flex items-center gap-3 rounded border border-border/60 px-3 py-2"
             >
               {svc.tls && (svc.tls.days_remaining ?? 99) < 30 ? (
-                <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
+                <ShieldAlert className="h-4 w-4 shrink-0 text-warn" strokeWidth={1.6} />
               ) : (
-                <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" />
+                <ShieldCheck className="h-4 w-4 shrink-0 text-ok" strokeWidth={1.6} />
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -64,7 +59,7 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
                     href={svc.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="truncate font-mono font-semibold text-sky-300 hover:underline"
+                    className="truncate font-mono font-semibold text-primary hover:underline"
                   >
                     {svc.url.replace(/^https?:\/\//, '')}
                   </a>
@@ -88,11 +83,11 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
         </div>
         {vulns.length > 0 && (
           <div className="mt-3 space-y-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-red-400">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-destructive">
               hallazgos nuclei ({vulns.length})
             </p>
             {vulns.map((v, i) => (
-              <div key={i} className="flex items-center gap-2 rounded bg-red-950/30 px-3 py-1.5">
+              <div key={i} className="flex items-center gap-2 rounded bg-destructive/10 px-3 py-1.5">
                 <Badge variant="destructive" className="font-mono text-[10px]">{v.severity}</Badge>
                 <span className="truncate">{v.name || v.template}</span>
                 <span className="ml-auto font-mono text-[10px] text-muted-foreground">

@@ -14,10 +14,10 @@ export default function Integrations() {
   return (
     <div className="grid gap-3 lg:grid-cols-3">
       {/* Proxmox */}
-      <Card className="bg-card/60">
+      <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-            <Box className="h-4 w-4 text-orange-400" /> proxmox ve
+            <Box className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> proxmox ve
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
@@ -25,7 +25,7 @@ export default function Integrations() {
           {(pve ?? []).length === 0 && !pveError && <p className="text-muted-foreground">sin instancias configuradas</p>}
           {(pve ?? []).map((inst) =>
             inst.error ? (
-              <div key={inst.name} className="rounded border border-red-900/50 p-2">
+              <div key={inst.name} className="rounded border border-destructive/40 p-2">
                 <span className="font-mono font-semibold">{inst.name}</span>
                 <Badge variant="destructive" className="ml-2 font-mono text-[10px]">error</Badge>
                 <p className="mt-1 text-muted-foreground">{inst.error}</p>
@@ -42,7 +42,7 @@ export default function Integrations() {
                 {(inst.guests ?? []).slice(0, 6).map((g) => (
                   <div key={g.vmid} className="flex items-center justify-between rounded bg-muted/40 px-2 py-1 font-mono">
                     <span className="flex items-center gap-2">
-                      <span className={`h-1.5 w-1.5 rounded-full ${g.status === 'running' ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                      <span className={`h-1.5 w-1.5 rounded-full ${g.status === 'running' ? 'bg-ok' : 'bg-muted-foreground/40'}`} />
                       {g.name ?? `${g.type}-${g.vmid}`}
                     </span>
                     <span className="text-muted-foreground">
@@ -57,10 +57,10 @@ export default function Integrations() {
       </Card>
 
       {/* TrueNAS */}
-      <Card className="bg-card/60">
+      <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-            <Database className="h-4 w-4 text-sky-400" /> truenas
+            <Database className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> truenas
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
@@ -68,7 +68,7 @@ export default function Integrations() {
           {(tnas ?? []).length === 0 && !tnasError && <p className="text-muted-foreground">sin instancias configuradas</p>}
           {(tnas ?? []).map((inst) =>
             inst.error ? (
-              <div key={inst.name} className="rounded border border-red-900/50 p-2">
+              <div key={inst.name} className="rounded border border-destructive/40 p-2">
                 <span className="font-mono font-semibold">{inst.name}</span>
                 <Badge variant="destructive" className="ml-2 font-mono text-[10px]">error</Badge>
                 <p className="mt-1 text-muted-foreground">{inst.error}</p>
@@ -91,7 +91,7 @@ export default function Integrations() {
                           <HardDrive className="h-3 w-3" />
                           {pool.name}
                         </span>
-                        <span className={pool.status === 'ONLINE' ? 'text-emerald-400' : 'text-red-400'}>
+                        <span className={pool.status === 'ONLINE' ? 'text-ok' : 'text-destructive'}>
                           {pool.status}
                         </span>
                       </div>
@@ -118,10 +118,10 @@ export default function Integrations() {
       </Card>
 
       {/* AdGuard */}
-      <Card className="bg-card/60">
+      <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-            <ShieldHalf className="h-4 w-4 text-violet-400" /> adguard home
+            <ShieldHalf className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> adguard home
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
@@ -129,7 +129,7 @@ export default function Integrations() {
           {(ag ?? []).length === 0 && !agError && <p className="text-muted-foreground">sin instancias configuradas</p>}
           {(ag ?? []).map((inst) =>
             inst.error ? (
-              <div key={inst.name} className="rounded border border-red-900/50 p-2">
+              <div key={inst.name} className="rounded border border-destructive/40 p-2">
                 <span className="font-mono font-semibold">{inst.name}</span>
                 <Badge variant="destructive" className="ml-2 font-mono text-[10px]">error</Badge>
                 <p className="mt-1 text-muted-foreground">{inst.error}</p>
@@ -146,7 +146,7 @@ export default function Integrations() {
                     <div className="text-[10px] uppercase text-muted-foreground">consultas DNS</div>
                   </div>
                   <div className="rounded bg-muted/40 p-2 text-center">
-                    <div className="font-mono text-lg font-bold text-violet-300">
+                    <div className="font-mono text-lg font-bold">
                       {(inst.num_blocked_filtering ?? 0).toLocaleString()}
                     </div>
                     <div className="text-[10px] uppercase text-muted-foreground">bloqueadas</div>

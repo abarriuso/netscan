@@ -22,10 +22,10 @@ export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
   }
 
   return (
-    <Card className="bg-card/60">
+    <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-          <BellRing className="h-4 w-4 text-red-400" /> alertas
+          <BellRing className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> alertas
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-xs">

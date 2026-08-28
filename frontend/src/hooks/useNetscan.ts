@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, progressSocket } from '@/lib/api'
-import type { ScanProgress } from '@/types'
+import type { ScanProgress, ScanStage } from '@/types'
 
 /** Poll an API getter on an interval; refreshKey forces an extra fetch. */
 export function usePoll<T>(getter: () => Promise<T>, intervalMs = 10000, refreshKey = 0) {
@@ -66,16 +66,67 @@ export function useScanProgress() {
     }
   }, [])
 
-  const startScan = useCallback(async (full: boolean) => {
+  const startScan = useCallback(async (opts: { full?: boolean; only?: ScanStage } = {}) => {
     setScanning(true)
     try {
-      await api.startScan(full)
+      await api.startScan(opts)
     } catch {
       setScanning(false)
     }
   }, [])
 
   return { progress, scanning, startScan }
+}
+
+/** Smoothly animate a numeric value toward its target with requestAnimationFrame. */
+export function useAnimatedNumber(target: number, duration = 600): number {
+  const [value, setValue] = useState(target)
+  const fromRef = useRef(target)
+  const rafRef = useRef<number>(0)
+
+  // Track the latest displayed value in an effect (never during render) so the
+  // next animation can start from wherever we currently are.
+  const valueRef = useRef(target)
+  useEffect(() => {
+    valueRef.current = value
+  }, [value])
+
+  useEffect(() => {
+    const reduce =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduce || !Number.isFinite(target)) {
+      // Jump straight to the value on the next frame (no in-effect setState).
+      rafRef.current = requestAnimationFrame(() => setValue(target))
+      return () => cancelAnimationFrame(rafRef.current)
+    }
+    fromRef.current = valueRef.current
+    let start = 0
+    const tick = (ts: number) => {
+      if (!start) start = ts
+      const t = Math.min((ts - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - t, 3) // easeOutCubic
+      setValue(fromRef.current + (target - fromRef.current) * eased)
+      if (t < 1) rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [target, duration])
+
+  return value
+}
+
+export function formatBps(bytesPerSec?: number): string {
+  if (!bytesPerSec || bytesPerSec < 1) return '0 bps'
+  const bits = bytesPerSec * 8
+  const units = ['bps', 'Kbps', 'Mbps', 'Gbps']
+  let value = bits
+  let unit = 0
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000
+    unit++
+  }
+  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`
 }
 
 export function formatBytes(bytes?: number): string {
