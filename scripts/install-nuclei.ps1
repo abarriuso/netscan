@@ -28,5 +28,21 @@ Write-Host "SHA256 verificado: $local"
 Expand-Archive -Force $zip $d
 Remove-Item $zip
 $p = [Environment]::GetEnvironmentVariable('Path', 'User')
-if ($p -notlike "*$d*") { [Environment]::SetEnvironmentVariable('Path', "$p;$d", 'User') }
+if ($p -notlike "*$d*") {
+    [Environment]::SetEnvironmentVariable('Path', "$p;$d", 'User')
+
+    # SetEnvironmentVariable solo escribe en el registro: Explorer (y por
+    # tanto cualquier cmd/acceso directo nuevo lanzado desde el escritorio)
+    # sigue usando su bloque de entorno en memoria hasta que recibe este
+    # broadcast, o hasta cerrar sesion. Sin esto, nuclei queda instalado
+    # pero invisible para NetScan en la siguiente ejecucion normal.
+    $sig = '[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+            public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);'
+    $type = Add-Type -MemberDefinition $sig -Name Win32SendMessageTimeout -Namespace Win32Broadcast -PassThru
+    $HWND_BROADCAST = [IntPtr]0xffff
+    $WM_SETTINGCHANGE = 0x1a
+    $SMTO_ABORTIFHUNG = 0x2
+    $result = [UIntPtr]::Zero
+    $type::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE, [UIntPtr]::Zero, 'Environment', $SMTO_ABORTIFHUNG, 5000, [ref]$result) | Out-Null
+}
 Get-ChildItem $d -Filter nuclei* | Select-Object -First 3 Name

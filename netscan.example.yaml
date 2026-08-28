@@ -2,9 +2,14 @@
 # NEVER commit tokens/secrets: prefer environment variables
 # (NETSCAN_PROXMOX__0__TOKEN_SECRET, NETSCAN_TRUENAS__0__API_KEY, ...).
 
-api_host: 0.0.0.0
+# 127.0.0.1 keeps the API reachable only from this machine. Only change this
+# to 0.0.0.0 (listen on all interfaces) after setting NETSCAN_API_TOKEN —
+# without a token, an API bound to 0.0.0.0 is unauthenticated and lets
+# anyone on your LAN trigger scans, read the inventory and wake devices.
+api_host: 127.0.0.1
 api_port: 8600
 data_dir: data
+# api_token: ""  # set via NETSCAN_API_TOKEN env var, required before api_host: 0.0.0.0
 
 scan:
   network: ""            # empty = auto-detect
@@ -19,6 +24,10 @@ scan:
   use_nuclei: false      # auditoría de vulnerabilidades de las web UIs (opt-in)
   alert_on_new_device: true
   alert_on_device_down: false
+  # --- Speed test / métricas de calidad por dispositivo ---
+  use_speedtest: true    # latencia media/min/max, jitter, pérdida y handshake TCP
+  speedtest_pings: 5     # nº de pings por dispositivo (jitter/pérdida)
+  use_throughput: false  # medir ancho de banda real por HTTP (más lento, opt-in)
 
 # Notification targets (Apprise URLs): ntfy, Telegram, Discord, email...
 notify_urls:

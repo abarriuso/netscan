@@ -1,0 +1,47 @@
+name: Build Windows installer
+
+# Runs standalone for manual/ad-hoc builds (workflow_dispatch), and is also
+# called by release.yml as a reusable workflow so that a single job
+# (release.yml's `publish`) owns creating/attaching the GitHub Release.
+# NOTE: this intentionally does NOT trigger on tag push anymore — release.yml
+# already triggers on tag push and calls this workflow, so keeping both
+# triggers would run the build twice and race to attach assets to the same
+# release.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build dashboard
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile installer
+        run: iscc packaging\windows\netscan.iss
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetScan-Setup
+          path: packaging/windows/Output/NetScan-Setup.exe
+          if-no-files-found: error

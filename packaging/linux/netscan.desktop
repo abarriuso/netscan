@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=NetScan
+GenericName=Network Scanner
+Comment=Escáner de red y monitor de homelab
+Exec=@VENV@/bin/netscan up
+Path=@ROOT@
+Terminal=true
+Categories=Network;System;Monitor;
+Keywords=network;scan;homelab;monitor;
+Icon=network-workgroup

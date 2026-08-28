@@ -5,9 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -21,6 +29,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
 
       - name: Install
         run: pip install -e ".[dev]"
@@ -46,6 +56,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
@@ -72,6 +83,7 @@ jobs:
 
   license-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -90,3 +102,33 @@ jobs:
             echo "::error::Dependencias con licencia incompatible encontradas (listadas arriba)"
             exit 1
           fi
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend (for pip-audit dependency resolution)
+        run: pip install ./backend
+
+      - name: pip-audit (backend dependencies)
+        run: |
+          pip install pip-audit
+          pip-audit --strict
+
+      - name: npm audit (frontend dependencies)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --audit-level=high

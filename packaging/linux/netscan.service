@@ -1,0 +1,24 @@
+# NetScan — servicio systemd (instalado por ./install.sh --system)
+# Los marcadores @ROOT@ y @VENV@ los sustituye el instalador.
+[Unit]
+Description=NetScan homelab network scanner (API + dashboard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@ROOT@
+# Configuración del servicio web: host, puerto y token de la API.
+# El fichero lo crea 'install.sh --system' (el guion '-' lo hace opcional).
+EnvironmentFile=-/etc/netscan/netscan.env
+# 'up' arranca API + dashboard integrado en un solo puerto, sin navegador.
+# Toma NETSCAN_API_HOST / NETSCAN_API_PORT / NETSCAN_API_TOKEN del entorno.
+ExecStart=@VENV@/bin/netscan up --no-browser
+Restart=on-failure
+RestartSec=5
+# El escaneo ARP necesita capacidad de captura de paquetes en crudo.
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+NoNewPrivileges=false
+
+[Install]
+WantedBy=multi-user.target

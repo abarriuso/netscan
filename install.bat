@@ -6,12 +6,13 @@ REM
 REM  Uso:  install.bat             instala TODO (recomendado)
 REM        install.bat --minimal  solo backend + frontend,
 REM                               sin herramientas externas
+REM        install.bat --run      instala Y lanza todo (netscan up)
 REM
 REM  Instala TODO lo necesario:
 REM   1. Python 3.12 (via winget, si falta)
 REM   2. Entorno virtual + backend (netscan CLI + API)
 REM   3. Herramientas externas: nmap, RustScan, Npcap y nuclei
-REM   4. Node.js LTS (via winget, si falta) + deps del dashboard
+REM   4. Node.js LTS (via winget, si falta) + build del dashboard
 REM
 REM  Algunos pasos pediran elevacion (UAC) — acepta y listo.
 REM ============================================================
@@ -19,7 +20,11 @@ REM ============================================================
 cd /d "%~dp0"
 set "VENV_PY=%~dp0backend\.venv\Scripts\python.exe"
 set "MINIMAL=0"
-if /i "%~1"=="--minimal" set "MINIMAL=1"
+set "RUNAFTER=0"
+for %%A in (%*) do (
+    if /i "%%~A"=="--minimal" set "MINIMAL=1"
+    if /i "%%~A"=="--run" set "RUNAFTER=1"
+)
 
 echo.
 echo ============================================================
@@ -179,29 +184,44 @@ if !errorlevel! neq 0 (
     cd ..
     goto :error
 )
+echo       Compilando el dashboard ^(npm run build^)...
+call npm run build
+if !errorlevel! neq 0 (
+    echo       AVISO: el build del dashboard fallo; la API funcionara sin UI integrada.
+)
 cd ..
 echo       Frontend OK.
 
 REM --- 5. Verificacion ----------------------------------------
 :verify
 echo.
-echo [5/5] Verificando capacidades...
-"%VENV_PY%" -m netscan.cli caps
+echo [5/5] Verificando...
+"%VENV_PY%" -m netscan.cli doctor
 
 echo.
 echo ============================================================
 echo   Instalacion completa.
 echo.
-echo   CLI:       netscan.bat scan --full
-echo   Servidor:  netscan.bat serve      ^(API en :8600^)
-echo   Dashboard: cd frontend
-echo              npm run dev
+echo   TODO en un comando:  netscan.bat up      ^(API + dashboard + navegador^)
+echo   Solo API:            netscan.bat serve
+echo   Escaneo:             netscan.bat scan --full
+echo   Speed test:          netscan.bat speedtest
+echo   Diagnostico:         netscan.bat doctor
 echo ============================================================
+
+if "%RUNAFTER%"=="1" (
+    echo.
+    echo Lanzando NetScan...
+    call "%~dp0netscan.bat" up
+    exit /b 0
+)
+if "%NETSCAN_NONINTERACTIVE%"=="1" exit /b 0
 pause
 exit /b 0
 
 :error
 echo.
 echo ERROR: la instalacion ha fallado. Revisa los mensajes anteriores.
+if "%NETSCAN_NONINTERACTIVE%"=="1" exit /b 1
 pause
 exit /b 1
