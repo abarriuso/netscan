@@ -29,6 +29,18 @@ app = typer.Typer(
 )
 console = Console()
 
+# Shocking pink — the one loud accent NetScan allows itself, reserved for
+# this startup banner (the dashboard itself stays sober; see index.css).
+_BANNER_PINK = "bold #FC0FC0"
+
+
+def _print_banner() -> None:
+    """Big ASCII-art banner for the flagship `up` command."""
+    import pyfiglet
+
+    banner = pyfiglet.figlet_format("NETSCAN", font="3-d", width=200)
+    console.print(Text(banner, style=_BANNER_PINK))
+
 
 @app.command()
 def scan(
@@ -273,6 +285,7 @@ def up(
 
     import uvicorn
 
+    _print_banner()
     settings = load_settings()
     listen_host = host or settings.api_host
     listen_port = port or settings.api_port

@@ -124,8 +124,8 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
     <header className="flex flex-wrap items-end gap-6 border-b border-border bg-card/40 px-8 py-5">
       <div className="flex items-center gap-3">
         <Radar className="h-6 w-6 text-foreground" strokeWidth={1.4} />
-        <div className="border-b-2 border-primary pb-1.5">
-          <h1 className="text-xl font-semibold tracking-tight">Netscan</h1>
+        <div className="pb-1.5">
+          <h1 className="brand-mark text-2xl">Netscan</h1>
           <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
             monitor de red y sistemas para homelab
           </p>
