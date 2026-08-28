@@ -86,8 +86,8 @@ if not exist "%VENV_PY%" (
     %PYBOOT% -m venv backend\.venv
     if !errorlevel! neq 0 goto :error
 )
-"%VENV_PY%" -m pip install --quiet --upgrade pip
-"%VENV_PY%" -m pip install --quiet -e backend
+"%VENV_PY%" -m pip install --upgrade pip
+"%VENV_PY%" -m pip install -e backend
 if !errorlevel! neq 0 goto :error
 echo       Backend OK.
 

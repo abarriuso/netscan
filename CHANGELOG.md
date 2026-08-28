@@ -35,6 +35,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   tarjetas y medidores **animados** (respetan `prefers-reduced-motion`).
 - `netscan doctor`: diagnóstico de Python, privilegios, toolchain, Node,
   dashboard compilado, base de datos e interfaces de red.
+- **whatweb y testssl.sh conectados de verdad al motor de escaneo**
+  (antes solo se detectaban, pero nunca se llamaban): `whatweb` añade
+  huella de tecnologías web (`HttpInfo.tech`) a cada web UI encontrada;
+  `testssl.sh` audita la configuración TLS y sus hallazgos se suman a
+  `vulnerabilities` junto a los de nuclei (cada entrada lleva ahora
+  `tool: "nuclei" | "testssl"`). Lanzables individualmente desde el menú
+  "acciones" del dashboard (`only=whatweb` / `only=testssl` en
+  `POST /api/scans`), igual que ARP/mDNS/nmap/RustScan/nuclei.
 
 ### Seguridad
 - Autenticación opcional por token (`NETSCAN_API_TOKEN`) en HTTP y WebSocket.
@@ -93,5 +101,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   a diferencia de `netscan.sh`; ahora tiene la misma lista de excepciones.
 - `install.sh` abortaba toda la instalación si fallaba `npm run build`;
   ahora es un aviso no fatal, igual que `install.bat`.
+- **Bug real, encontrado en vivo**: `install.sh`/`netscan.sh` usaban
+  `backend/.venv`, el mismo path que `install.bat` en Windows. Al correr
+  `install.sh` desde WSL sobre un checkout compartido en `/mnt/c/...`, esto
+  corrompe el venv nativo de Windows (un venv de Windows y uno de Linux no
+  pueden convivir en el mismo directorio). Ahora usan `backend/.venv-linux`,
+  totalmente separado. `install.sh` también instala automáticamente
+  `pythonX.Y-venv` si falta (causa típica de `ensurepip is not available`
+  en Ubuntu) y reintenta, en vez de fallar.
 - Legal: PEP 639 en `pyproject.toml`, NOTICE corregido (sin proxmoxer/websockets,
   con typer/PyYAML), LICENSE + NOTICE incluidos en el paquete.

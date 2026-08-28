@@ -15,8 +15,18 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
-VENV="$ROOT/backend/.venv"
+# NOT backend/.venv: on WSL that path is often the SAME directory as the
+# Windows-native venv (repo checked out on the Windows filesystem, seen
+# from WSL as /mnt/c/...). A Windows venv (.exe launchers) and a Linux venv
+# (bin/python symlinks) cannot share one directory — installing one over
+# the other corrupts both. Keep them fully separate.
+VENV="$ROOT/backend/.venv-linux"
 PY="$VENV/bin/python"
+if [ -f "$ROOT/backend/.venv/Scripts/python.exe" ] && [ ! -e "$VENV" ]; then
+  c_yellow() { printf '\033[33m%s\033[0m\n' "$1"; }
+  c_yellow "Aviso: backend/.venv ya existe y parece un venv de Windows (tiene Scripts/python.exe)."
+  c_yellow "Este instalador usa backend/.venv-linux en su lugar, así que no lo toca. Ignora este aviso si es la primera vez que ves esto."
+fi
 
 MINIMAL=0
 RUN=0
@@ -68,10 +78,30 @@ c_green "      Python OK: $($PYBOOT --version)"
 # --- 2. Backend ----------------------------------------------
 echo; c_cyan "[2/5] Creando entorno virtual e instalando el backend..."
 if [ ! -x "$PY" ]; then
-  "$PYBOOT" -m venv "$VENV"
+  if ! "$PYBOOT" -m venv "$VENV" 2>/tmp/netscan-venv-err.$$; then
+    # Typical Debian/Ubuntu failure: python3 present but the venv/ensurepip
+    # module lives in a separate "pythonX.Y-venv" package that isn't
+    # installed. Install it and retry once instead of failing outright.
+    if grep -qi "ensurepip is not available\|No module named venv" /tmp/netscan-venv-err.$$ 2>/dev/null \
+       && command -v apt-get >/dev/null 2>&1; then
+      PYVER="$("$PYBOOT" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
+      c_yellow "      Falta el paquete de venv para Python $PYVER; instalando python${PYVER}-venv..."
+      sudo apt-get update -y && sudo apt-get install -y "python${PYVER}-venv"
+      "$PYBOOT" -m venv "$VENV"
+    else
+      cat /tmp/netscan-venv-err.$$ >&2
+      rm -f /tmp/netscan-venv-err.$$
+      exit 1
+    fi
+  fi
+  rm -f /tmp/netscan-venv-err.$$
 fi
-"$PY" -m pip install --quiet --upgrade pip
-"$PY" -m pip install --quiet -e "$ROOT/backend"
+"$PY" -m pip install --upgrade pip
+# No --quiet: pip install here pulls scapy/cryptography/fastapi/uvicorn and
+# friends, and on WSL2 against a /mnt/c/... path (cross-filesystem 9P I/O)
+# this can take a couple of minutes. Silent output looks exactly like a
+# hang; showing pip's normal progress avoids that.
+"$PY" -m pip install -e "$ROOT/backend"
 c_green "      Backend OK."
 
 # --- 3. Herramientas externas --------------------------------
