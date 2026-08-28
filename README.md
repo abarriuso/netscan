@@ -118,6 +118,109 @@ adjunta ambos, junto al paquete Python, a cada release de un tag `v*`.
 > reportarlo como bug. `install.bat` ya lo hace por ti en la misma ejecución;
 > solo afecta a una `netscan.bat`/consola abierta *antes* de instalar.
 
+### Windows con las 6 herramientas — todo lo que ves aquí, funciona
+
+Hay **6 herramientas externas** que NetScan sabe usar: `nmap`, `RustScan`,
+`nuclei`, `whatweb`, `testssl.sh` y `masscan` (esta última detectada pero
+sin usar todavía). Todas están **conectadas de verdad al motor de escaneo**
+— no es solo un indicador visual, cada una hace algo real cuando la lanzas
+desde el menú "acciones" del dashboard o desde `netscan scan --full`.
+
+El problema es que **`install.bat` (Windows nativo) solo puede instalar 3
+de las 6**: `nmap`, `RustScan` y `nuclei` tienen forma de instalarse en
+Windows (winget, o descarga verificada por SHA256). `whatweb` y
+`testssl.sh` **no la tienen** — son herramientas Linux (una gema de Ruby,
+un script bash sobre OpenSSL) sin equivalente nativo de Windows. Y
+`masscan`, aunque compila en Windows, no tiene paquete winget mantenido, así
+que tampoco se instala solo.
+
+**¿Cuál es la solución?** Ejecutar NetScan dentro de **WSL** (Linux dentro
+de Windows) en vez del NetScan nativo de Windows. Ahí sí puede instalar las
+6. Esto es dos pasos separados — primero WSL, luego NetScan dentro:
+
+**1. Instala WSL (una vez, si no lo tienes ya):**
+
+Abre PowerShell **como administrador** (clic derecho → "Ejecutar como
+administrador") y escribe:
+
+```powershell
+wsl --install
+```
+
+Esto instala Ubuntu por defecto. Si te pide reiniciar el PC, reinicia.
+Después de reiniciar (o si no hacía falta), busca **"Ubuntu"** en el menú
+de inicio y ábrelo — la primera vez te pedirá crear un usuario y contraseña
+de Linux (puedes poner lo que quieras, no tiene que coincidir con tu cuenta
+de Windows). Eso ya es tu terminal de Linux, integrada en Windows.
+
+**2. Dentro de esa ventana de Ubuntu, instala las herramientas:**
+
+Copia y pega esto (una línea, luego Enter; te pedirá la contraseña que
+acabas de crear):
+
+```bash
+sudo apt update && sudo apt install -y whatweb testssl.sh nmap masscan
+```
+
+Si `testssl.sh` no aparece disponible en tu versión de Ubuntu (algunas
+versiones no lo traen empaquetado), instálalo así en su lugar:
+
+```bash
+git clone --depth 1 https://github.com/drwetter/testssl.sh.git ~/testssl.sh
+sudo ln -s ~/testssl.sh/testssl.sh /usr/local/bin/testssl.sh
+```
+
+**3. Arranca NetScan desde dentro de WSL** (no desde `netscan.bat` — ese es
+solo para el NetScan nativo de Windows). Tu disco `C:\` se ve desde WSL en
+`/mnt/c/`, así que entras al mismo repo que ya tienes:
+
+```bash
+cd /mnt/c/COSAS/PROYECTOS/NETSCAN
+./install.sh
+./netscan.sh up
+```
+
+`./install.sh` instala RustScan y nuclei igual que hace `install.bat` en
+Windows (y detecta que `whatweb`/`testssl.sh` ya están, del paso 2), y crea
+su propio entorno virtual en `backend/.venv-linux` — **separado** del
+`backend/.venv` que usa Windows, aunque sea el mismo checkout de repo visto
+desde `/mnt/c/`. Un venv de Windows (`Scripts/python.exe`) y uno de Linux
+(`bin/python`) no pueden compartir carpeta sin corromperse mutuamente; por
+eso van cada uno en la suya. `./netscan.sh up` arranca la API + el
+dashboard. El navegador se abre solo; si no, entra tú a
+`http://localhost:8600` — WSL2 comparte red con Windows, así que funciona
+igual que si NetScan corriera nativo.
+
+Si `python3 -m venv` falla con `ensurepip is not available` (Ubuntu separa
+el módulo `venv` en un paquete aparte), `install.sh` ya lo detecta e
+instala automáticamente el paquete que falta (`python3.XX-venv`) y
+reintenta — no hace falta nada manual.
+
+**4. Comprueba que las ves todas:**
+
+```bash
+./netscan.sh doctor
+```
+
+Deberías ver las 6 en verde (o "OK") salvo `masscan`, que aparece detectada
+pero el motor todavía no la usa (ver tabla más abajo).
+
+> **Nota importante**: esto son dos NetScan *separados* — el nativo de
+> Windows (`netscan.bat`, con 3 herramientas) y el de WSL
+> (`netscan.sh`, con las 6). No hace falta desinstalar el de Windows; usa
+> el que necesites en cada momento. Si quieres que WSL arranque solo al
+> encender el PC, puedes crear una tarea programada de Windows que lance
+> `wsl ./netscan.sh up --no-browser`, pero eso ya es opcional.
+
+| Herramienta | Windows nativo (`install.bat`) | WSL (`install.sh`) | ¿El motor la usa? |
+|---|---|---|---|
+| nmap | ✅ | ✅ | Sí |
+| RustScan | ✅ | ✅ | Sí |
+| nuclei | ✅ | ✅ | Sí |
+| whatweb | ❌ | ✅ | Sí |
+| testssl.sh | ❌ | ✅ | Sí |
+| masscan | ❌ | ✅ (vía apt) | No — detectada, sin cablear al motor todavía |
+
 ### Servicio web en Linux (systemd)
 
 Para dejar NetScan como **servicio web** accesible en la LAN:

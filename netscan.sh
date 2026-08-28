@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # ============================================================
 #  Lanzador de NetScan para Linux / macOS
-#  - Usa el entorno virtual backend/.venv
+#  - Usa el entorno virtual backend/.venv-linux (separado del .venv de
+#    Windows: en WSL, sobre un checkout compartido en /mnt/c/..., ambos
+#    venvs no pueden vivir en el mismo directorio sin corromperse)
 #  - Se auto-eleva con sudo (el escaneo ARP necesita privilegios)
 #  - Ejemplos:
 #      ./netscan.sh up            API + dashboard + navegador
@@ -12,7 +14,7 @@
 # ============================================================
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PY="$ROOT/backend/.venv/bin/python"
+PY="$ROOT/backend/.venv-linux/bin/python"
 
 if [ ! -x "$PY" ]; then
   echo "ERROR: no existe el entorno virtual. Ejecuta primero: ./install.sh"
