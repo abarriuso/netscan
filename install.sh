@@ -109,7 +109,7 @@ echo
 if [ "$MINIMAL" = "1" ]; then
   c_yellow "[3/5] Herramientas externas OMITIDAS (--minimal)."
 else
-  c_cyan "[3/5] Instalando herramientas externas (best-effort: nmap...)"
+  c_cyan "[3/5] Instalando herramientas externas (nmap, masscan, whatweb, testssl.sh, RustScan, nuclei)..."
   install_tool() {
     command -v "$1" >/dev/null 2>&1 && { echo "      $1 ya instalado."; return; }
     if   command -v apt-get >/dev/null 2>&1; then sudo apt-get install -y "$2" || true
@@ -118,10 +118,72 @@ else
     elif command -v brew    >/dev/null 2>&1; then brew install "$2" || true
     else c_yellow "      No sé instalar $1 en este sistema; se omite (degradación elegante)."; fi
   }
+
+  # Package-manager tools: same as install.bat's winget set, plus the two
+  # that only exist on Linux (whatweb, testssl.sh have no Windows build).
   install_tool nmap nmap
-  # RustScan/nuclei suelen requerir cargo/go; se omiten si no están.
-  command -v cargo >/dev/null 2>&1 && ! command -v rustscan >/dev/null 2>&1 && \
-    { c_cyan "      Instalando RustScan vía cargo..."; cargo install rustscan || true; }
+  install_tool masscan masscan
+  install_tool whatweb whatweb
+  install_tool testssl.sh testssl.sh
+  if ! command -v testssl.sh >/dev/null 2>&1; then
+    # Not every distro's repo ships it (package name/version varies) — the
+    # upstream repo always works and is what the README's manual steps use.
+    c_cyan "      testssl.sh no estaba en los repos; clonando desde GitHub..."
+    git clone --depth 1 -q https://github.com/drwetter/testssl.sh.git /tmp/testssl.sh.$$ 2>/dev/null \
+      && sudo ln -sf /tmp/testssl.sh.$$/testssl.sh /usr/local/bin/testssl.sh \
+      || c_yellow "      No se pudo instalar testssl.sh; se omite (degradación elegante)."
+  fi
+
+  # RustScan and nuclei: no apt/dnf/pacman package exists anywhere. Same
+  # approach as Windows' verified nuclei download (see
+  # scripts/install-nuclei.ps1) — grab the latest GitHub release binary.
+  # amd64/x86_64 only; other architectures degrade gracefully.
+  ARCH="$(uname -m)"
+  if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then
+    if ! command -v rustscan >/dev/null 2>&1; then
+      c_cyan "      Instalando RustScan..."
+      # bee-san/RustScan (the RustScan/RustScan API path 301-redirects here).
+      # Only Linux release asset is rustscan.deb.zip — a zip CONTAINING a
+      # .deb, not a .deb itself (verified against a real release, not
+      # guessed from the filename).
+      ZIP_URL="$( (curl -sL https://api.github.com/repos/bee-san/RustScan/releases/latest \
+        | grep -o '"browser_download_url": *"[^"]*rustscan\.deb\.zip"' | cut -d'"' -f4 | head -1) || true )"
+      if [ -n "$ZIP_URL" ] && command -v dpkg >/dev/null 2>&1 && command -v unzip >/dev/null 2>&1; then
+        ( curl -sL -o /tmp/rustscan.$$.zip "$ZIP_URL" \
+          && unzip -oq /tmp/rustscan.$$.zip -d /tmp/rustscan.$$ \
+          && sudo dpkg -i /tmp/rustscan.$$/*.deb >/dev/null 2>&1 \
+          && rm -rf /tmp/rustscan.$$.zip /tmp/rustscan.$$ ) || true
+      fi
+      if ! command -v rustscan >/dev/null 2>&1 && command -v cargo >/dev/null 2>&1; then
+        c_cyan "      dpkg no disponible; instalando RustScan vía cargo..."
+        cargo install rustscan || true
+      fi
+      command -v rustscan >/dev/null 2>&1 \
+        && c_green "      RustScan OK." \
+        || c_yellow "      No se pudo instalar RustScan; se omite (degradación elegante)."
+    else
+      echo "      RustScan ya instalado."
+    fi
+
+    if ! command -v nuclei >/dev/null 2>&1; then
+      c_cyan "      Instalando nuclei..."
+      ZIP_URL="$( (curl -s https://api.github.com/repos/projectdiscovery/nuclei/releases/latest \
+        | grep -o '"browser_download_url": *"[^"]*linux_amd64\.zip"' | cut -d'"' -f4 | head -1) || true )"
+      if [ -n "$ZIP_URL" ] && command -v unzip >/dev/null 2>&1; then
+        ( curl -sL -o /tmp/nuclei.$$.zip "$ZIP_URL" \
+          && unzip -oq /tmp/nuclei.$$.zip -d /tmp/nuclei.$$ \
+          && sudo install -m 755 /tmp/nuclei.$$/nuclei /usr/local/bin/nuclei \
+          && rm -rf /tmp/nuclei.$$.zip /tmp/nuclei.$$ ) || true
+      fi
+      command -v nuclei >/dev/null 2>&1 \
+        && c_green "      nuclei OK." \
+        || c_yellow "      No se pudo instalar nuclei; se omite (degradación elegante)."
+    else
+      echo "      nuclei ya instalado."
+    fi
+  else
+    c_yellow "      RustScan/nuclei: solo hay binario amd64 en GitHub; arquitectura $ARCH no soportada, se omiten."
+  fi
 fi
 
 # --- 4. Node.js + dashboard ----------------------------------

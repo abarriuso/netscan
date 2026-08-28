@@ -35,6 +35,21 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   tarjetas y medidores **animados** (respetan `prefers-reduced-motion`).
 - `netscan doctor`: diagnóstico de Python, privilegios, toolchain, Node,
   dashboard compilado, base de datos e interfaces de red.
+- Banner ASCII 3D en rosa chillón (`pyfiglet`, fuente `3-d`) al lanzar
+  `netscan up`; el wordmark "Netscan" del dashboard tiene el mismo
+  tratamiento (extrusión 3D vía `text-shadow` + shimmer animado,
+  respeta `prefers-reduced-motion`) y favicon a juego. Es la única
+  excepción deliberada a la paleta de un solo acento — el resto del
+  dashboard no cambia.
+- README: sección "Instalación en un comando" al principio, antes de
+  "Qué hace", con los dos one-liners (`install.bat --run` /
+  `./install.sh --run`) sin que haga falta bajar a buscarlos.
+- `install.sh` ahora instala también `masscan`, `whatweb` y `testssl.sh`
+  (paquete del sistema, o clonado desde GitHub si el repo no lo trae) y,
+  en amd64/x86_64, descarga los binarios de RustScan y nuclei desde su
+  último release de GitHub cuando no hay `cargo` a mano — antes solo
+  intentaba `nmap` y RustScan vía `cargo`. Degradación elegante si algo
+  falla o la arquitectura no es amd64.
 - **whatweb y testssl.sh conectados de verdad al motor de escaneo**
   (antes solo se detectaban, pero nunca se llamaban): `whatweb` añade
   huella de tecnologías web (`HttpInfo.tech`) a cada web UI encontrada;

@@ -19,6 +19,27 @@ integración directa de **Proxmox VE**, **TrueNAS** y **AdGuard Home**.
 └──────────────────────────────────────────────────────────────┘
 ```
 
+## Instalación en un comando
+
+**Windows:**
+
+```bat
+install.bat --run
+```
+
+**Linux / macOS / WSL:**
+
+```bash
+chmod +x install.sh netscan.sh && ./install.sh --run
+```
+
+Cada uno hace TODO: comprueba/instala Python y Node si faltan, crea el
+entorno virtual, instala el backend, las herramientas externas que puede
+(`nmap`, `RustScan`, `nuclei`…), compila el dashboard y lo arranca —
+`http://localhost:8600` se abre solo. No hay un segundo paso manual. Detalle
+completo, opciones (`--minimal`, `--system`, instalador de Windows,
+Docker, WSL con las 6 herramientas) en [Arranque rápido](#arranque-rápido-un-solo-comando).
+
 ## Qué hace
 
 **Descubrimiento y fingerprinting**
