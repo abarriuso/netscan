@@ -60,11 +60,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   `POST /api/scans`), igual que ARP/mDNS/nmap/RustScan/nuclei.
 - **Aprovisionamiento de Proxmox LXC en un comando**
   (`packaging/proxmox/create-lxc.sh` + `bootstrap-lxc.sh`): desde la shell
-  del host Proxmox, crea un CT Debian 12 sin privilegiar en el bridge de
+  del host Proxmox, crea un CT sin privilegiar (Ubuntu 26.04 LTS por
+  defecto, cualquier plantilla Debian/Ubuntu vale) en el bridge de
   la LAN real, lo arranca y le instala NetScan dentro
   (`install.sh --system`) — termina imprimiendo la URL del dashboard y
   dónde está el token. `bootstrap-lxc.sh` también se puede usar solo,
   contra cualquier CT/VM Linux ya creado.
+- **Diálogo de token en el dashboard** (`<TokenDialog>`): sustituye al
+  `window.prompt()` nativo para pedir `NETSCAN_API_TOKEN` — se abre solo
+  al primer 401, o a mano con el icono de llave del header (para
+  cambiarlo tras rotar el token). Todas las peticiones concurrentes
+  esperan al mismo diálogo en vez de reintentar cada una por su cuenta.
 
 ### Seguridad
 - Autenticación opcional por token (`NETSCAN_API_TOKEN`) en HTTP y WebSocket.
@@ -133,3 +139,37 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   en Ubuntu) y reintenta, en vez de fallar.
 - Legal: PEP 639 en `pyproject.toml`, NOTICE corregido (sin proxmoxer/websockets,
   con typer/PyYAML), LICENSE + NOTICE incluidos en el paquete.
+- **Cinco bugs reales de aprovisionamiento LXC, encontrados en una instalación
+  en vivo sobre Proxmox (Ubuntu 26.04/Python 3.14)**, todos con el
+  aprovisionamiento colgándose o fallando sin completar la instalación:
+  - `needrestart` (viene en la plantilla `standard` de Debian/Ubuntu) muestra
+    un diálogo interactivo en cualquier `apt-get install`, ignorando
+    `DEBIAN_FRONTEND=noninteractive` — sin tty (`pct exec`, `curl | bash`) se
+    queda colgado para siempre sin ningún error. `install.sh` y
+    `bootstrap-lxc.sh` ahora lo silencian antes de instalar nada.
+  - La detección de "falta el paquete `pythonX.Y-venv`" comprobaba la frase
+    completa `ensurepip is not available` contra el `stderr` capturado, pero
+    CPython envuelve ese mensaje en dos líneas (ancho variable) **y lo
+    imprime por `stdout`, no por `stderr`** — la comprobación nunca podía
+    coincidir. Ahora captura ambos flujos y busca solo la palabra
+    `ensurepip`, inequívoca y nunca partida por el ajuste de línea.
+  - Ese mismo bug dejaba, tras un intento fallido anterior, un venv "válido"
+    (binario de Python ejecutable) pero sin pip instalado — la comprobación
+    de idempotencia (`[ -x $PY ]`) lo daba por bueno y la reinstalación
+    fallaba más adelante en `pip install --upgrade pip` con un error mucho
+    menos claro. Ahora también prueba `$PY -m pip --version` y reconstruye
+    el venv si no responde.
+  - `install.sh`/`netscan.sh` estaban trackeados en git como no ejecutables
+    (`100644`); el `chmod +x` de `bootstrap-lxc.sh` tras cada clonado creaba
+    un cambio de permisos sin commitear que hacía fallar el siguiente
+    `git pull` en un CT ya aprovisionado (`your local changes would be
+    overwritten by merge`). Commiteados ahora como `100755`.
+  - `install.sh` nunca instalaba Node.js — solo comprobaba si ya existía y
+    se saltaba el build del dashboard en silencio si no. Una plantilla LXC
+    pelada nunca trae Node, así que `frontend/dist` no se generaba nunca y
+    `/` devolvía `{"detail": "Not Found"}`. Ahora instala Node 20+ vía el
+    script de NodeSource en apt (con fallback a `dnf module`/`pacman`/`brew`)
+    antes de darse por vencido.
+- `create-lxc.sh`: memoria por defecto subida de 1024 a 2048 MB tras un
+  `oom-kill` real del servicio `netscan` (confirmado por `journalctl`)
+  durante el build de Vite del dashboard.

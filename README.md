@@ -258,7 +258,13 @@ necesarias (`CAP_NET_RAW`) y la arranca. El dashboard queda en
 ```bash
 systemctl status netscan        # estado del servicio
 journalctl -u netscan -f        # logs en vivo
+cat /etc/netscan/netscan.env    # recuperar el token si ya no lo tienes a mano
 ```
+
+La primera vez que el dashboard hace una petición sin token válido, se abre
+solo un diálogo pidiéndolo (guardado luego en el navegador); también puedes
+abrirlo cuando quieras con el icono de llave 🔑 del header, por ejemplo para
+cambiarlo tras rotar el token.
 
 Manual (sin systemd), como servicio en primer plano:
 
@@ -305,18 +311,28 @@ propone). Cualquiera de esos que ya venga fijado por variable de entorno
 no se pregunta; y si no hay una terminal real de por medio (lo lanzas
 desde un pipe o algo automatizado), tampoco pregunta nada — usa los
 valores por defecto sin más, para no quedarse colgado. Crea un CT sin
-privilegiar (Debian 12 por defecto — cualquier plantilla Debian/Ubuntu
-vale, ver `OS_TEMPLATE`), lo arranca, clona el repo dentro y ejecuta
-`install.sh --system` — al terminar imprime la URL del dashboard y dónde
-está el token. Todo se puede ajustar también por variable de entorno
-(`VMID`, `CT_NAME`, `BRIDGE`, `IP`, `CORES`, `MEMORY_MB`, `OS_TEMPLATE`,
-...); ver los comentarios de cabecera de `packaging/proxmox/create-lxc.sh`
-para el detalle completo. Por ejemplo, para usar Ubuntu 26.04 LTS en vez
-de Debian sin que te pregunte nada:
+privilegiar (**Ubuntu 26.04 LTS** por defecto — cualquier plantilla
+Debian/Ubuntu vale, ver `OS_TEMPLATE`; 2 vCPU / **2GB de RAM** — 1GB se
+queda corto y el `oom-kill` se lleva por delante al servicio a mitad de
+instalación, sobre todo durante el build del dashboard), lo arranca,
+clona el repo dentro y ejecuta `install.sh --system` — al terminar
+imprime la URL del dashboard y dónde está el token. Todo se puede
+ajustar también por variable de entorno (`VMID`, `CT_NAME`, `BRIDGE`,
+`IP`, `CORES`, `MEMORY_MB`, `OS_TEMPLATE`, ...); ver los comentarios de
+cabecera de `packaging/proxmox/create-lxc.sh` para el detalle completo.
+Por ejemplo, para usar Debian 12 en vez de Ubuntu sin que te pregunte
+nada:
 
 ```bash
-OS_TEMPLATE=ubuntu-26.04-standard ./create-lxc.sh
+OS_TEMPLATE=debian-12-standard ./create-lxc.sh
 ```
+
+Todo el proceso es desatendido de verdad: `install.sh`/`bootstrap-lxc.sh`
+ya silencian el diálogo interactivo de `needrestart` que trae Debian/Ubuntu
+(sin eso, un `apt-get install` de en medio se queda colgado para siempre
+sin dar ningún error, esperando una tecla que nunca llega por `pct exec`),
+e instalan Node.js 20+ solos si el contenedor no lo trae (una plantilla
+LXC pelada nunca lo trae) para poder compilar el dashboard.
 
 **El único ajuste que de verdad importa:** `BRIDGE` (por defecto `vmbr0`)
 tiene que ser un bridge conectado a tu LAN física, no NAT ni una zona SDN
