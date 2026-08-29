@@ -91,8 +91,14 @@ c_green "      Python OK: $($PYBOOT --version)"
 
 # --- 2. Backend ----------------------------------------------
 echo; c_cyan "[2/5] Creando entorno virtual e instalando el backend..."
-if [ ! -x "$PY" ]; then
-  if ! "$PYBOOT" -m venv "$VENV" 2>/tmp/netscan-venv-err.$$; then
+# No basta con comprobar que $PY existe: un intento anterior fallido (p.ej.
+# un venv creado sin pip por un fallo previo de ensurepip, luego interrumpido
+# antes de terminar de instalarlo) deja un venv "válido" pero sin pip, que
+# esta comprobación por sí sola daría por bueno — y el fallo real solo
+# aparecería más abajo en "pip install --upgrade pip" con un mensaje mucho
+# menos claro. Si pip no responde, se trata como si no existiera el venv.
+if [ ! -x "$PY" ] || ! "$PY" -m pip --version >/dev/null 2>&1; then
+  if ! "$PYBOOT" -m venv "$VENV" >/tmp/netscan-venv-err.$$ 2>&1; then
     # Typical Debian/Ubuntu failure: python3 present but the venv/ensurepip
     # module lives in a separate "pythonX.Y-venv" package that isn't
     # installed. Install it and retry — but don't just retry once and let
@@ -101,13 +107,18 @@ if [ ! -x "$PY" ]; then
     # package split differently than expected, or ensurepip itself broken
     # even once the OS package is present. Try progressively, and only
     # fail hard if every fallback is exhausted.
-    # Match on the bare word "ensurepip", not the full phrase "ensurepip is
-    # not available": CPython's own venv module word-wraps that message at
-    # ~79 chars (confirmed live on Ubuntu 26.04/Python 3.14 — it broke as
-    # "...is not\navailable..."), and even collapsing newlines to spaces
-    # first isn't reliable (textwrap can leave the wrap point with zero,
-    # one, or two spaces depending on where exactly it broke). "ensurepip"
-    # itself is never wrapped mid-word and is unambiguous for this failure.
+    # Two things confirmed live on Ubuntu 26.04/Python 3.14, both needed:
+    # (1) Debian's patched venv module prints its friendly
+    # "ensurepip is not available... apt install pythonX.Y-venv" hint to
+    # STDOUT, not stderr — a `2>file` redirect alone captures nothing, so
+    # the message printed straight to the terminal and every grep against
+    # the (empty) file silently failed regardless of pattern. Redirect both
+    # streams into the file instead. (2) Match on the bare word
+    # "ensurepip", not the full phrase "ensurepip is not available":
+    # CPython's own textwrap breaks that phrase across two lines at a
+    # variable point, so a fixed-phrase match is fragile even once the
+    # right stream is captured — "ensurepip" itself is never wrapped
+    # mid-word and is unambiguous for this failure.
     if grep -qi "ensurepip\|no module named venv" /tmp/netscan-venv-err.$$ 2>/dev/null \
        && command -v apt-get >/dev/null 2>&1; then
       PYVER="$("$PYBOOT" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
@@ -119,7 +130,7 @@ if [ ! -x "$PY" ]; then
       sudo apt-get install -y "python${PYVER}-venv" || true
       sudo apt-get install -y python3-venv || true
 
-      if "$PYBOOT" -m venv "$VENV" 2>/tmp/netscan-venv-err.$$; then
+      if "$PYBOOT" -m venv "$VENV" >/tmp/netscan-venv-err.$$ 2>&1; then
         rm -f /tmp/netscan-venv-err.$$
       elif grep -qi "ensurepip" /tmp/netscan-venv-err.$$ 2>/dev/null; then
         # venv module itself now works (creates the dir/activate scripts)
