@@ -10,7 +10,7 @@
 #
 #  Todo se puede ajustar con variables de entorno (todas opcionales):
 #
-#    VMID=210 HOSTNAME=netscan BRIDGE=vmbr0 VLAN= \
+#    VMID=210 CT_NAME=netscan BRIDGE=vmbr0 VLAN= \
 #    STORAGE=local-lvm DISK_GB=8 CORES=2 MEMORY_MB=1024 IP=dhcp \
 #    ./create-lxc.sh
 #
@@ -33,6 +33,14 @@
 #
 #  Requiere que packaging/proxmox/bootstrap-lxc.sh esté junto a este
 #  script (así viene en el repo); si no lo encuentra, lo baja de GitHub.
+#
+#  Si lo lanzas a mano en una terminal, pregunta VMID/nombre/plantilla/
+#  bridge/IP uno a uno (con lo de arriba como valor por defecto — pulsa
+#  Enter para aceptarlo). Cualquier variable que ya venga fijada por
+#  entorno NO se pregunta; y si la entrada estándar no es una terminal
+#  (por ejemplo, ejecutado desde un pipe/automatización), tampoco se
+#  pregunta nada — se usan los valores por defecto sin más, para no
+#  quedarse colgado esperando una respuesta que nunca llega.
 # ============================================================
 set -euo pipefail
 
@@ -47,17 +55,34 @@ if [ "$(id -u)" != "0" ] || ! command -v pct >/dev/null 2>&1; then
   exit 1
 fi
 
-VMID="${VMID:-$(pvesh get /cluster/nextid)}"
-CT_HOSTNAME="${HOSTNAME:-netscan}"
-BRIDGE="${BRIDGE:-vmbr0}"
+# Pide VARNAME "pregunta" "valor por defecto" — si VARNAME ya viene fijada
+# por variable de entorno se respeta sin preguntar; si no hay terminal de
+# por medio (pipe, cron, CI) se usa el valor por defecto en silencio.
+prompt_var() {
+  local __name="$1" __question="$2" __default="$3" __answer
+  if [ -n "${!__name:-}" ]; then
+    return
+  fi
+  if [ -t 0 ]; then
+    read -r -p "$__question [$__default]: " __answer </dev/tty || __answer=""
+    printf -v "$__name" '%s' "${__answer:-$__default}"
+  else
+    printf -v "$__name" '%s' "$__default"
+  fi
+}
+
+prompt_var VMID        "VMID del contenedor"                       "$(pvesh get /cluster/nextid)"
+prompt_var CT_NAME     "Nombre del contenedor"                     "netscan"
+prompt_var OS_TEMPLATE "Plantilla (Debian/Ubuntu)"                 "debian-12-standard"
+prompt_var BRIDGE      "Bridge de red (LAN real, no NAT)"          "vmbr0"
+prompt_var IP          "IP (\"dhcp\" o \"1.2.3.4/24,gw=1.2.3.1\")" "dhcp"
+
 VLAN="${VLAN:-}"
 STORAGE="${STORAGE:-local-lvm}"
 TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
 DISK_GB="${DISK_GB:-8}"
 CORES="${CORES:-2}"
 MEMORY_MB="${MEMORY_MB:-1024}"
-IP="${IP:-dhcp}"
-OS_TEMPLATE="${OS_TEMPLATE:-debian-12-standard}"
 REPO_URL="${REPO_URL:-https://github.com/abarriuso/netscan.git}"
 BRANCH="${BRANCH:-main}"
 
@@ -67,7 +92,7 @@ if pct status "$VMID" >/dev/null 2>&1; then
 fi
 
 echo "============================================================"
-echo "  NetScan — aprovisionando LXC $VMID ($CT_HOSTNAME) en $BRIDGE"
+echo "  NetScan — aprovisionando LXC $VMID ($CT_NAME) en $BRIDGE"
 echo "============================================================"
 
 c_cyan "[1/5] Buscando plantilla $OS_TEMPLATE..."
@@ -97,7 +122,7 @@ NET0="name=eth0,bridge=$BRIDGE,ip=$IP"
 # (apt-get errors with "Temporary failure resolving ..." even though the
 # network itself is fine). Safe to leave on for an unprivileged CT.
 pct create "$VMID" "$TEMPLATE" \
-  --hostname "$CT_HOSTNAME" \
+  --hostname "$CT_NAME" \
   --cores "$CORES" \
   --memory "$MEMORY_MB" \
   --swap 512 \
