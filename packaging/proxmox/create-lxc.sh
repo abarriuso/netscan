@@ -25,6 +25,11 @@
 #    sin etiquetar (igual que el resto de la red, lo normal en un homelab).
 #  - IP: "dhcp" (por defecto) o algo como
 #    "192.168.1.50/24,gw=192.168.1.1" para IP estática.
+#  - OS_TEMPLATE: por defecto "debian-12-standard". Cualquier plantilla
+#    basada en Debian/Ubuntu vale para NetScan (bootstrap-lxc.sh solo usa
+#    apt-get) — para Ubuntu 26.04 LTS por ejemplo:
+#      OS_TEMPLATE=ubuntu-26.04-standard ./create-lxc.sh
+#    Mira los nombres exactos disponibles con: pveam available | grep -i ubuntu
 #
 #  Requiere que packaging/proxmox/bootstrap-lxc.sh esté junto a este
 #  script (así viene en el repo); si no lo encuentra, lo baja de GitHub.
@@ -52,6 +57,7 @@ DISK_GB="${DISK_GB:-8}"
 CORES="${CORES:-2}"
 MEMORY_MB="${MEMORY_MB:-1024}"
 IP="${IP:-dhcp}"
+OS_TEMPLATE="${OS_TEMPLATE:-debian-12-standard}"
 REPO_URL="${REPO_URL:-https://github.com/abarriuso/netscan.git}"
 BRANCH="${BRANCH:-main}"
 
@@ -64,15 +70,16 @@ echo "============================================================"
 echo "  NetScan — aprovisionando LXC $VMID ($CT_HOSTNAME) en $BRIDGE"
 echo "============================================================"
 
-c_cyan "[1/5] Buscando plantilla de Debian 12..."
-TEMPLATE="$(pveam list "$TEMPLATE_STORAGE" 2>/dev/null | awk '/debian-12-standard/{print $1}' | tail -1)"
+c_cyan "[1/5] Buscando plantilla $OS_TEMPLATE..."
+TEMPLATE="$(pveam list "$TEMPLATE_STORAGE" 2>/dev/null | awk -v p="$OS_TEMPLATE" '$1 ~ p {print $1}' | tail -1)"
 if [ -z "$TEMPLATE" ]; then
-  c_yellow "      No está descargada; descargando debian-12-standard..."
+  c_yellow "      No está descargada; buscando $OS_TEMPLATE para descargar..."
   pveam update >/dev/null
-  LATEST="$(pveam available 2>/dev/null | grep debian-12-standard | tail -1 | awk '{print $2}')"
+  LATEST="$(pveam available 2>/dev/null | grep -i "$OS_TEMPLATE" | sort -V | tail -1 | awk '{print $2}')"
   if [ -z "$LATEST" ]; then
-    c_red "      No se encontró ninguna plantilla debian-12-standard disponible."
-    c_red "      Descárgala a mano desde la UI (Storage -> local -> CT Templates) y reintenta."
+    c_red "      No se encontró ninguna plantilla que case con '$OS_TEMPLATE'."
+    c_red "      Mira los nombres exactos con: pveam available | grep -i <distro>"
+    c_red "      y pásalo como OS_TEMPLATE=<nombre-exacto-sin-versión-ni-arch> ./create-lxc.sh"
     exit 1
   fi
   pveam download "$TEMPLATE_STORAGE" "$LATEST"

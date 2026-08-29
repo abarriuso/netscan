@@ -282,11 +282,18 @@ chmod +x create-lxc.sh
 ./create-lxc.sh
 ```
 
-Crea un CT Debian 12 sin privilegiar, lo arranca, clona el repo dentro y
-ejecuta `install.sh --system` — al terminar imprime la URL del dashboard y
-dónde está el token. Todo se puede ajustar con variables de entorno
-(`VMID`, `BRIDGE`, `IP`, `CORES`, `MEMORY_MB`, ...); ver los comentarios de
-cabecera de `packaging/proxmox/create-lxc.sh` para el detalle completo.
+Crea un CT sin privilegiar (Debian 12 por defecto — cualquier plantilla
+Debian/Ubuntu vale, ver `OS_TEMPLATE` más abajo), lo arranca, clona el
+repo dentro y ejecuta `install.sh --system` — al terminar imprime la URL
+del dashboard y dónde está el token. Todo se puede ajustar con variables
+de entorno (`VMID`, `BRIDGE`, `IP`, `CORES`, `MEMORY_MB`, `OS_TEMPLATE`,
+...); ver los comentarios de cabecera de `packaging/proxmox/create-lxc.sh`
+para el detalle completo. Por ejemplo, para usar Ubuntu 26.04 LTS en vez
+de Debian:
+
+```bash
+OS_TEMPLATE=ubuntu-26.04-standard ./create-lxc.sh
+```
 
 **El único ajuste que de verdad importa:** `BRIDGE` (por defecto `vmbr0`)
 tiene que ser un bridge conectado a tu LAN física, no NAT ni una zona SDN
