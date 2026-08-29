@@ -20,12 +20,22 @@ function Kpi({
   accent?: boolean
 }) {
   const deltaClass = tone === 'good' ? 'text-ok' : tone === 'warn' ? 'text-warn' : tone === 'bad' ? 'text-destructive' : ''
+  // Only gradient-fill when there's a real number — clipping a lone "—"
+  // placeholder through `color: transparent` just makes it disappear.
+  const showAccent = accent && value !== '—'
   return (
     <div className="glass flex flex-col gap-1.5 px-[18px] py-4">
       <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-      <span className={`text-[26px] font-extrabold leading-none tracking-tight ${accent ? 'text-gradient' : ''}`}>
+      <span className={`text-[26px] font-extrabold leading-none tracking-tight ${showAccent ? 'text-gradient' : ''}`}>
         {value}
-        {frac && <span className="text-base font-semibold text-muted-foreground">{frac}</span>}
+        {frac && (
+          <span
+            className="text-base font-semibold text-muted-foreground"
+            style={showAccent ? { WebkitTextFillColor: 'currentColor' } : undefined}
+          >
+            {frac}
+          </span>
+        )}
       </span>
       {delta && <span className={`text-[11.5px] font-semibold ${deltaClass}`}>{delta}</span>}
     </div>

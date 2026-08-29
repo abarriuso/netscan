@@ -31,8 +31,14 @@
     --accent-foreground: 241 238 249;
     --destructive: 248 113 113;
     --destructive-foreground: 255 255 255;
-    --border: 255 255 255;
-    --input: 255 255 255;
+    /* Solid pre-blended tones, NOT raw white — shadcn's own primitives
+       (Input, Select, Button outline, Separator, …) reference border-input
+       / border-border / bg-border at full opacity with no `/NN` modifier,
+       so the stored value has to already look right at alpha=1. Custom
+       glass panels use their own literal `border-white/11` etc. and are
+       unaffected by this. */
+    --border: 38 33 54;
+    --input: 56 48 82;
     --ring: 139 92 246;
     --radius: 0.875rem;
     --ok: 52 211 153;
@@ -43,7 +49,7 @@
     --sidebar-primary-foreground: 255 255 255;
     --sidebar-accent: 40 34 58;
     --sidebar-accent-foreground: 241 238 249;
-    --sidebar-border: 255 255 255;
+    --sidebar-border: 38 33 54;
     --sidebar-ring: 139 92 246;
 
     /* Extra accent hues, only ever used in gradients/decoration, never as a
@@ -58,7 +64,7 @@
 
 @layer base {
   * {
-    @apply border-border/10;
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
@@ -106,11 +112,43 @@
     background: rgba(255, 255, 255, 0.09);
   }
 
-  /* Gradient-filled text — the one "accent" KPI value, used sparingly. */
+  /* Gradient-filled text — the one "accent" KPI value, used sparingly.
+     `-webkit-text-fill-color` (not just `color`) is what actually lets
+     `background-clip: text` show through in Chrome/Safari; both are
+     inheritable, so a child that needs a normal (non-clipped) color, like
+     a "/100" suffix, must set its own `color` AND
+     `[-webkit-text-fill-color:currentColor]` to opt back out. */
   .text-gradient {
     background-image: linear-gradient(135deg, var(--violet), var(--teal));
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+@layer utilities {
+  /* Slim, glass-consistent scrollbars — the default OS scrollbar is the
+     single fastest "does anyone actually look at this app" tell. */
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+    background-clip: padding-box;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
   }
 }
