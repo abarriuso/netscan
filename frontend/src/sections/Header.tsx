@@ -180,7 +180,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
           <DropdownMenuTrigger asChild>
             <button
               disabled={scanning}
-              className="flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_4px_20px_rgba(109,40,217,0.45)] disabled:opacity-50"
+              className="flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_4px_20px_rgba(109,40,217,0.45)] transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:hover:brightness-100"
               style={{ background: 'linear-gradient(135deg, var(--violet), var(--blue))' }}
             >
               <Play className="h-3.5 w-3.5" />
@@ -188,7 +188,10 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-96">
+          <DropdownMenuContent
+            align="end"
+            className="w-96 border-white/[0.12] bg-[#141021]/90 text-foreground shadow-2xl backdrop-blur-xl backdrop-saturate-150"
+          >
             <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
               escaneos
             </DropdownMenuLabel>
