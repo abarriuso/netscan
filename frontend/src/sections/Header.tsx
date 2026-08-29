@@ -124,10 +124,19 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
     <header className="glass flex flex-wrap items-center justify-between gap-4 px-6 py-3.5">
       <div className="flex items-center gap-3">
         <div
-          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] text-[16px] font-extrabold text-[#05040a] shadow-[0_0_24px_rgba(139,92,246,0.5)]"
-          style={{ background: 'linear-gradient(135deg, var(--violet), var(--teal))' }}
+          role="img"
+          aria-label="NetScan"
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border font-mono text-[15px] font-bold leading-[0.85] tracking-tight"
+          style={{
+            background: 'rgba(45,212,191,0.08)',
+            borderColor: 'rgba(45,212,191,0.35)',
+            color: 'var(--teal)',
+            textAlign: 'center',
+          }}
         >
-          NS
+          ◜◝
+          <br />
+          ◟◞
         </div>
         <div className="flex flex-col leading-tight">
           <span className="text-[19px] font-extrabold tracking-tight">NetScan</span>

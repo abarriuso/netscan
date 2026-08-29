@@ -1,3 +1,12 @@
+```
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│   ◜◝  N E T S C A N                                          │
+│   ◟◞  Homelab Network & Systems Monitor                      │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
 # NetScan — Homelab Network & Systems Monitor
 
 [![CI](https://github.com/abarriuso/netscan/actions/workflows/ci.yml/badge.svg)](https://github.com/abarriuso/netscan/actions/workflows/ci.yml)
