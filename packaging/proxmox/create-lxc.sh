@@ -11,7 +11,7 @@
 #  Todo se puede ajustar con variables de entorno (todas opcionales):
 #
 #    VMID=210 CT_NAME=netscan BRIDGE=vmbr0 VLAN= \
-#    STORAGE=local-lvm DISK_GB=8 CORES=2 MEMORY_MB=1024 IP=dhcp \
+#    STORAGE=local-lvm DISK_GB=8 CORES=2 MEMORY_MB=2048 IP=dhcp \
 #    ./create-lxc.sh
 #
 #  - VMID: por defecto, el siguiente libre (pvesh get /cluster/nextid).
@@ -128,7 +128,11 @@ STORAGE="${STORAGE:-local-lvm}"
 TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
 DISK_GB="${DISK_GB:-8}"
 CORES="${CORES:-2}"
-MEMORY_MB="${MEMORY_MB:-1024}"
+# 1024 provocaba un oom-kill real del servicio netscan (confirmado en vivo,
+# journalctl: "netscan.service: Failed with result 'oom-kill'") — el build
+# de Vite del dashboard por sí solo puede tirar de varios cientos de MB,
+# y coincide con el propio backend + herramientas de escaneo ya corriendo.
+MEMORY_MB="${MEMORY_MB:-2048}"
 REPO_URL="${REPO_URL:-https://github.com/abarriuso/netscan.git}"
 BRANCH="${BRANCH:-main}"
 
