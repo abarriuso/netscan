@@ -81,13 +81,42 @@ if [ ! -x "$PY" ]; then
   if ! "$PYBOOT" -m venv "$VENV" 2>/tmp/netscan-venv-err.$$; then
     # Typical Debian/Ubuntu failure: python3 present but the venv/ensurepip
     # module lives in a separate "pythonX.Y-venv" package that isn't
-    # installed. Install it and retry once instead of failing outright.
+    # installed. Install it and retry — but don't just retry once and let
+    # a second failure kill the whole install under `set -e`: very new
+    # Python releases (e.g. Ubuntu 26.04 shipping 3.14) can have the venv
+    # package split differently than expected, or ensurepip itself broken
+    # even once the OS package is present. Try progressively, and only
+    # fail hard if every fallback is exhausted.
     if grep -qi "ensurepip is not available\|No module named venv" /tmp/netscan-venv-err.$$ 2>/dev/null \
        && command -v apt-get >/dev/null 2>&1; then
       PYVER="$("$PYBOOT" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
-      c_yellow "      Falta el paquete de venv para Python $PYVER; instalando python${PYVER}-venv..."
-      sudo apt-get update -y && sudo apt-get install -y "python${PYVER}-venv"
-      "$PYBOOT" -m venv "$VENV"
+      c_yellow "      Falta el paquete de venv para Python $PYVER; instalando..."
+      sudo apt-get update -y || true
+      # Nombre versionado y genérico: en algunas versiones solo existe uno
+      # de los dos, o el paquete versionado se llama distinto de lo
+      # esperado — instalar los dos que existan, ignorar el que falle.
+      sudo apt-get install -y "python${PYVER}-venv" || true
+      sudo apt-get install -y python3-venv || true
+
+      if "$PYBOOT" -m venv "$VENV" 2>/tmp/netscan-venv-err.$$; then
+        rm -f /tmp/netscan-venv-err.$$
+      elif grep -qi "ensurepip is not available" /tmp/netscan-venv-err.$$ 2>/dev/null; then
+        # venv module itself now works (creates the dir/activate scripts)
+        # but bundling pip via ensurepip still fails — sidestep ensurepip
+        # entirely instead of chasing the exact missing OS package further.
+        c_yellow "      Seguía sin poder instalar pip vía ensurepip; creando el venv sin pip y arrancándolo a mano..."
+        rm -f /tmp/netscan-venv-err.$$
+        "$PYBOOT" -m venv --without-pip "$VENV"
+        if ! "$PY" -m ensurepip --upgrade 2>/dev/null; then
+          curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.$$.py
+          "$PY" /tmp/get-pip.$$.py
+          rm -f /tmp/get-pip.$$.py
+        fi
+      else
+        cat /tmp/netscan-venv-err.$$ >&2
+        rm -f /tmp/netscan-venv-err.$$
+        exit 1
+      fi
     else
       cat /tmp/netscan-venv-err.$$ >&2
       rm -f /tmp/netscan-venv-err.$$
