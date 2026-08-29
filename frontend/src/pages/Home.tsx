@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import TokenDialog from '@/components/TokenDialog'
 import Header from '@/sections/Header'
 import StatCards from '@/sections/StatCards'
 import DevicesTable from '@/sections/DevicesTable'
@@ -17,6 +18,7 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
+      <TokenDialog />
       {/* Fixed, heavily-blurred gradient blobs behind everything — the "aurora." */}
       <div
         className="aurora-blob -left-32 -top-56 h-[620px] w-[620px] opacity-40"
