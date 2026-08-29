@@ -270,6 +270,38 @@ NETSCAN_API_HOST=0.0.0.0 NETSCAN_API_TOKEN=mi-token \
 Otros comandos útiles: `netscan speedtest` (test de velocidad de la red),
 `netscan doctor` (diagnóstico completo), `netscan scan --full`.
 
+### Proxmox LXC (un comando desde el host)
+
+Para correr NetScan en su propio contenedor, visible desde toda la LAN,
+desde la **shell del host Proxmox** (no dentro de un contenedor):
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/create-lxc.sh
+curl -fsSLO https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/bootstrap-lxc.sh
+chmod +x create-lxc.sh
+./create-lxc.sh
+```
+
+Crea un CT Debian 12 sin privilegiar, lo arranca, clona el repo dentro y
+ejecuta `install.sh --system` — al terminar imprime la URL del dashboard y
+dónde está el token. Todo se puede ajustar con variables de entorno
+(`VMID`, `BRIDGE`, `IP`, `CORES`, `MEMORY_MB`, ...); ver los comentarios de
+cabecera de `packaging/proxmox/create-lxc.sh` para el detalle completo.
+
+**El único ajuste que de verdad importa:** `BRIDGE` (por defecto `vmbr0`)
+tiene que ser un bridge conectado a tu LAN física, no NAT ni una zona SDN
+aislada — el escaneo ARP solo descubre lo que está en su mismo segmento
+L2. Eso se decide al crear el contenedor; no hay forma de arreglarlo desde
+dentro después.
+
+Si ya tienes un CT/VM Linux creado (con red bien conectada) y solo quieres
+la parte de instalación, basta con `bootstrap-lxc.sh` a solas, ejecutado
+como root dentro del contenedor:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/bootstrap-lxc.sh | bash
+```
+
 ### Docker
 
 ```bash
