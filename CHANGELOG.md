@@ -58,6 +58,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   `tool: "nuclei" | "testssl"`). Lanzables individualmente desde el menú
   "acciones" del dashboard (`only=whatweb` / `only=testssl` en
   `POST /api/scans`), igual que ARP/mDNS/nmap/RustScan/nuclei.
+- **Aprovisionamiento de Proxmox LXC en un comando**
+  (`packaging/proxmox/create-lxc.sh` + `bootstrap-lxc.sh`): desde la shell
+  del host Proxmox, crea un CT Debian 12 sin privilegiar en el bridge de
+  la LAN real, lo arranca y le instala NetScan dentro
+  (`install.sh --system`) — termina imprimiendo la URL del dashboard y
+  dónde está el token. `bootstrap-lxc.sh` también se puede usar solo,
+  contra cualquier CT/VM Linux ya creado.
 
 ### Seguridad
 - Autenticación opcional por token (`NETSCAN_API_TOKEN`) en HTTP y WebSocket.
