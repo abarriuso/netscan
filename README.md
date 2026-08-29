@@ -299,14 +299,20 @@ sea cual sea la forma en que lo ejecutaste:
 rm -f create-lxc.sh bootstrap-lxc.sh
 ```
 
-Crea un CT sin privilegiar (Debian 12 por defecto — cualquier plantilla
-Debian/Ubuntu vale, ver `OS_TEMPLATE` más abajo), lo arranca, clona el
-repo dentro y ejecuta `install.sh --system` — al terminar imprime la URL
-del dashboard y dónde está el token. Todo se puede ajustar con variables
-de entorno (`VMID`, `BRIDGE`, `IP`, `CORES`, `MEMORY_MB`, `OS_TEMPLATE`,
+Si lo lanzas a mano en una terminal, te pregunta VMID, nombre, plantilla,
+bridge e IP uno a uno (Enter para aceptar el valor por defecto que
+propone). Cualquiera de esos que ya venga fijado por variable de entorno
+no se pregunta; y si no hay una terminal real de por medio (lo lanzas
+desde un pipe o algo automatizado), tampoco pregunta nada — usa los
+valores por defecto sin más, para no quedarse colgado. Crea un CT sin
+privilegiar (Debian 12 por defecto — cualquier plantilla Debian/Ubuntu
+vale, ver `OS_TEMPLATE`), lo arranca, clona el repo dentro y ejecuta
+`install.sh --system` — al terminar imprime la URL del dashboard y dónde
+está el token. Todo se puede ajustar también por variable de entorno
+(`VMID`, `CT_NAME`, `BRIDGE`, `IP`, `CORES`, `MEMORY_MB`, `OS_TEMPLATE`,
 ...); ver los comentarios de cabecera de `packaging/proxmox/create-lxc.sh`
 para el detalle completo. Por ejemplo, para usar Ubuntu 26.04 LTS en vez
-de Debian:
+de Debian sin que te pregunte nada:
 
 ```bash
 OS_TEMPLATE=ubuntu-26.04-standard ./create-lxc.sh
