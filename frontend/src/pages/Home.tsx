@@ -16,25 +16,43 @@ export default function Home() {
   const bump = useCallback(() => setRefreshKey((k) => k + 1), [])
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Header onScanDone={bump} />
-      <main className="animate-in fade-in space-y-3 p-6 duration-500">
-        <StatCards refreshKey={refreshKey} />
-        <SystemStatus />
-        <LogConsole />
-        <div className="grid gap-3 xl:grid-cols-3">
-          <div className="xl:col-span-2">
+    <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
+      {/* Fixed, heavily-blurred gradient blobs behind everything — the "aurora." */}
+      <div
+        className="aurora-blob -left-32 -top-56 h-[620px] w-[620px] opacity-40"
+        style={{ background: 'radial-gradient(circle at 30% 30%, var(--violet), transparent 70%)' }}
+      />
+      <div
+        className="aurora-blob -right-64 top-48 h-[700px] w-[700px] opacity-30"
+        style={{ background: 'radial-gradient(circle at 60% 40%, var(--teal), transparent 70%)' }}
+      />
+      <div
+        className="aurora-blob -bottom-64 left-1/3 h-[560px] w-[560px] opacity-25"
+        style={{ background: 'radial-gradient(circle at 50% 50%, var(--pink), transparent 70%)' }}
+      />
+      <div
+        className="aurora-blob bottom-24 right-[10%] h-[480px] w-[480px] opacity-20"
+        style={{ background: 'radial-gradient(circle, var(--blue), transparent 70%)' }}
+      />
+
+      <div className="relative z-10 mx-auto max-w-[1560px] px-6 pb-14 pt-5">
+        <Header onScanDone={bump} />
+        <main className="animate-in fade-in mt-5 space-y-[18px] duration-500">
+          <StatCards refreshKey={refreshKey} />
+          <SystemStatus />
+          <div className="grid gap-[18px] xl:grid-cols-[1.35fr_1fr]">
             <DevicesTable refreshKey={refreshKey} />
-          </div>
-          <div className="space-y-3">
             <AlertsFeed refreshKey={refreshKey} />
-            <CapabilitiesBar />
           </div>
-        </div>
-        <AnalyticsPanel refreshKey={refreshKey} />
-        <ServicesPanel refreshKey={refreshKey} />
-        <Integrations />
-      </main>
+          <div className="grid gap-[18px] lg:grid-cols-2">
+            <CapabilitiesBar />
+            <LogConsole />
+          </div>
+          <AnalyticsPanel refreshKey={refreshKey} />
+          <ServicesPanel refreshKey={refreshKey} />
+          <Integrations />
+        </main>
+      </div>
     </div>
   )
 }

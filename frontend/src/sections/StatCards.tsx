@@ -1,37 +1,33 @@
-import { Activity, BellRing, Gauge, MonitorCheck, ShieldAlert, Wifi } from 'lucide-react'
 import { AnimatedNumber } from '@/components/metrics'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import PanelError from './PanelError'
 
-function Stat({
-  icon: Icon,
+function Kpi({
   label,
   value,
+  frac,
+  delta,
   tone,
+  accent,
 }: {
-  icon: typeof MonitorCheck
   label: string
   value: React.ReactNode
-  /** Only the two genuinely-actionable metrics get a status color; the rest stay neutral. */
-  tone?: 'warn' | 'danger'
+  frac?: string
+  delta?: React.ReactNode
+  tone?: 'good' | 'warn' | 'bad'
+  /** Renders `value` with the violet→teal gradient text treatment. */
+  accent?: boolean
 }) {
+  const deltaClass = tone === 'good' ? 'text-ok' : tone === 'warn' ? 'text-warn' : tone === 'bad' ? 'text-destructive' : ''
   return (
-    <div className="flex flex-col gap-2.5 bg-card p-4">
-      <Icon
-        className={`h-4 w-4 ${tone === 'warn' ? 'text-warn' : tone === 'danger' ? 'text-destructive' : 'text-muted-foreground'}`}
-        strokeWidth={1.5}
-      />
-      <div>
-        <div
-          className={`font-mono text-[22px] font-semibold leading-none ${tone === 'warn' ? 'text-warn' : tone === 'danger' ? 'text-destructive' : ''}`}
-        >
-          {value}
-        </div>
-        <div className="mt-1.5 truncate font-mono text-[9.5px] uppercase tracking-wider text-muted-foreground">
-          {label}
-        </div>
-      </div>
+    <div className="glass flex flex-col gap-1.5 px-[18px] py-4">
+      <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className={`text-[26px] font-extrabold leading-none tracking-tight ${accent ? 'text-gradient' : ''}`}>
+        {value}
+        {frac && <span className="text-base font-semibold text-muted-foreground">{frac}</span>}
+      </span>
+      {delta && <span className={`text-[11.5px] font-semibold ${deltaClass}`}>{delta}</span>}
     </div>
   )
 }
@@ -43,73 +39,42 @@ export default function StatCards({ refreshKey }: { refreshKey: number }) {
   return (
     <div className="space-y-2">
       <PanelError error={error} />
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-3 xl:grid-cols-6">
-        <Stat
-          icon={MonitorCheck}
-          label="online / total"
-          value={
-            <span>
-              <AnimatedNumber value={data?.devices_online ?? 0} />
-              <span className="font-normal text-muted-foreground">
-                {' '}
-                / <AnimatedNumber value={data?.devices_total ?? 0} />
-              </span>
-            </span>
-          }
+      <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-3 xl:grid-cols-6">
+        <Kpi
+          label="dispositivos online"
+          value={<AnimatedNumber value={data?.devices_online ?? 0} />}
+          frac={` / ${data?.devices_total ?? 0}`}
+          delta="desde el último scan"
         />
-        <Stat
-          icon={ShieldAlert}
+        <Kpi
           label="sin verificar"
           value={<AnimatedNumber value={data?.devices_untrusted ?? 0} />}
-          tone="warn"
+          delta={(data?.devices_untrusted ?? 0) > 0 ? 'revisar' : 'todo ok'}
+          tone={(data?.devices_untrusted ?? 0) > 0 ? 'warn' : 'good'}
         />
-        <Stat
-          icon={BellRing}
-          label="alertas"
+        <Kpi
+          label="alertas sin leer"
           value={<AnimatedNumber value={data?.alerts_unacknowledged ?? 0} />}
-          tone="danger"
+          delta={(data?.alerts_unacknowledged ?? 0) > 0 ? 'acción requerida' : 'todo tranquilo'}
+          tone={(data?.alerts_unacknowledged ?? 0) > 0 ? 'bad' : 'good'}
         />
-        <Stat
-          icon={Gauge}
+        <Kpi
           label="calidad media"
-          value={
-            m?.avg_quality != null ? (
-              <span>
-                <AnimatedNumber value={m.avg_quality} />
-                <span className="text-sm font-normal text-muted-foreground">/100</span>
-              </span>
-            ) : (
-              '—'
-            )
-          }
+          value={m?.avg_quality != null ? <AnimatedNumber value={m.avg_quality} /> : '—'}
+          frac={m?.avg_quality != null ? '/100' : undefined}
+          delta="estable"
+          tone="good"
+          accent
         />
-        <Stat
-          icon={Activity}
+        <Kpi
           label="latencia media"
-          value={
-            m?.avg_latency_ms != null ? (
-              <span>
-                <AnimatedNumber value={m.avg_latency_ms} decimals={1} />
-                <span className="text-sm font-normal text-muted-foreground">ms</span>
-              </span>
-            ) : (
-              '—'
-            )
-          }
+          value={m?.avg_latency_ms != null ? <AnimatedNumber value={m.avg_latency_ms} decimals={1} /> : '—'}
+          frac={m?.avg_latency_ms != null ? ' ms' : undefined}
         />
-        <Stat
-          icon={Wifi}
+        <Kpi
           label="throughput máx"
-          value={
-            m?.max_throughput_mbps != null ? (
-              <span>
-                <AnimatedNumber value={m.max_throughput_mbps} decimals={0} />
-                <span className="text-sm font-normal text-muted-foreground">Mbps</span>
-              </span>
-            ) : (
-              '—'
-            )
-          }
+          value={m?.max_throughput_mbps != null ? <AnimatedNumber value={m.max_throughput_mbps} decimals={0} /> : '—'}
+          frac={m?.max_throughput_mbps != null ? ' Mbps' : undefined}
         />
       </div>
     </div>

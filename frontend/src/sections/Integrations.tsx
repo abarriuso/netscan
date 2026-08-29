@@ -1,10 +1,16 @@
-import { Box, Database, HardDrive, ShieldHalf } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
+import { GlassPanel, Meter } from '@/components/metrics'
 import { formatBytes, formatUptime, usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import PanelError from './PanelError'
+
+function StatLine({ label, value, valueClass }: { label: string; value: React.ReactNode; valueClass?: string }) {
+  return (
+    <div className="flex items-center justify-between border-b border-white/[0.06] py-[7px] text-[12.5px] last:border-none">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`font-bold ${valueClass ?? ''}`}>{value}</span>
+    </div>
+  )
+}
 
 export default function Integrations() {
   const { data: pve, error: pveError } = usePoll(api.proxmox, 30000)
@@ -12,154 +18,125 @@ export default function Integrations() {
   const { data: ag, error: agError } = usePoll(api.adguard, 30000)
 
   return (
-    <div className="grid gap-3 lg:grid-cols-3">
+    <div className="grid gap-[18px] lg:grid-cols-3">
       {/* Proxmox */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-            <Box className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> proxmox ve
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-xs">
-          <PanelError error={pveError} />
-          {(pve ?? []).length === 0 && !pveError && <p className="text-muted-foreground">sin instancias configuradas</p>}
-          {(pve ?? []).map((inst) =>
-            inst.error ? (
-              <div key={inst.name} className="rounded border border-destructive/40 p-2">
-                <span className="font-mono font-semibold">{inst.name}</span>
-                <Badge variant="destructive" className="ml-2 font-mono text-[10px]">error</Badge>
-                <p className="mt-1 text-muted-foreground">{inst.error}</p>
-              </div>
-            ) : (
-              <div key={inst.name} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono font-semibold">{inst.name}</span>
-                  <Badge variant="secondary" className="font-mono text-[10px]">v{inst.version}</Badge>
+      <GlassPanel title="Proxmox VE" meta={pve?.[0]?.name}>
+        <PanelError error={pveError} />
+        {(pve ?? []).length === 0 && !pveError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
+        {(pve ?? []).map((inst) =>
+          inst.error ? (
+            <div key={inst.name} className="rounded-lg border border-destructive/40 p-3 text-xs">
+              <span className="font-semibold">{inst.name}</span>
+              <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-white">error</span>
+              <p className="mt-1 text-muted-foreground">{inst.error}</p>
+            </div>
+          ) : (
+            <div key={inst.name} className="space-y-1.5">
+              {(inst.guests ?? []).slice(0, 8).map((g) => (
+                <div key={g.vmid} className="flex items-center justify-between py-1.5 text-[12.5px]">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`h-[7px] w-[7px] rounded-full ${g.status === 'running' ? 'bg-ok' : 'bg-muted-foreground/40'}`}
+                      style={g.status === 'running' ? { boxShadow: '0 0 6px var(--ok, #34d399)' } : undefined}
+                    />
+                    {g.name ?? `${g.type}-${g.vmid}`}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {g.status === 'running' ? `running · ${g.maxcpu ?? '?'}c/${formatBytes(g.maxmem)}` : 'stopped'}
+                  </span>
                 </div>
-                <p className="text-muted-foreground">
-                  {inst.guests_running}/{inst.guests_total} guests activos
-                </p>
-                {(inst.guests ?? []).slice(0, 6).map((g) => (
-                  <div key={g.vmid} className="flex items-center justify-between rounded bg-muted/40 px-2 py-1 font-mono">
-                    <span className="flex items-center gap-2">
-                      <span className={`h-1.5 w-1.5 rounded-full ${g.status === 'running' ? 'bg-ok' : 'bg-muted-foreground/40'}`} />
-                      {g.name ?? `${g.type}-${g.vmid}`}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {g.type} · {g.maxcpu ?? '?'}c · {formatBytes(g.maxmem)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ),
-          )}
-        </CardContent>
-      </Card>
+              ))}
+              <p className="pt-1 text-[11.5px] text-muted-foreground">
+                {inst.guests_running}/{inst.guests_total} guests activos · v{inst.version}
+              </p>
+            </div>
+          ),
+        )}
+      </GlassPanel>
 
       {/* TrueNAS */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-            <Database className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> truenas
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-xs">
-          <PanelError error={tnasError} />
-          {(tnas ?? []).length === 0 && !tnasError && <p className="text-muted-foreground">sin instancias configuradas</p>}
-          {(tnas ?? []).map((inst) =>
-            inst.error ? (
-              <div key={inst.name} className="rounded border border-destructive/40 p-2">
-                <span className="font-mono font-semibold">{inst.name}</span>
-                <Badge variant="destructive" className="ml-2 font-mono text-[10px]">error</Badge>
-                <p className="mt-1 text-muted-foreground">{inst.error}</p>
-              </div>
-            ) : (
-              <div key={inst.name} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono font-semibold">{inst.name}</span>
-                  <Badge variant="secondary" className="font-mono text-[10px]">{inst.version}</Badge>
-                </div>
-                <p className="text-muted-foreground">
-                  uptime {formatUptime(inst.uptime_seconds)} · {inst.cores} cores · pools {inst.pools_healthy}/{inst.pools_total} OK
-                </p>
-                {(inst.pools ?? []).map((pool) => {
-                  const used = pool.size && pool.allocated ? Math.round((pool.allocated / pool.size) * 100) : 0
-                  return (
-                    <div key={pool.name} className="space-y-1 rounded bg-muted/40 px-2 py-1.5 font-mono">
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-2">
-                          <HardDrive className="h-3 w-3" />
-                          {pool.name}
-                        </span>
-                        <span className={pool.status === 'ONLINE' ? 'text-ok' : 'text-destructive'}>
-                          {pool.status}
-                        </span>
+      <GlassPanel title="TrueNAS" meta={tnas?.[0]?.name}>
+        <PanelError error={tnasError} />
+        {(tnas ?? []).length === 0 && !tnasError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
+        {(tnas ?? []).map((inst) =>
+          inst.error ? (
+            <div key={inst.name} className="rounded-lg border border-destructive/40 p-3 text-xs">
+              <span className="font-semibold">{inst.name}</span>
+              <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-white">error</span>
+              <p className="mt-1 text-muted-foreground">{inst.error}</p>
+            </div>
+          ) : (
+            <div key={inst.name}>
+              {(inst.pools ?? []).map((pool) => {
+                const used = pool.size && pool.allocated ? Math.round((pool.allocated / pool.size) * 100) : 0
+                return (
+                  <div key={pool.name}>
+                    <StatLine
+                      label={`Pool: ${pool.name}`}
+                      value={pool.status}
+                      valueClass={pool.status === 'ONLINE' ? 'text-ok' : 'text-destructive'}
+                    />
+                    {pool.size ? (
+                      <div className="pb-1">
+                        <StatLine label="Capacidad usada" value={`${formatBytes(pool.allocated)} / ${formatBytes(pool.size)}`} />
+                        <Meter percent={used} gradient="blue-teal" />
                       </div>
-                      {pool.size ? (
-                        <>
-                          <Progress value={used} className="h-1" />
-                          <p className="text-[10px] text-muted-foreground">
-                            {formatBytes(pool.allocated)} / {formatBytes(pool.size)} ({used}%)
-                          </p>
-                        </>
-                      ) : null}
-                    </div>
-                  )
-                })}
-                {(inst.alerts ?? []).length > 0 && (
-                  <Badge variant="destructive" className="font-mono text-[10px]">
-                    {inst.alerts!.length} alertas del sistema
-                  </Badge>
-                )}
-              </div>
-            ),
-          )}
-        </CardContent>
-      </Card>
+                    ) : null}
+                  </div>
+                )
+              })}
+              <StatLine label="Uptime" value={formatUptime(inst.uptime_seconds)} />
+              <StatLine label="Cores" value={inst.cores} />
+              <StatLine
+                label="Pools OK"
+                value={`${inst.pools_healthy}/${inst.pools_total}`}
+                valueClass={inst.pools_healthy === inst.pools_total ? 'text-ok' : 'text-destructive'}
+              />
+              {(inst.alerts ?? []).length > 0 && (
+                <StatLine label="Alertas del sistema" value={inst.alerts!.length} valueClass="text-destructive" />
+              )}
+            </div>
+          ),
+        )}
+      </GlassPanel>
 
       {/* AdGuard */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-            <ShieldHalf className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> adguard home
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-xs">
-          <PanelError error={agError} />
-          {(ag ?? []).length === 0 && !agError && <p className="text-muted-foreground">sin instancias configuradas</p>}
-          {(ag ?? []).map((inst) =>
-            inst.error ? (
-              <div key={inst.name} className="rounded border border-destructive/40 p-2">
-                <span className="font-mono font-semibold">{inst.name}</span>
-                <Badge variant="destructive" className="ml-2 font-mono text-[10px]">error</Badge>
-                <p className="mt-1 text-muted-foreground">{inst.error}</p>
+      <GlassPanel title="AdGuard Home" meta={ag?.[0]?.name}>
+        <PanelError error={agError} />
+        {(ag ?? []).length === 0 && !agError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
+        {(ag ?? []).map((inst) =>
+          inst.error ? (
+            <div key={inst.name} className="rounded-lg border border-destructive/40 p-3 text-xs">
+              <span className="font-semibold">{inst.name}</span>
+              <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-white">error</span>
+              <p className="mt-1 text-muted-foreground">{inst.error}</p>
+            </div>
+          ) : (
+            <div key={inst.name}>
+              <StatLine label="Consultas hoy" value={(inst.num_dns_queries ?? 0).toLocaleString()} />
+              <StatLine
+                label="Bloqueadas"
+                value={(inst.num_blocked_filtering ?? 0).toLocaleString()}
+                valueClass="text-[color:var(--pink)]"
+              />
+              <div className="py-1">
+                <Meter
+                  percent={
+                    inst.num_dns_queries ? ((inst.num_blocked_filtering ?? 0) / inst.num_dns_queries) * 100 : 0
+                  }
+                  gradient="pink-violet"
+                />
               </div>
-            ) : (
-              <div key={inst.name} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono font-semibold">{inst.name}</span>
-                  <Badge variant="secondary" className="font-mono text-[10px]">{inst.version}</Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded bg-muted/40 p-2 text-center">
-                    <div className="font-mono text-lg font-bold">{(inst.num_dns_queries ?? 0).toLocaleString()}</div>
-                    <div className="text-[10px] uppercase text-muted-foreground">consultas DNS</div>
-                  </div>
-                  <div className="rounded bg-muted/40 p-2 text-center">
-                    <div className="font-mono text-lg font-bold">
-                      {(inst.num_blocked_filtering ?? 0).toLocaleString()}
-                    </div>
-                    <div className="text-[10px] uppercase text-muted-foreground">bloqueadas</div>
-                  </div>
-                </div>
-                <p className="text-muted-foreground">
-                  {(inst.clients ?? []).length} clientes · {(inst.avg_processing_time ?? 0).toFixed(1)}ms media
-                </p>
-              </div>
-            ),
-          )}
-        </CardContent>
-      </Card>
+              <StatLine
+                label="Tasa de bloqueo"
+                value={`${inst.num_dns_queries ? (((inst.num_blocked_filtering ?? 0) / inst.num_dns_queries) * 100).toFixed(1) : '0.0'}%`}
+              />
+              <StatLine label="Tiempo medio" value={`${(inst.avg_processing_time ?? 0).toFixed(1)} ms`} />
+              <StatLine label="Clientes" value={(inst.clients ?? []).length} />
+            </div>
+          ),
+        )}
+      </GlassPanel>
     </div>
   )
 }

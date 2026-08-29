@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,55 +6,63 @@
 
 @layer base {
   /*
-   * True neutral grayscale (near-zero chroma — no warm or cool tint) with
-   * exactly one accent color (--primary, a saturated blue) and three
-   * semantic status colors (--ok / --warn / --destructive). Every other
-   * color in the app must come from these tokens — no per-component
-   * one-off hues. NetScan is dark-first by design (server-room dashboard);
-   * there is no light/dark toggle wired up yet, so :root and .dark share
-   * one palette.
+   * "Aurora" palette — deep near-black violet base, a violet/teal/pink/blue
+   * accent quartet used mainly in gradients, and the usual three semantic
+   * status colors. Stored as space-separated RGB triplets (not oklch) so
+   * Tailwind's `rgb(var(--x) / <alpha-value>)` opacity-modifier pattern
+   * works with plain color-picked hex values ported straight from the
+   * approved mockup. Dark-only — no light/dark toggle wired up.
    */
   :root,
   .dark {
-    --background: 8% 0.002 260;
-    --foreground: 96% 0.002 260;
-    --card: 11% 0.002 260;
-    --card-foreground: 96% 0.002 260;
-    --popover: 11% 0.002 260;
-    --popover-foreground: 96% 0.002 260;
-    --primary: 62% 0.19 258;
-    --primary-foreground: 98% 0.012 258;
-    --secondary: 16% 0.003 260;
-    --secondary-foreground: 96% 0.002 260;
-    --muted: 16% 0.003 260;
-    --muted-foreground: 60% 0.006 260;
-    --accent: 16% 0.003 260;
-    --accent-foreground: 96% 0.002 260;
-    --destructive: 58% 0.19 25;
-    --destructive-foreground: 97% 0.01 80;
-    --border: 20% 0.004 260;
-    --input: 20% 0.004 260;
-    --ring: 62% 0.19 258;
-    --radius: 0.5rem;
-    --ok: 68% 0.16 152;
-    --warn: 74% 0.15 85;
-    --sidebar-background: 11% 0.002 260;
-    --sidebar-foreground: 96% 0.002 260;
-    --sidebar-primary: 62% 0.19 258;
-    --sidebar-primary-foreground: 98% 0.012 258;
-    --sidebar-accent: 16% 0.003 260;
-    --sidebar-accent-foreground: 96% 0.002 260;
-    --sidebar-border: 20% 0.004 260;
-    --sidebar-ring: 62% 0.19 258;
+    --background: 7 6 15;
+    --foreground: 241 238 249;
+    --card: 18 15 30;
+    --card-foreground: 241 238 249;
+    --popover: 18 15 30;
+    --popover-foreground: 241 238 249;
+    --primary: 139 92 246;
+    --primary-foreground: 255 255 255;
+    --secondary: 30 26 46;
+    --secondary-foreground: 241 238 249;
+    --muted: 30 26 46;
+    --muted-foreground: 131 126 156;
+    --accent: 40 34 58;
+    --accent-foreground: 241 238 249;
+    --destructive: 248 113 113;
+    --destructive-foreground: 255 255 255;
+    --border: 255 255 255;
+    --input: 255 255 255;
+    --ring: 139 92 246;
+    --radius: 0.875rem;
+    --ok: 52 211 153;
+    --warn: 251 191 36;
+    --sidebar-background: 18 15 30;
+    --sidebar-foreground: 241 238 249;
+    --sidebar-primary: 139 92 246;
+    --sidebar-primary-foreground: 255 255 255;
+    --sidebar-accent: 40 34 58;
+    --sidebar-accent-foreground: 241 238 249;
+    --sidebar-border: 255 255 255;
+    --sidebar-ring: 139 92 246;
+
+    /* Extra accent hues, only ever used in gradients/decoration, never as a
+       flat semantic color — kept as hex since gradients need a literal. */
+    --violet: #8b5cf6;
+    --violet-2: #6d28d9;
+    --teal: #2dd4bf;
+    --pink: #ec4899;
+    --blue: #3b82f6;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border/10;
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: 'cv11', 'ss01';
   }
 }
 
@@ -70,45 +78,39 @@
 }
 
 @layer utilities {
-  /*
-   * The one deliberate exception to "single accent, no decoration": the
-   * brand wordmark itself. Shocking pink, layered text-shadow for a 3D
-   * block-extrusion look, animated gradient shimmer across the face.
-   * Everything else in the app stays on the neutral+blue system — this is
-   * the logo, not a precedent.
-   */
-  .brand-mark {
-    display: inline-block;
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    background-image: linear-gradient(
-      100deg,
-      #ff2fb0 42%,
-      #ffcdec 50%,
-      #ff2fb0 58%
-    );
-    background-size: 250% 100%;
-    background-position: 0% 0;
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: #ff2fb0;
-    -webkit-text-fill-color: transparent;
-    text-shadow:
-      1px 1px 0 #b8007d,
-      2px 2px 0 #b8007d,
-      3px 3px 0 #8f0061,
-      4px 4px 0 #8f0061,
-      5px 5px 12px rgba(255, 47, 176, 0.45);
-    animation: brand-shimmer 6s ease-in-out infinite;
+  /* Fixed, heavily-blurred gradient blobs behind everything — the "aurora."
+     Pure decoration: position:fixed + pointer-events:none so they never
+     affect layout or intercept input, and a blur this large is cheap for
+     the compositor (it's a GPU filter on a handful of static elements). */
+  .aurora-blob {
+    position: fixed;
+    border-radius: 9999px;
+    filter: blur(110px);
+    pointer-events: none;
+    z-index: 0;
   }
 
-  @keyframes brand-shimmer {
-    0%,
-    100% {
-      background-position: 0% 0;
-    }
-    50% {
-      background-position: 100% 0;
-    }
+  /* The frosted-glass panel every section sits in. */
+  .glass {
+    background: rgba(255, 255, 255, 0.055);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: var(--radius);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.09);
+  }
+
+  /* Gradient-filled text — the one "accent" KPI value, used sparingly. */
+  .text-gradient {
+    background-image: linear-gradient(135deg, var(--violet), var(--teal));
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
   }
 }

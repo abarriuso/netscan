@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
-import { Activity, ChevronDown, Play, Radar } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Activity, ChevronDown, Play } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -101,7 +100,8 @@ const TOOLS: ToolAction[] = [
 
 export default function Header({ onScanDone }: { onScanDone: () => void }) {
   const { progress, scanning, startScan } = useScanProgress()
-  const { data: caps } = usePoll(api.capabilities, 60000)
+  const { data: caps, error: capsError } = usePoll(api.capabilities, 60000)
+  const connected = !capsError
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
 
   useEffect(() => {
@@ -121,24 +121,29 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
   const run = (action: ToolAction) => startScan({ full: action.full, only: action.stage })
 
   return (
-    <header className="flex flex-wrap items-end gap-6 border-b border-border bg-card/40 px-8 py-5">
+    <header className="glass flex flex-wrap items-center justify-between gap-4 px-6 py-3.5">
       <div className="flex items-center gap-3">
-        <Radar className="h-6 w-6 text-foreground" strokeWidth={1.4} />
-        <div className="pb-1.5">
-          <h1 className="brand-mark text-2xl">Netscan</h1>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-            monitor de red y sistemas para homelab
-          </p>
+        <div
+          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] text-[16px] font-extrabold text-[#05040a] shadow-[0_0_24px_rgba(139,92,246,0.5)]"
+          style={{ background: 'linear-gradient(135deg, var(--violet), var(--teal))' }}
+        >
+          NS
+        </div>
+        <div className="flex flex-col leading-tight">
+          <span className="text-[19px] font-extrabold tracking-tight">NetScan</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Homelab Monitor
+          </span>
         </div>
       </div>
 
-      <div className="ml-auto flex items-center gap-4">
+      <div className="flex items-center gap-4">
         {(scanning || progress.stage.startsWith('error')) && (
           <div className="flex w-72 flex-col gap-1">
             <div className="flex items-center justify-between font-mono text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5 truncate">
+              <span className="flex min-w-0 items-center gap-1.5">
                 {progress.stage.startsWith('error') ? (
-                  <Badge variant="destructive" className="font-mono text-xs">
+                  <Badge variant="destructive" className="min-w-0 truncate font-mono text-xs">
                     {progress.stage}
                   </Badge>
                 ) : (
@@ -157,12 +162,31 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
           </div>
         )}
 
+        <span
+          className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12.5px] font-semibold ${
+            connected
+              ? 'border-ok/35 bg-ok/10 text-ok'
+              : 'border-destructive/35 bg-destructive/10 text-destructive'
+          }`}
+        >
+          <span
+            className={`h-[7px] w-[7px] rounded-full bg-current ${connected ? 'animate-pulse' : ''}`}
+            style={{ boxShadow: '0 0 8px currentColor' }}
+          />
+          {connected ? 'Live — conectado' : 'Sin conexión'}
+        </span>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="outline" disabled={scanning} className="font-mono lowercase">
-              acciones
-              <ChevronDown className="ml-1 h-3.5 w-3.5" />
-            </Button>
+            <button
+              disabled={scanning}
+              className="flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_4px_20px_rgba(109,40,217,0.45)] disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, var(--violet), var(--blue))' }}
+            >
+              <Play className="h-3.5 w-3.5" />
+              Ejecutar scan
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-96">
             <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">

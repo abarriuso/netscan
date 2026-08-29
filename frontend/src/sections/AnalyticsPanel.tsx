@@ -1,23 +1,28 @@
-import { BarChart3 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { GlassPanel } from '@/components/metrics'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { DeviceRecord, PortInfo } from '@/types'
 import PanelError from './PanelError'
 
-function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+function MiniBars({ rows, max, gradient }: { rows: [string, number][]; max: number; gradient: string }) {
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className="w-28 truncate text-right font-mono text-muted-foreground" title={label}>
-        {label}
-      </span>
-      <div className="h-3.5 flex-1 overflow-hidden rounded-sm bg-muted/40">
-        <div
-          className={`h-full ${color}`}
-          style={{ width: `${max > 0 ? Math.max((value / max) * 100, 4) : 0}%` }}
-        />
-      </div>
-      <span className="w-8 font-mono font-semibold">{value}</span>
+    <div className="flex flex-col gap-2.5">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex flex-col gap-1">
+          <div className="flex items-center justify-between text-xs">
+            <span className="truncate text-muted-foreground" title={label}>
+              {label}
+            </span>
+            <span className="text-[11.5px] font-semibold text-muted-foreground/90">{value}</span>
+          </div>
+          <div className="h-[7px] overflow-hidden rounded-full bg-white/[0.07]">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${max > 0 ? Math.max((value / max) * 100, 4) : 0}%`, background: gradient }}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -42,60 +47,41 @@ export default function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
     if (dev.vendor) vendors.set(dev.vendor, (vendors.get(dev.vendor) ?? 0) + 1)
     if (dev.os_guess) oses.set(dev.os_guess, (oses.get(dev.os_guess) ?? 0) + 1)
     for (const p of portsOf(dev)) {
-      const key = `${p.port} ${p.service}`
+      const key = `${p.port} · ${p.service}`
       ports.set(key, (ports.get(key) ?? 0) + 1)
     }
   }
 
   const top = (m: Map<string, number>, n: number) =>
-    [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n)
-  const topVendors = top(vendors, 6)
+    [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n) as [string, number][]
+  const topVendors = top(vendors, 5)
   const topOS = top(oses, 5)
-  const topPorts = top(ports, 8)
+  const topPorts = top(ports, 5)
   const maxV = topVendors[0]?.[1] ?? 1
   const maxO = topOS[0]?.[1] ?? 1
   const maxP = topPorts[0]?.[1] ?? 1
 
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-          <BarChart3 className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> analítica de red
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+  if (list.length === 0) {
+    return (
+      <GlassPanel title="Analítica de red">
         <PanelError error={error} />
-        {list.length === 0 ? (
-          <p className="text-xs text-muted-foreground">sin datos — lanza un scan</p>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                vendors
-              </p>
-              {topVendors.map(([v, n]) => (
-                <Bar key={v} label={v} value={n} max={maxV} color="bg-primary/80" />
-              ))}
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                sistemas operativos
-              </p>
-              {topOS.map(([v, n]) => (
-                <Bar key={v} label={v || 'desconocido'} value={n} max={maxO} color="bg-primary/80" />
-              ))}
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                puertos más abiertos
-              </p>
-              {topPorts.map(([v, n]) => (
-                <Bar key={v} label={v} value={n} max={maxP} color="bg-primary/80" />
-              ))}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        <p className="text-sm text-muted-foreground">sin datos — lanza un scan</p>
+      </GlassPanel>
+    )
+  }
+
+  return (
+    <div className="grid gap-[18px] lg:grid-cols-3">
+      <GlassPanel title="Top vendors">
+        <PanelError error={error} />
+        <MiniBars rows={topVendors} max={maxV} gradient="linear-gradient(90deg, var(--violet-2), var(--violet))" />
+      </GlassPanel>
+      <GlassPanel title="Top sistemas operativos">
+        <MiniBars rows={topOS} max={maxO} gradient="linear-gradient(90deg, #0d9488, var(--teal))" />
+      </GlassPanel>
+      <GlassPanel title="Top puertos abiertos">
+        <MiniBars rows={topPorts} max={maxP} gradient="linear-gradient(90deg, #be185d, var(--pink))" />
+      </GlassPanel>
+    </div>
   )
 }
