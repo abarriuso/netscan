@@ -282,6 +282,23 @@ chmod +x create-lxc.sh
 ./create-lxc.sh
 ```
 
+(`bootstrap-lxc.sh` tiene que quedar junto a `create-lxc.sh` — el segundo
+lo copia dentro del contenedor nuevo automáticamente; no hace falta
+ejecutarlo tú.) Si prefieres no dejar ni esos dos ficheros en el host, hay
+un one-liner que no descarga nada permanente — al no encontrar
+`bootstrap-lxc.sh` junto a sí mismo, lo baja solo a un temporal en `/tmp`:
+
+```bash
+VMID=201 OS_TEMPLATE=ubuntu-26.04-standard bash -c "$(curl -fsSL https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/create-lxc.sh)"
+```
+
+Y si ya descargaste los dos ficheros y quieres limpiar después,
+sea cual sea la forma en que lo ejecutaste:
+
+```bash
+rm -f create-lxc.sh bootstrap-lxc.sh
+```
+
 Crea un CT sin privilegiar (Debian 12 por defecto — cualquier plantilla
 Debian/Ubuntu vale, ver `OS_TEMPLATE` más abajo), lo arranca, clona el
 repo dentro y ejecuta `install.sh --system` — al terminar imprime la URL
