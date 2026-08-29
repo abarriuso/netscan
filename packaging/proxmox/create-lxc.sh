@@ -75,7 +75,36 @@ prompt_var VMID        "VMID del contenedor"                       "$(pvesh get 
 prompt_var CT_NAME     "Nombre del contenedor"                     "netscan"
 prompt_var OS_TEMPLATE "Plantilla (Debian/Ubuntu)"                 "debian-12-standard"
 prompt_var BRIDGE      "Bridge de red (LAN real, no NAT)"          "vmbr0"
-prompt_var IP          "IP (\"dhcp\" o \"1.2.3.4/24,gw=1.2.3.1\")" "dhcp"
+
+# IP se pregunta en dos pasos simples (IP/CIDR y gateway por separado) en
+# vez de un único campo con la sintaxis "cidr,gw=..." de Proxmox — así no
+# hay forma de escribirlo mal. Si IP ya viene fijada por entorno (con o
+# sin "gw=" incluido) se respeta tal cual, sin preguntar nada.
+if [ -z "${IP:-}" ]; then
+  if [ -t 0 ]; then
+    read -r -p "IP estática, formato 192.168.1.21/24 (vacío = dhcp): " __ip_cidr </dev/tty || __ip_cidr=""
+  else
+    __ip_cidr=""
+  fi
+  if [ -z "$__ip_cidr" ]; then
+    IP="dhcp"
+  else
+    __gw=""
+    if [ -t 0 ]; then
+      read -r -p "Gateway, ej. 192.168.1.1: " __gw </dev/tty || __gw=""
+    fi
+    IP="$__ip_cidr${__gw:+,gw=$__gw}"
+  fi
+elif [ "$IP" != "dhcp" ] && [[ "$IP" == *,* ]]; then
+  # Defensa contra IP=cidr,1.2.3.1 fijado a mano por variable de entorno
+  # sin el prefijo gw= que Proxmox exige — si el segundo trozo no lleva
+  # ya una clave conocida, se la añadimos.
+  __after_comma="${IP#*,}"
+  case "$__after_comma" in
+    gw=*|tag=*|firewall=*) ;; # ya trae una clave válida, no tocar
+    *) IP="${IP%%,*},gw=${__after_comma}" ;;
+  esac
+fi
 
 VLAN="${VLAN:-}"
 STORAGE="${STORAGE:-local-lvm}"
