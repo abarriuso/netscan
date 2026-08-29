@@ -46,6 +46,13 @@ echo "============================================================"
 
 c_cyan "[1/3] Paquetes base (git, sudo, curl)..."
 export DEBIAN_FRONTEND=noninteractive
+# needrestart (viene en la plantilla debian-*-standard) muestra un diálogo
+# interactivo "¿qué servicios reiniciar?" en CUALQUIER apt-get install,
+# ignorando DEBIAN_FRONTEND=noninteractive — sin tty que lo responda (pct
+# exec, curl-pipe) el aprovisionamiento se queda colgado sin error. Ya
+# somos root aquí (comprobado arriba), así que se escribe directo sin sudo.
+mkdir -p /etc/needrestart/conf.d
+printf '$nrconf{restart} = '"'"'a'"'"';\n' > /etc/needrestart/conf.d/no-prompt.conf
 apt-get update -qq
 apt-get install -y -qq git sudo curl ca-certificates >/dev/null
 c_green "      OK."

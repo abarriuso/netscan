@@ -48,6 +48,20 @@ echo "============================================================"
 c_cyan "  NetScan installer (Linux/macOS)"
 echo "============================================================"
 
+# Debian/Ubuntu's needrestart pops up an interactive "¿qué servicios
+# reiniciar?" dialog on ANY apt-get install/upgrade — it ignores
+# DEBIAN_FRONTEND=noninteractive entirely. With no tty to answer it (LXC
+# bootstrap via pct exec, CI, curl-pipe), an unattended install just hangs
+# forever with no error, right at whichever apt-get call runs first (often
+# `python3.11-venv` below, since Debian's base template doesn't ship it).
+# Silence it before any apt-get call happens; harmless no-op if needrestart
+# isn't installed.
+export DEBIAN_FRONTEND=noninteractive
+if command -v apt-get >/dev/null 2>&1; then
+  sudo mkdir -p /etc/needrestart/conf.d 2>/dev/null || true
+  printf '$nrconf{restart} = '"'"'a'"'"';\n' | sudo tee /etc/needrestart/conf.d/no-prompt.conf >/dev/null 2>&1 || true
+fi
+
 # --- 1. Python -----------------------------------------------
 echo; c_cyan "[1/5] Comprobando Python 3.11+..."
 PYBOOT=""
