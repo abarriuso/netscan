@@ -106,6 +106,23 @@ elif [ "$IP" != "dhcp" ] && [[ "$IP" == *,* ]]; then
   esac
 fi
 
+# pct create no pone contraseña de root por defecto — sin --password el CT
+# queda sin forma de hacer login (ni consola ni SSH) salvo `pct enter` desde
+# el host. Se pregunta con eco desactivado (como cualquier prompt de
+# contraseña); vacío = generar una aleatoria y mostrarla al final, igual
+# que ya hacemos con el token de la API.
+GENERATED_PASSWORD=0
+if [ -z "${CT_PASSWORD:-}" ]; then
+  if [ -t 0 ]; then
+    read -rs -p "Contraseña de root del contenedor (vacío = generar una aleatoria): " CT_PASSWORD </dev/tty || CT_PASSWORD=""
+    echo
+  fi
+  if [ -z "${CT_PASSWORD:-}" ]; then
+    CT_PASSWORD="$(openssl rand -base64 18 2>/dev/null || tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24)"
+    GENERATED_PASSWORD=1
+  fi
+fi
+
 VLAN="${VLAN:-}"
 STORAGE="${STORAGE:-local-lvm}"
 TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
@@ -159,6 +176,7 @@ pct create "$VMID" "$TEMPLATE" \
   --net0 "$NET0" \
   --unprivileged 1 \
   --features nesting=1 \
+  --password "$CT_PASSWORD" \
   --onboot 1 \
   --start 0
 c_green "      CT $VMID creado (unprivileged, bridge=$BRIDGE${VLAN:+, vlan=$VLAN})."
@@ -207,4 +225,9 @@ c_green "  NetScan listo en el CT $VMID."
 echo "  Dashboard:  http://${CTIP:-<ip-del-ct>}:8600/"
 echo "  Token API:  pct exec $VMID -- cat /etc/netscan/netscan.env"
 echo "  Logs:       pct exec $VMID -- journalctl -u netscan -f"
+if [ "$GENERATED_PASSWORD" = "1" ]; then
+  echo "  Root del CT: $CT_PASSWORD   (generada — guárdala, no se puede recuperar después)"
+else
+  echo "  Root del CT: la contraseña que escribiste al principio"
+fi
 echo "============================================================"
