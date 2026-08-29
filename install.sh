@@ -316,13 +316,31 @@ EOF
     c_green "      Config del servicio: /etc/netscan/netscan.env"
     c_yellow "      Token de la API: $TOKEN"
     c_yellow "      (guárdalo: lo necesita el dashboard al exponerlo en la LAN)"
+  else
+    # Re-ejecutar install.sh --system (p.ej. tras un `git pull`) no debe
+    # obligar a ir a buscar el token a mano — confirmado en vivo: sin esto,
+    # el único rastro del token es la salida de la primera instalación,
+    # fácil de perder de vista en medio de varios reintentos.
+    EXISTING_TOKEN="$(sudo sed -n 's/^NETSCAN_API_TOKEN=//p' /etc/netscan/netscan.env 2>/dev/null || true)"
+    c_cyan "      Config del servicio ya existía: /etc/netscan/netscan.env"
+    if [ -n "$EXISTING_TOKEN" ]; then
+      c_yellow "      Token de la API: $EXISTING_TOKEN"
+    fi
   fi
 
   if command -v systemctl >/dev/null 2>&1; then
     SERVICE=/etc/systemd/system/netscan.service
     sudo bash -c "sed 's#@ROOT@#$ROOT#g; s#@VENV@#$VENV#g' '$ROOT/packaging/linux/netscan.service' > '$SERVICE'"
     sudo systemctl daemon-reload
-    sudo systemctl enable --now netscan.service || true
+    sudo systemctl enable netscan.service || true
+    # `enable --now` only STARTS a stopped unit — on a re-run against an
+    # already-running service (e.g. after `git pull && ./install.sh
+    # --system` picks up a newly-built dashboard) it's a no-op, so the old
+    # process keeps serving stale state. Confirmed live: a dashboard that
+    # built successfully still 404'd at "/" because the already-running
+    # netscan process had decided "no dashboard" at ITS startup, minutes
+    # before the build finished. `restart` covers both cases.
+    sudo systemctl restart netscan.service || true
     IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
     c_green "      Servicio netscan.service activo (systemctl status netscan)."
     c_green "      Dashboard web:  http://${IP:-<ip-del-servidor>}:8600/"
