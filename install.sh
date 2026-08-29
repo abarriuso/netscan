@@ -249,6 +249,30 @@ fi
 
 # --- 4. Node.js + dashboard ----------------------------------
 echo; c_cyan "[4/5] Instalando y compilando el dashboard..."
+if ! command -v npm >/dev/null 2>&1; then
+  # Una plantilla LXC/VM pelada (Proxmox, WSL mínimo, ...) nunca trae
+  # Node preinstalado — sin esto, el dashboard se saltaba en silencio y la
+  # API respondía "Not Found" en "/" (confirmado en vivo: LXC de Proxmox
+  # con Ubuntu 26.04). Se requiere Node 20+; el paquete "nodejs" de los
+  # repos de Debian/Ubuntu suele ir muy por detrás o no existir en la
+  # plantilla base, así que se usa el script oficial de NodeSource.
+  c_yellow "      Node/npm no encontrado. Intentando instalarlo (se requiere Node 20+)..."
+  if command -v apt-get >/dev/null 2>&1; then
+    if curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >/tmp/netscan-node-setup.$$ 2>&1; then
+      sudo apt-get install -y nodejs || true
+    else
+      cat /tmp/netscan-node-setup.$$ >&2
+    fi
+    rm -f /tmp/netscan-node-setup.$$
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf module install -y nodejs:20 2>/dev/null || sudo dnf install -y nodejs || true
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --noconfirm nodejs npm || true
+  elif command -v brew >/dev/null 2>&1; then
+    brew install node || true
+  fi
+fi
+
 if command -v npm >/dev/null 2>&1; then
   # npm install es fatal (como en install.bat); un fallo en el build del
   # dashboard NO debe abortar el resto de la instalación (degradación
@@ -264,7 +288,7 @@ if command -v npm >/dev/null 2>&1; then
     c_yellow "      AVISO: el build del dashboard falló; la API funcionará sin UI integrada."
   fi
 else
-  c_yellow "      Node/npm no encontrado. El backend y la CLI funcionan sin el dashboard."
+  c_yellow "      Node/npm no disponible (y no se pudo instalar automáticamente). El backend y la CLI funcionan sin el dashboard."
   c_yellow "      Instala Node 20+ (https://nodejs.org) y ejecuta: ./netscan.sh up --build"
 fi
 
