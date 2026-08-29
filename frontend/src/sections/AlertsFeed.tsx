@@ -1,16 +1,23 @@
-import { BellRing, Check } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { Check, ShieldQuestion, Sparkle, TrendingDown, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { GlassPanel } from '@/components/metrics'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import PanelError from './PanelError'
 
-const KIND_STYLES: Record<string, { label: string; variant: 'destructive' | 'secondary' | 'outline' }> = {
-  new_device: { label: 'nuevo', variant: 'destructive' },
-  mac_changed: { label: 'ip cambiada', variant: 'secondary' },
-  device_down: { label: 'caído', variant: 'destructive' },
-  device_back: { label: 'recuperado', variant: 'outline' },
+const KIND_STYLE: Record<string, { icon: typeof Sparkle; iconClass: string }> = {
+  new_device: { icon: Sparkle, iconClass: 'bg-primary/[0.16] text-[#c4b5fd]' },
+  mac_changed: { icon: ShieldQuestion, iconClass: 'bg-[color:var(--teal)]/[0.16] text-[color:var(--teal)]' },
+  device_down: { icon: TrendingDown, iconClass: 'bg-destructive/[0.16] text-destructive' },
+  device_back: { icon: TrendingUp, iconClass: 'bg-ok/[0.16] text-ok' },
+}
+
+function timeAgo(iso: string): string {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
+  if (s < 60) return `${Math.round(s)}s`
+  if (s < 3600) return `${Math.round(s / 60)}m`
+  if (s < 86400) return `${Math.round(s / 3600)}h`
+  return `${Math.round(s / 86400)}d`
 }
 
 export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
@@ -21,45 +28,50 @@ export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
     refresh()
   }
 
+  const list = alerts ?? []
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-          <BellRing className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} /> alertas
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 text-xs">
-        <PanelError error={error} />
-        {(alerts ?? []).length === 0 && (
-          <p className="text-muted-foreground">todo tranquilo por aquí</p>
-        )}
-        {(alerts ?? []).slice(0, 12).map((alert) => {
-          const style = KIND_STYLES[alert.kind] ?? KIND_STYLES.new_device
+    <GlassPanel title="Alertas" meta={`${list.length} recientes`}>
+      <PanelError error={error} />
+      {list.length === 0 && <p className="text-sm text-muted-foreground">todo tranquilo por aquí</p>}
+      <div className="divide-y divide-white/[0.06]">
+        {list.slice(0, 12).map((alert) => {
+          const style = KIND_STYLE[alert.kind] ?? KIND_STYLE.new_device
+          const Icon = style.icon
           return (
-            <div
-              key={alert.id}
-              className={`flex items-center gap-3 rounded border border-border/60 px-3 py-2 ${
-                alert.acknowledged ? 'opacity-40' : ''
-              }`}
-            >
-              <Badge variant={style.variant} className="font-mono text-[10px]">
-                {style.label}
-              </Badge>
+            <div key={alert.id} className={`flex items-start gap-3 py-3 ${alert.acknowledged ? 'opacity-40' : ''}`}>
+              <div className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] ${style.iconClass}`}>
+                <Icon className="h-3.5 w-3.5" />
+              </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate">{alert.detail}</p>
-                <p className="font-mono text-[10px] text-muted-foreground">
+                <p className="flex items-center gap-2 text-[13px] font-semibold">
+                  {alert.detail}
+                  {!alert.acknowledged && (
+                    <span className="rounded-full border border-warn/35 bg-warn/[0.14] px-2 py-0.5 text-[10px] font-bold text-warn">
+                      sin leer
+                    </span>
+                  )}
+                </p>
+                <p className="mt-0.5 text-[11.5px] text-muted-foreground">
                   {new Date(alert.created_at).toLocaleString()}
                 </p>
               </div>
+              <span className="shrink-0 text-[11px] text-muted-foreground">{timeAgo(alert.created_at)}</span>
               {!alert.acknowledged && (
-                <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => ack(alert.id)} aria-label="marcar alerta como leída">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => ack(alert.id)}
+                  aria-label="marcar alerta como leída"
+                >
                   <Check className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>
           )
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </GlassPanel>
   )
 }

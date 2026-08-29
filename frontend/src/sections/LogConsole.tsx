@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Terminal } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { GlassPanel } from '@/components/metrics'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import PanelError from './PanelError'
@@ -15,7 +14,7 @@ const LEVEL_CLASS: Record<string, string> = {
  *  "2026-08-28 17:07:33,587 INFO netscan: ...". */
 function levelClass(line: string): string {
   const m = line.match(/\s(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s/)
-  return (m && LEVEL_CLASS[m[1]]) || 'text-muted-foreground'
+  return (m && LEVEL_CLASS[m[1]]) || 'text-[color:var(--teal)]'
 }
 
 /** Live tail of netscan.log — what the backend is doing right now, without
@@ -32,44 +31,26 @@ export default function LogConsole() {
   }, [lines.length])
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-        <div>
-          <CardTitle className="flex items-center gap-2 font-mono text-sm uppercase tracking-wider">
-            <Terminal className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} />
-            consola
-          </CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Lo que hace el backend ahora mismo — las mismas líneas que en{' '}
-            <code>data/netscan.log</code>.
-          </p>
-        </div>
-        <span className="flex shrink-0 items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-ok" />
-          {lines.length} líneas
-        </span>
-      </CardHeader>
-      <CardContent>
-        <PanelError error={error} />
-        <div
-          ref={scrollRef}
-          onScroll={(e) => {
-            const el = e.currentTarget
-            wasAtBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
-          }}
-          className="max-h-64 overflow-y-auto rounded-md bg-background p-3 font-mono text-[11px] leading-relaxed"
-        >
-          {lines.length === 0 ? (
-            <p className="text-muted-foreground">sin actividad todavía</p>
-          ) : (
-            lines.map((line, i) => (
-              <div key={i} className={`whitespace-pre-wrap ${levelClass(line)}`}>
-                {line}
-              </div>
-            ))
-          )}
-        </div>
-      </CardContent>
-    </Card>
+    <GlassPanel title="Consola en vivo" meta="tail -f netscan.log">
+      <PanelError error={error} />
+      <div
+        ref={scrollRef}
+        onScroll={(e) => {
+          const el = e.currentTarget
+          wasAtBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
+        }}
+        className="max-h-[210px] overflow-y-auto rounded-[10px] border border-white/[0.07] bg-black/35 p-3.5 font-mono text-[12px] leading-[1.85]"
+      >
+        {lines.length === 0 ? (
+          <p className="text-muted-foreground">sin actividad todavía</p>
+        ) : (
+          lines.map((line, i) => (
+            <div key={i} className={`whitespace-pre-wrap ${levelClass(line)}`}>
+              {line}
+            </div>
+          ))
+        )}
+      </div>
+    </GlassPanel>
   )
 }

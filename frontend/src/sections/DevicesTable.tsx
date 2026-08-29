@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Gauge, Power, ShieldCheck, ShieldQuestion } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { GlassPanel, QualityBadge } from '@/components/metrics'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -12,7 +11,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { QualityBadge } from '@/components/metrics'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { DeviceRecord, PortInfo } from '@/types'
@@ -63,185 +61,172 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
   }
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-start justify-between space-y-0 pb-3">
-        <div>
-          <CardTitle className="font-mono text-sm uppercase tracking-wider">
-            dispositivos ({filtered.length})
-          </CardTitle>
-          <p className="mt-1 max-w-prose text-xs text-muted-foreground">
-            Comparado contra el escaneo anterior en cada pasada: altas, bajas y cambio de
-            confianza generan una alerta.
-          </p>
+    <GlassPanel
+      title="Dispositivos"
+      right={
+        <div className="flex items-center gap-3">
+          <span className="text-[11.5px] font-medium text-muted-foreground">{filtered.length} descubiertos</span>
+          <Input
+            placeholder="filtrar…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="h-7 w-40 border-white/15 bg-white/5 text-xs"
+          />
         </div>
-        <Input
-          placeholder="filtrar por ip, mac, hostname, vendor…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="h-8 w-72 shrink-0 font-mono text-xs"
-        />
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="px-4 pt-2">
-          <PanelError error={error} />
-        </div>
-        <div className="max-h-[520px] overflow-auto">
-          <Table>
-            <TableHeader className="sticky top-0 bg-card">
-              <TableRow>
-                <TableHead className="w-8"></TableHead>
-                <TableHead>IP</TableHead>
-                <TableHead>MAC</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead className="text-right">Latencia</TableHead>
-                <TableHead className="text-right">Jitter</TableHead>
-                <TableHead className="text-right">Pérdida</TableHead>
-                <TableHead className="text-right">Calidad</TableHead>
-                <TableHead>OS</TableHead>
-                <TableHead>Puertos</TableHead>
-                <TableHead className="w-16"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((dev) => {
-                const ports = portsOf(dev)
-                return (
-                  <TableRow key={dev.mac} className={dev.online ? '' : 'opacity-40'}>
-                    <TableCell>
+      }
+      contentClassName="-mx-5 -mb-2"
+    >
+      <div className="px-5">
+        <PanelError error={error} />
+      </div>
+      <div className="max-h-[520px] overflow-auto px-5 pb-2">
+        <Table>
+          <TableHeader className="[&_tr]:border-white/10">
+            <TableRow className="border-white/10 hover:bg-transparent">
+              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Host</TableHead>
+              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">IP / MAC</TableHead>
+              <TableHead className="text-right text-[10.5px] uppercase tracking-wider text-muted-foreground">Latencia</TableHead>
+              <TableHead className="text-right text-[10.5px] uppercase tracking-wider text-muted-foreground">Jitter</TableHead>
+              <TableHead className="text-right text-[10.5px] uppercase tracking-wider text-muted-foreground">Pérdida</TableHead>
+              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Calidad</TableHead>
+              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">OS</TableHead>
+              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Puertos</TableHead>
+              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Trust</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.map((dev) => {
+              const ports = portsOf(dev)
+              return (
+                <TableRow key={dev.mac} className={`border-white/[0.06] hover:bg-white/[0.03] ${dev.online ? '' : 'opacity-40'}`}>
+                  <TableCell>
+                    <div className="font-semibold">{dev.hostname || dev.mdns_name || dev.ip}</div>
+                    <div className="text-[11.5px] text-muted-foreground">{dev.vendor || '—'}</div>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {dev.ip}
+                    <br />
+                    <span className="text-muted-foreground/70">{dev.mac}</span>
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs">
+                    {dev.last_latency_ms != null ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger>{dev.last_latency_ms}ms</TooltipTrigger>
+                          <TooltipContent className="font-mono text-xs">
+                            handshake TCP medio:{' '}
+                            {dev.tcp_connect_avg_ms != null ? `${dev.tcp_connect_avg_ms}ms` : '—'}
+                            {dev.throughput_mbps != null && (
+                              <div>throughput: {dev.throughput_mbps} Mbps</div>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                    {dev.jitter_ms != null ? `${dev.jitter_ms}ms` : '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs">
+                    {dev.packet_loss_pct != null ? (
                       <span
-                        className={`inline-block h-2 w-2 rounded-full ${
-                          dev.online ? 'bg-ok' : 'bg-muted-foreground/40'
-                        }`}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs font-semibold">{dev.ip}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{dev.mac}</TableCell>
-                    <TableCell className="text-xs">
-                      {dev.hostname || dev.mdns_name || <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell className="max-w-40 truncate text-xs">{dev.vendor || '—'}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">
-                      {dev.last_latency_ms != null ? (
-                        <TooltipProvider>
+                        className={
+                          dev.packet_loss_pct > 20
+                            ? 'text-destructive'
+                            : dev.packet_loss_pct > 0
+                              ? 'text-warn'
+                              : 'text-ok'
+                        }
+                      >
+                        {dev.packet_loss_pct}%
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <QualityBadge score={dev.quality} />
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {dev.os_guess || <span className="text-muted-foreground">—</span>}
+                  </TableCell>
+                  <TableCell className="max-w-64">
+                    <div className="flex flex-wrap gap-1">
+                      {ports.slice(0, 6).map((p) => (
+                        <TooltipProvider key={p.port}>
                           <Tooltip>
-                            <TooltipTrigger>{dev.last_latency_ms}ms</TooltipTrigger>
+                            <TooltipTrigger>
+                              <span className="rounded-[5px] border border-primary/30 bg-primary/[0.14] px-1.5 py-0.5 font-mono text-[10.5px] text-[#d7c8ff]">
+                                {p.port}
+                              </span>
+                            </TooltipTrigger>
                             <TooltipContent className="font-mono text-xs">
-                              handshake TCP medio:{' '}
-                              {dev.tcp_connect_avg_ms != null ? `${dev.tcp_connect_avg_ms}ms` : '—'}
-                              {dev.throughput_mbps != null && (
-                                <div>throughput: {dev.throughput_mbps} Mbps</div>
-                              )}
+                              {p.service}
+                              {p.version ? ` — ${p.version}` : ''}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                      ) : (
-                        '—'
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      {dev.jitter_ms != null ? `${dev.jitter_ms}ms` : '—'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
-                      {dev.packet_loss_pct != null ? (
-                        <span
-                          className={
-                            dev.packet_loss_pct > 20
-                              ? 'text-destructive'
-                              : dev.packet_loss_pct > 0
-                                ? 'text-warn'
-                                : 'text-ok'
-                          }
-                        >
-                          {dev.packet_loss_pct}%
+                      ))}
+                      {ports.length > 6 && (
+                        <span className="rounded-[5px] border border-white/15 px-1.5 py-0.5 font-mono text-[10.5px] text-muted-foreground">
+                          +{ports.length - 6}
                         </span>
-                      ) : (
-                        '—'
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <QualityBadge score={dev.quality} />
-                    </TableCell>
-                    <TableCell>
-                      {dev.os_guess ? (
-                        <Badge variant="secondary" className="font-mono text-[10px]">
-                          {dev.os_guess}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      onClick={() => toggleTrust(dev)}
+                      title={dev.trusted ? 'verificado' : 'marcar como de confianza'}
+                      aria-label={dev.trusted ? `quitar confianza de ${dev.ip}` : `marcar ${dev.ip} como de confianza`}
+                      className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                        dev.trusted
+                          ? 'border-ok/40 bg-ok/[0.16] text-ok'
+                          : 'border-destructive/40 bg-destructive/[0.16] text-destructive'
+                      }`}
+                    >
+                      {dev.trusted ? <ShieldCheck className="h-3 w-3" /> : <ShieldQuestion className="h-3 w-3" />}
+                    </button>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => runSpeedtest(dev.mac)}
+                        disabled={testing.has(dev.mac)}
+                        title="Speed test (latencia, jitter, pérdida, TCP)"
+                        aria-label={`speed test de ${dev.ip}`}
+                        className="flex h-[26px] w-[26px] items-center justify-center rounded-[7px] border border-white/10 bg-white/5 text-muted-foreground hover:text-foreground"
+                      >
+                        <Gauge className={`h-3.5 w-3.5 ${testing.has(dev.mac) ? 'animate-spin' : ''}`} strokeWidth={1.6} />
+                      </button>
+                      {!dev.online && (
+                        <button
+                          onClick={() => api.wake(dev.mac)}
+                          title="Wake-on-LAN"
+                          aria-label={`despertar ${dev.ip} por Wake-on-LAN`}
+                          className="flex h-[26px] w-[26px] items-center justify-center rounded-[7px] border border-white/10 bg-white/5 text-muted-foreground hover:text-foreground"
+                        >
+                          <Power className="h-3.5 w-3.5" strokeWidth={1.6} />
+                        </button>
                       )}
-                    </TableCell>
-                    <TableCell className="max-w-64">
-                      <div className="flex flex-wrap gap-1">
-                        {ports.slice(0, 8).map((p) => (
-                          <TooltipProvider key={p.port}>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Badge variant="outline" className="font-mono text-[10px]">
-                                  {p.port}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent className="font-mono text-xs">
-                                {p.service}
-                                {p.version ? ` — ${p.version}` : ''}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ))}
-                        {ports.length > 8 && (
-                          <Badge variant="outline" className="font-mono text-[10px]">
-                            +{ports.length - 8}
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => runSpeedtest(dev.mac)}
-                          disabled={testing.has(dev.mac)}
-                          title="Speed test (latencia, jitter, pérdida, TCP)"
-                          aria-label={`speed test de ${dev.ip}`}
-                        >
-                          <Gauge
-                            className={`h-4 w-4 text-muted-foreground hover:text-primary ${
-                              testing.has(dev.mac) ? 'animate-spin' : ''
-                            }`}
-                            strokeWidth={1.6}
-                          />
-                        </button>
-                        {!dev.online && (
-                          <button onClick={() => api.wake(dev.mac)} title="Wake-on-LAN" aria-label={`despertar ${dev.ip} por Wake-on-LAN`}>
-                            <Power className="h-4 w-4 text-muted-foreground hover:text-primary" strokeWidth={1.6} />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => toggleTrust(dev)}
-                          title={dev.trusted ? 'verificado' : 'marcar como de confianza'}
-                          aria-label={dev.trusted ? `quitar confianza de ${dev.ip}` : `marcar ${dev.ip} como de confianza`}
-                        >
-                          {dev.trusted ? (
-                            <ShieldCheck className="h-4 w-4 text-ok" strokeWidth={1.6} />
-                          ) : (
-                            <ShieldQuestion className="h-4 w-4 text-warn" strokeWidth={1.6} />
-                          )}
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-              {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={12} className="py-8 text-center text-sm text-muted-foreground">
-                    sin dispositivos — lanza un scan
+                    </div>
                   </TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+              )
+            })}
+            {filtered.length === 0 && (
+              <TableRow className="border-white/[0.06] hover:bg-transparent">
+                <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
+                  sin dispositivos — lanza un scan
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </GlassPanel>
   )
 }
