@@ -171,13 +171,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
           </div>
         )}
 
-        <span
-          className={`flex items-center gap-2 rounded-full border px-3.5 py-2 text-[12.5px] font-semibold ${
-            connected
-              ? 'border-ok/35 bg-ok/10 text-ok'
-              : 'border-destructive/35 bg-destructive/10 text-destructive'
-          }`}
-        >
+        <span className={`flex items-center gap-2 text-[12.5px] font-semibold ${connected ? 'text-ok' : 'text-destructive'}`}>
           <span
             className={`h-[7px] w-[7px] rounded-full bg-current ${connected ? 'animate-pulse' : ''}`}
             style={{ boxShadow: '0 0 8px currentColor' }}
