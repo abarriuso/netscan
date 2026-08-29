@@ -91,6 +91,11 @@ c_cyan "[2/5] Creando CT $VMID..."
 NET0="name=eth0,bridge=$BRIDGE,ip=$IP"
 [ -n "$VLAN" ] && NET0="$NET0,tag=$VLAN"
 
+# nesting=1: newer systemd (Ubuntu 24.04+/26.04, Debian 13) needs it for
+# systemd-resolved to actually work inside an unprivileged LXC — without
+# it the container can get a real IP but DNS resolution silently fails
+# (apt-get errors with "Temporary failure resolving ..." even though the
+# network itself is fine). Safe to leave on for an unprivileged CT.
 pct create "$VMID" "$TEMPLATE" \
   --hostname "$CT_HOSTNAME" \
   --cores "$CORES" \
@@ -99,7 +104,7 @@ pct create "$VMID" "$TEMPLATE" \
   --rootfs "${STORAGE}:${DISK_GB}" \
   --net0 "$NET0" \
   --unprivileged 1 \
-  --features nesting=0 \
+  --features nesting=1 \
   --onboot 1 \
   --start 0
 c_green "      CT $VMID creado (unprivileged, bridge=$BRIDGE${VLAN:+, vlan=$VLAN})."
@@ -125,8 +130,16 @@ else
 fi
 
 c_cyan "[5/5] Instalando NetScan dentro del contenedor..."
-BOOTSTRAP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/bootstrap-lxc.sh"
-if [ ! -f "$BOOTSTRAP" ]; then
+# ${BASH_SOURCE[0]:-} (not bare ${BASH_SOURCE[0]}) matters here: when this
+# script runs as `bash -c "$(curl ...)"` (no real source file, just a
+# string), BASH_SOURCE is unset entirely, and `set -u` turns a bare
+# reference into a hard crash instead of the empty string we actually want.
+SELF="${BASH_SOURCE[0]:-}"
+BOOTSTRAP=""
+if [ -n "$SELF" ] && [ -f "$(dirname "$SELF")/bootstrap-lxc.sh" ]; then
+  BOOTSTRAP="$(cd "$(dirname "$SELF")" && pwd)/bootstrap-lxc.sh"
+fi
+if [ -z "$BOOTSTRAP" ]; then
   c_yellow "      bootstrap-lxc.sh no está junto a este script; descargándolo..."
   BOOTSTRAP="/tmp/bootstrap-lxc.$$.sh"
   curl -fsSL "https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/bootstrap-lxc.sh" -o "$BOOTSTRAP"
