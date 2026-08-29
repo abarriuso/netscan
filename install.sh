@@ -101,12 +101,14 @@ if [ ! -x "$PY" ]; then
     # package split differently than expected, or ensurepip itself broken
     # even once the OS package is present. Try progressively, and only
     # fail hard if every fallback is exhausted.
-    # CPython's own venv module word-wraps this message at ~79 chars, so
-    # "ensurepip is not available" can land split across two lines in the
-    # captured stderr — a plain grep against the raw file misses it and
-    # falls through to the hard failure below. Collapse newlines to spaces
-    # first so the check matches regardless of where Python wrapped it.
-    if tr '\n' ' ' < /tmp/netscan-venv-err.$$ 2>/dev/null | grep -qi "ensurepip is not available\|no module named venv" \
+    # Match on the bare word "ensurepip", not the full phrase "ensurepip is
+    # not available": CPython's own venv module word-wraps that message at
+    # ~79 chars (confirmed live on Ubuntu 26.04/Python 3.14 — it broke as
+    # "...is not\navailable..."), and even collapsing newlines to spaces
+    # first isn't reliable (textwrap can leave the wrap point with zero,
+    # one, or two spaces depending on where exactly it broke). "ensurepip"
+    # itself is never wrapped mid-word and is unambiguous for this failure.
+    if grep -qi "ensurepip\|no module named venv" /tmp/netscan-venv-err.$$ 2>/dev/null \
        && command -v apt-get >/dev/null 2>&1; then
       PYVER="$("$PYBOOT" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
       c_yellow "      Falta el paquete de venv para Python $PYVER; instalando..."
@@ -119,7 +121,7 @@ if [ ! -x "$PY" ]; then
 
       if "$PYBOOT" -m venv "$VENV" 2>/tmp/netscan-venv-err.$$; then
         rm -f /tmp/netscan-venv-err.$$
-      elif tr '\n' ' ' < /tmp/netscan-venv-err.$$ 2>/dev/null | grep -qi "ensurepip is not available"; then
+      elif grep -qi "ensurepip" /tmp/netscan-venv-err.$$ 2>/dev/null; then
         # venv module itself now works (creates the dir/activate scripts)
         # but bundling pip via ensurepip still fails — sidestep ensurepip
         # entirely instead of chasing the exact missing OS package further.
