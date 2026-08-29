@@ -25,11 +25,11 @@
 #    sin etiquetar (igual que el resto de la red, lo normal en un homelab).
 #  - IP: "dhcp" (por defecto) o algo como
 #    "192.168.1.50/24,gw=192.168.1.1" para IP estática.
-#  - OS_TEMPLATE: por defecto "debian-12-standard". Cualquier plantilla
+#  - OS_TEMPLATE: por defecto "ubuntu-26.04-standard". Cualquier plantilla
 #    basada en Debian/Ubuntu vale para NetScan (bootstrap-lxc.sh solo usa
-#    apt-get) — para Ubuntu 26.04 LTS por ejemplo:
-#      OS_TEMPLATE=ubuntu-26.04-standard ./create-lxc.sh
-#    Mira los nombres exactos disponibles con: pveam available | grep -i ubuntu
+#    apt-get) — para Debian 12 por ejemplo:
+#      OS_TEMPLATE=debian-12-standard ./create-lxc.sh
+#    Mira los nombres exactos disponibles con: pveam available | grep -i debian
 #
 #  Requiere que packaging/proxmox/bootstrap-lxc.sh esté junto a este
 #  script (así viene en el repo); si no lo encuentra, lo baja de GitHub.
@@ -73,7 +73,7 @@ prompt_var() {
 
 prompt_var VMID        "VMID del contenedor"                       "$(pvesh get /cluster/nextid)"
 prompt_var CT_NAME     "Nombre del contenedor"                     "netscan"
-prompt_var OS_TEMPLATE "Plantilla (Debian/Ubuntu)"                 "debian-12-standard"
+prompt_var OS_TEMPLATE "Plantilla (Debian/Ubuntu)"                 "ubuntu-26.04-standard"
 prompt_var BRIDGE      "Bridge de red (LAN real, no NAT)"          "vmbr0"
 
 # IP se pregunta en dos pasos simples (IP/CIDR y gateway por separado) en
