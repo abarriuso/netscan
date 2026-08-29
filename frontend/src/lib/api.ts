@@ -17,26 +17,81 @@ import type {
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
 /** Optional API token (only needed if the backend has NETSCAN_API_TOKEN set).
- *  Stored in localStorage after the first 401 prompt. */
+ *  Stored in localStorage; entered through <TokenDialog> (see components/TokenDialog.tsx). */
 function authHeaders(): Record<string, string> {
   const token = localStorage.getItem('netscan_token')
   return token ? { 'X-API-Key': token } : {}
 }
 
-async function ensureAuth(res: Response): Promise<void> {
-  if (res.status === 401) {
-    const token = window.prompt('Este NetScan requiere token (NETSCAN_API_TOKEN). Introdúcelo:')
-    if (token) {
-      localStorage.setItem('netscan_token', token)
-      return
-    }
+export function hasToken(): boolean {
+  return !!localStorage.getItem('netscan_token')
+}
+
+type AuthListener = () => void
+const authListeners = new Set<AuthListener>()
+// A single in-flight "waiting for the user to type a token" gate, shared by
+// every concurrent caller — without this, every panel's own poll tick would
+// independently hit a 401, and the resulting flurry of parallel retries used
+// to trip the backend's brute-force rate limiter (429) before the user even
+// finished reading the dialog. Confirmed live: a fleet of ~10 poll hooks all
+// failing every 2.5-60s each read as a separate "auth failure" to the server.
+let pendingAuth: Promise<void> | null = null
+let resolvePending: (() => void) | null = null
+
+/** Subscribe to "a token is needed" events — <TokenDialog> uses this to auto-open. */
+export function onAuthRequired(cb: AuthListener): () => void {
+  authListeners.add(cb)
+  return () => authListeners.delete(cb)
+}
+
+// Separate, non-blocking "open the dialog so the user can change the saved
+// token" trigger — e.g. the settings button in the header. Unlike
+// onAuthRequired, opening this way never gates any in-flight request.
+const manualOpenListeners = new Set<AuthListener>()
+export function onTokenDialogRequested(cb: AuthListener): () => void {
+  manualOpenListeners.add(cb)
+  return () => manualOpenListeners.delete(cb)
+}
+export function requestTokenDialog() {
+  manualOpenListeners.forEach((cb) => cb())
+}
+
+/** Called by <TokenDialog> when the user submits a value. */
+export function submitToken(token: string) {
+  localStorage.setItem('netscan_token', token)
+  resolvePending?.()
+  pendingAuth = null
+  resolvePending = null
+}
+
+/** Called by <TokenDialog> when the user dismisses it without one — lets
+ *  queued requests proceed (and fail with a normal, visible panel error)
+ *  instead of hanging forever. */
+export function cancelAuth() {
+  resolvePending?.()
+  pendingAuth = null
+  resolvePending = null
+}
+
+export function clearToken() {
+  localStorage.removeItem('netscan_token')
+}
+
+function ensureAuth(): Promise<void> {
+  if (!pendingAuth) {
+    pendingAuth = new Promise((resolve) => {
+      resolvePending = resolve
+    })
+    authListeners.forEach((cb) => cb())
   }
+  return pendingAuth
 }
 
 async function get<T>(path: string): Promise<T> {
+  if (pendingAuth) await pendingAuth
   let resp = await fetch(`${BASE}${path}`, { headers: authHeaders() })
   if (resp.status === 401) {
-    await ensureAuth(resp)
+    await ensureAuth()
     resp = await fetch(`${BASE}${path}`, { headers: authHeaders() })
   }
   if (!resp.ok) throw new Error(`${path}: ${resp.status}`)
@@ -50,9 +105,10 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
+  if (pendingAuth) await pendingAuth
   let resp = await make()
   if (resp.status === 401) {
-    await ensureAuth(resp)
+    await ensureAuth()
     resp = await make()
   }
   if (!resp.ok) throw new Error(`${path}: ${resp.status}`)

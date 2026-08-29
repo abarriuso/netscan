@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Activity, ChevronDown, Play } from 'lucide-react'
+import { Activity, ChevronDown, KeyRound, Play } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Kbd } from '@/components/ui/kbd'
 import { usePoll, useScanProgress } from '@/hooks/useNetscan'
-import { api } from '@/lib/api'
+import { api, requestTokenDialog } from '@/lib/api'
 import type { ScanStage } from '@/types'
 
 const STAGE_LABELS: Record<string, string> = {
@@ -175,6 +175,14 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
           />
           {connected ? 'Live — conectado' : 'Sin conexión'}
         </span>
+
+        <button
+          onClick={requestTokenDialog}
+          title="Token de API"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-white/[0.1] text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground"
+        >
+          <KeyRound className="h-4 w-4" />
+        </button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
