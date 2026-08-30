@@ -26,7 +26,9 @@ function Kpi({
   return (
     <div className="glass flex flex-col gap-1.5 px-[18px] py-4">
       <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-      <span className={`text-[26px] font-extrabold leading-none tracking-tight ${showAccent ? 'text-gradient' : ''}`}>
+      <span
+        className={`text-[26px] font-extrabold leading-none tracking-tight transition-colors duration-300 ${showAccent ? 'text-gradient' : ''}`}
+      >
         {value}
         {frac && (
           <span
@@ -37,7 +39,7 @@ function Kpi({
           </span>
         )}
       </span>
-      {delta && <span className={`text-[11.5px] font-semibold ${deltaClass}`}>{delta}</span>}
+      {delta && <span className={`text-[11.5px] font-semibold transition-colors duration-300 ${deltaClass}`}>{delta}</span>}
     </div>
   )
 }

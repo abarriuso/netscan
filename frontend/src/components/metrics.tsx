@@ -82,6 +82,7 @@ export function Meter({
 
 export function QualityBadge({ score }: { score: number | null | undefined }) {
   if (score == null) return <span className="text-xs text-muted-foreground">—</span>
+  const animated = useAnimatedNumber(score)
   const gradient =
     score >= 80
       ? 'bg-[linear-gradient(90deg,var(--teal),#34d399)]'
@@ -91,7 +92,10 @@ export function QualityBadge({ score }: { score: number | null | undefined }) {
   return (
     <span className="inline-flex items-center gap-2 font-mono text-xs">
       <span className="h-1.5 w-[46px] overflow-hidden rounded-full bg-white/[0.08]">
-        <span className={cn('block h-full rounded-full', gradient)} style={{ width: `${score}%` }} />
+        <span
+          className={cn('block h-full rounded-full transition-[width] duration-500 ease-out', gradient)}
+          style={{ width: `${animated}%` }}
+        />
       </span>
       {score}
     </span>
@@ -127,7 +131,7 @@ export function Sparkbar({
           <div
             key={i}
             className={cn(
-              'w-full rounded-sm transition-all duration-300',
+              'w-full rounded-sm transition-[height,background-color] duration-300 ease-out',
               v == null ? 'bg-white/[0.08]' : ramp(pct, invertColor),
             )}
             style={{ height: `${h}%` }}

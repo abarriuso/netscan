@@ -87,13 +87,35 @@
   /* Fixed, heavily-blurred gradient blobs behind everything — the "aurora."
      Pure decoration: position:fixed + pointer-events:none so they never
      affect layout or intercept input, and a blur this large is cheap for
-     the compositor (it's a GPU filter on a handful of static elements). */
+     the compositor (it's a GPU filter on a handful of static elements).
+     The drift keyframes below only ever animate `transform` (never
+     top/left/width) so the browser can run them entirely on the compositor
+     thread — no layout, no paint, just like the round-4 lesson learned the
+     hard way on the old AsciiPanel sweep animation. */
   .aurora-blob {
     position: fixed;
     border-radius: 9999px;
     filter: blur(110px);
     pointer-events: none;
     z-index: 0;
+    will-change: transform;
+  }
+
+  @keyframes aurora-drift-1 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(4%, 3%, 0) scale(1.08); }
+  }
+  @keyframes aurora-drift-2 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(-4%, 2.5%, 0) scale(1.05); }
+  }
+  @keyframes aurora-drift-3 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(3%, -3.5%, 0) scale(1.1); }
+  }
+  @keyframes aurora-drift-4 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(-3%, -2.5%, 0) scale(1.06); }
   }
 
   /* The frosted-glass panel every section sits in. */
