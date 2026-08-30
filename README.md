@@ -10,6 +10,21 @@ integración directa de **Proxmox VE**, **TrueNAS** y **AdGuard Home**.
 > Del escaneo puntual al vigilante permanente: descubre tu red, detecta
 > intrusos, vigila tus hipervisores y tu NAS — todo en un solo dashboard.
 
+## Capturas
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-overview.jpg" width="100%" alt="Dashboard: KPIs, estado del sistema, inventario de dispositivos y alertas">
+</p>
+<p align="center">
+  <img src="docs/screenshots/dashboard-analytics.jpg" width="100%" alt="Dashboard: analítica de vendors/SO/puertos, servicios web y TLS, integraciones">
+</p>
+
+`netscan.sh doctor` / `netscan.bat doctor` — diagnóstico de un vistazo antes de arrancar:
+
+<p align="center">
+  <img src="docs/screenshots/doctor-cli.png" width="620" alt="netscan doctor: tabla de diagnóstico en terminal">
+</p>
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  backend/   Python 3.11+ · FastAPI · SQLite · scapy          │
