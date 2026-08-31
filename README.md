@@ -5,18 +5,25 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 
 Escáner de red, inventario vivo y panel de monitorización para homelabs, con
-integración directa de **Proxmox VE**, **TrueNAS** y **AdGuard Home**.
+integraciones configurables desde la propia web para **Proxmox VE**,
+**TrueNAS**, **AdGuard Home**, **Pi-hole** y cualquier servicio propio
+(marcador con logo personalizado).
 
 > Del escaneo puntual al vigilante permanente: descubre tu red, detecta
 > intrusos, vigila tus hipervisores y tu NAS — todo en un solo dashboard.
 
 ## Capturas
 
+Inventario en vivo — KPIs, estado del sistema, dispositivos descubiertos y alertas:
+
 <p align="center">
-  <img src="docs/screenshots/dashboard-overview.jpg" width="100%" alt="Dashboard: KPIs, estado del sistema, inventario de dispositivos y alertas">
+  <img src="docs/screenshots/dashboard-overview.png" width="820" alt="Dashboard de NetScan: KPIs, estado del sistema, inventario de dispositivos y alertas">
 </p>
+
+Integraciones configurables desde la web (Proxmox/TrueNAS/AdGuard/Pi-hole/marcadores propios), analítica de red y servicios TLS descubiertos:
+
 <p align="center">
-  <img src="docs/screenshots/dashboard-analytics.jpg" width="100%" alt="Dashboard: analítica de vendors/SO/puertos, servicios web y TLS, integraciones">
+  <img src="docs/screenshots/dashboard-integrations.png" width="820" alt="Panel de integraciones de NetScan: alta/edición desde la web, Pi-hole, y marcadores personalizados">
 </p>
 
 `netscan.sh doctor` / `netscan.bat doctor` — diagnóstico de un vistazo antes de arrancar:
@@ -77,8 +84,13 @@ Docker, WSL con las 6 herramientas) en [Arranque rápido](#arranque-rápido-un-s
 **Integraciones homelab**
 - **Proxmox VE** (múltiples nodos/clusters): estado de nodos, VMs y CTs
 - **TrueNAS** CORE/SCALE: pools, discos, SMART, alertas del sistema
-- **AdGuard Home**: consultas DNS, bloqueos, clientes (cruzable con el
-  inventario de red)
+- **AdGuard Home** y **Pi-hole** (API v6): consultas DNS, bloqueos, clientes
+  (cruzable con el inventario de red)
+- Marcadores personalizados para cualquier otro servicio: nombre, URL y
+  logo propio, con comprobación de arriba/abajo
+- Todo se añade, edita y borra **desde la propia web** — sin tocar
+  `netscan.yaml` a mano (las instancias definidas ahí siguen funcionando,
+  de solo lectura en el panel)
 
 **Speed test y métricas de calidad (nuevo)**
 - Test de velocidad por dispositivo: **latencia** media/mín/máx, **jitter**,
@@ -97,7 +109,8 @@ Docker, WSL con las 6 herramientas) en [Arranque rápido](#arranque-rápido-un-s
 **Dashboard**
 - Tabla densa de dispositivos con puertos, latencia/jitter/pérdida/calidad,
   tooltips de versión y filtrado
-- Paneles de Proxmox/TrueNAS/AdGuard con salud de pools y guests
+- Paneles de Proxmox/TrueNAS/AdGuard/Pi-hole con salud de pools y guests, más
+  gestor de integraciones (alta/edición/borrado) y marcadores personalizados
 - Progreso de escaneo en vivo por WebSocket
 - Feed de alertas con acknowledge
 
@@ -392,6 +405,7 @@ NETSCAN_NOTIFY_URLS__0=ntfy://ntfy.sh/mi-topic
 | Proxmox VE | API Token (`PVEAPIToken`) | Datacenter → Permissions → API Tokens |
 | TrueNAS | API Key | UI → Credentials → API Keys |
 | AdGuard Home | usuario/contraseña de la web UI | — |
+| Pi-hole | contraseña de administrador | — (API v6) |
 
 ## API REST (extracto)
 
@@ -477,7 +491,8 @@ Ver [CONTRIBUTING.md](docs/CONTRIBUTING.md). Issues y PRs bienvenidos.
 ---
 
 *English summary: NetScan is a GPL-2.0 homelab network scanner + live
-inventory + monitoring dashboard (React/FastAPI) with Proxmox VE, TrueNAS and
-AdGuard Home integrations, new-device intrusion alerts, mDNS IoT discovery,
-TLS fingerprinting and optional nmap/RustScan/nuclei superpowers. Clone it,
-`pip install -e backend`, `netscan serve`, and open the dashboard.*
+inventory + monitoring dashboard (React/FastAPI) with configurable-from-the-web
+Proxmox VE, TrueNAS, AdGuard Home and Pi-hole integrations (plus custom
+bookmarks with your own logo), new-device intrusion alerts, mDNS IoT
+discovery, TLS fingerprinting and optional nmap/RustScan/nuclei superpowers.
+Clone it, `pip install -e backend`, `netscan serve`, and open the dashboard.*
