@@ -81,8 +81,10 @@ export function Meter({
 }
 
 export function QualityBadge({ score }: { score: number | null | undefined }) {
+  // Hooks can't be called conditionally, so this runs unconditionally even
+  // when score is null (the early return below just never uses its result).
+  const animated = useAnimatedNumber(score ?? 0)
   if (score == null) return <span className="text-xs text-muted-foreground">—</span>
-  const animated = useAnimatedNumber(score)
   const gradient =
     score >= 80
       ? 'bg-[linear-gradient(90deg,var(--teal),#34d399)]'

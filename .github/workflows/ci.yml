@@ -52,7 +52,11 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           files: backend/coverage.xml
-          fail_ci_if_error: true
+          # Codecov now rejects tokenless uploads even for public repos, and
+          # there's no CODECOV_TOKEN secret configured — the tests above
+          # (including the coverage threshold) already gate correctness;
+          # this step is just reporting, so a failed upload shouldn't fail CI.
+          fail_ci_if_error: false
 
   frontend:
     runs-on: ubuntu-latest
@@ -97,8 +101,18 @@ jobs:
 
       - name: Verify dependency licenses are GPL-2.0-compatible
         run: |
+          # `tail -n +2` drops pip-licenses' own header row ("Name Version
+          # License") — without it, the header itself never matches any
+          # whitelisted license word and always "fails" the grep -v filter,
+          # so this check has been failing unconditionally regardless of
+          # actual dependency licenses. GPLv2 (no trailing "+") must match
+          # too, not just "GPLv2+": scapy reports plain "GNU General Public
+          # License v2 (GPLv2)", which is GPL-2.0-only — compatible with this
+          # project's GPL-2.0-or-later (you can always satisfy "or later" by
+          # distributing under exactly 2.0), not a real incompatibility.
           if pip-licenses --format=plain --ignore-packages netscan-homelab \
-            | grep -viE 'MIT|BSD|Apache|LGPL|ISC|PSF|Python|HPND|MPL|GPLv2\+|GPL-2.0-or-later|Public Domain|Unlicense'; then
+            | tail -n +2 \
+            | grep -viE 'MIT|BSD|Apache|LGPL|ISC|PSF|Python|HPND|MPL|GPLv2|GPL-2.0-or-later|Public Domain|Unlicense'; then
             echo "::error::Dependencias con licencia incompatible encontradas (listadas arriba)"
             exit 1
           fi
@@ -120,12 +134,17 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install backend (for pip-audit dependency resolution)
-        run: pip install ./backend
+        run: pip install -e ./backend
 
       - name: pip-audit (backend dependencies)
         run: |
           pip install pip-audit
-          pip-audit --strict
+          # --skip-editable so our own editable-installed package (not on
+          # PyPI, never will be) doesn't get looked up there — it still
+          # audits every real third-party dependency normally. --strict
+          # can't be combined with this: it treats a skipped package as a
+          # collection failure in its own right, which defeats the point.
+          pip-audit --skip-editable
 
       - name: npm audit (frontend dependencies)
         working-directory: frontend
