@@ -71,6 +71,29 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   al primer 401, o a mano con el icono de llave del header (para
   cambiarlo tras rotar el token). Todas las peticiones concurrentes
   esperan al mismo diálogo en vez de reintentar cada una por su cuenta.
+- **Integraciones configurables desde la web**: nueva tabla en la base de
+  datos (`IntegrationInstance`) y CRUD completo
+  (`GET/POST/PATCH/DELETE /api/settings/integrations`) para añadir, editar
+  y borrar Proxmox/TrueNAS/AdGuard/Pi-hole/marcadores personalizados sin
+  tocar `netscan.yaml` — las instancias definidas ahí se siguen mostrando,
+  de solo lectura. Nuevo panel "Integraciones" en el dashboard con el
+  formulario de alta/edición (campos según el tipo) y los botones de
+  editar/borrar. Las credenciales se enmascaran (`••••••••`) en cualquier
+  respuesta de la API y una edición que no las toca no las sobrescribe.
+- **Pi-hole** (API v6, sesión por contraseña): nuevo cliente
+  (`integrations/pihole.py`) y tarjeta en el dashboard, mismo patrón que
+  AdGuard Home.
+- **Marcadores personalizados**: tarjeta con logo propio (subida de imagen,
+  PNG/SVG/JPG/WEBP hasta 2MB) + comprobación de arriba/abajo por HTTP HEAD,
+  para cualquier servicio que no tenga una integración dedicada.
+- Insignia de la cabecera rediseñada como un pequeño radar ascii
+  (`◜◝ / ◟◞`, monoespaciada, sin el gradiente sólido anterior) — elegida
+  entre 3 bocetos ascii mostrados como mockup antes de implementarla.
+- Título ascii "NETSCAN" en la fuente `doom` de `pyfiglet` sobre la
+  cabecera del dashboard, translúcido encima de los blobs de la aurora
+  (degradado violeta/azul/teal/rosa con un barrido lento, sin tarjeta de
+  cristal detrás) — generado con un script, no tecleado a mano, para
+  garantizar que las 46 columnas de cada línea cuadran.
 
 ### Seguridad
 - Autenticación opcional por token (`NETSCAN_API_TOKEN`) en HTTP y WebSocket.
@@ -88,9 +111,29 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   intentos fallidos en 60 s por IP.
 - `netscan.example.yaml` ya no trae `0.0.0.0` sin token por defecto (API
   abierta a toda la LAN si se copiaba tal cual).
-- Job `security` en CI (`pip-audit --strict` + `npm audit`); dependencias con
-  CVEs conocidos actualizadas (scapy, zeroconf, cryptography, starlette y
-  varias transitivas del frontend).
+- Job `security` en CI (`pip-audit --skip-editable` + `npm audit`);
+  dependencias con CVEs conocidos actualizadas (scapy, zeroconf,
+  cryptography, starlette y varias transitivas del frontend).
+
+### Corregido — CI en verde por primera vez en el histórico visible
+- **react-hooks/rules-of-hooks real**: `QualityBadge` llamaba a
+  `useAnimatedNumber` después de un `return` condicional — se movió antes,
+  como exige React.
+- **`security` (pip-audit)**: fallaba con "netscan-homelab: Dependency not
+  found on PyPI" porque auditaba también el propio paquete, que nunca va a
+  estar publicado ahí. Se instala editable + `--skip-editable` (no se puede
+  combinar con `--strict`: trata el propio skip como un fallo).
+- **`license-check`, dos bugs reales**: (1) la cabecera de `pip-licenses`
+  ("Name Version License") no coincidía con ninguna licencia permitida, así
+  que el job fallaba *siempre*, sin importar las licencias reales — se
+  descarta con `tail -n +2`. (2) scapy declara "GNU General Public License
+  v2 (GPLv2)" sin el "+", y la regex solo aceptaba `GPLv2\+` — GPL-2.0-only
+  es compatible con el GPL-2.0-or-later de este proyecto, no una
+  incompatibilidad real.
+- **`backend` (subida de cobertura a Codecov)**: Codecov exige token incluso
+  en repos públicos ahora; no hay `CODECOV_TOKEN` configurado.
+  `fail_ci_if_error: false` — los 77 tests y el umbral de cobertura del
+  49 % ya gatean la corrección por sí solos, esto era solo el reporte.
 
 ### Añadido
 - `install.bat` instala TODO de una: Python y Node.js vía winget si faltan,
