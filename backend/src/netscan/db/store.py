@@ -12,7 +12,7 @@ from datetime import datetime
 from sqlalchemy import event, inspect, text
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from netscan.db.models import AlertRecord, DeviceRecord, MetricSample, ScanRecord
+from netscan.db.models import AlertRecord, DeviceRecord, IntegrationInstance, MetricSample, ScanRecord
 from netscan.models import ScanResult
 
 # How many historical scans to keep in the DB (oldest are pruned).
@@ -324,3 +324,63 @@ class InventoryStore:
     def device_by_mac(self, mac: str) -> DeviceRecord | None:
         with Session(self.engine) as session:
             return session.exec(select(DeviceRecord).where(DeviceRecord.mac == mac)).first()
+
+    # -- Dashboard-managed integrations (Proxmox/TrueNAS/AdGuard/Pi-hole/custom) --
+
+    def list_integrations(self, kind: str | None = None) -> list[IntegrationInstance]:
+        with Session(self.engine) as session:
+            stmt = select(IntegrationInstance).order_by(IntegrationInstance.created_at.desc())  # type: ignore[attr-defined]
+            if kind:
+                stmt = stmt.where(IntegrationInstance.kind == kind)
+            return list(session.exec(stmt).all())
+
+    def get_integration(self, integration_id: int) -> IntegrationInstance | None:
+        with Session(self.engine) as session:
+            return session.get(IntegrationInstance, integration_id)
+
+    def create_integration(
+        self, kind: str, name: str, config_json: str, enabled: bool = True, logo_path: str | None = None
+    ) -> IntegrationInstance:
+        with Session(self.engine) as session:
+            record = IntegrationInstance(
+                kind=kind, name=name, config_json=config_json, enabled=enabled, logo_path=logo_path
+            )
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return record
+
+    def update_integration(
+        self,
+        integration_id: int,
+        name: str | None = None,
+        config_json: str | None = None,
+        enabled: bool | None = None,
+        logo_path: str | None = None,
+    ) -> IntegrationInstance | None:
+        with Session(self.engine) as session:
+            record = session.get(IntegrationInstance, integration_id)
+            if not record:
+                return None
+            if name is not None:
+                record.name = name
+            if config_json is not None:
+                record.config_json = config_json
+            if enabled is not None:
+                record.enabled = enabled
+            if logo_path is not None:
+                record.logo_path = logo_path
+            record.updated_at = datetime.now()
+            session.add(record)
+            session.commit()
+            session.refresh(record)
+            return record
+
+    def delete_integration(self, integration_id: int) -> bool:
+        with Session(self.engine) as session:
+            record = session.get(IntegrationInstance, integration_id)
+            if not record:
+                return False
+            session.delete(record)
+            session.commit()
+            return True
