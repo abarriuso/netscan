@@ -457,7 +457,6 @@ def create_app() -> FastAPI:
             )
         return out
 
-
     @app.get("/api/settings/integrations")
     def list_integration_settings() -> list[dict[str, object]]:
         """All configured integrations — YAML-defined (read-only) and
