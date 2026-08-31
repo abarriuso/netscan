@@ -3,11 +3,15 @@ import type {
   AdGuardSummary,
   AlertRecord,
   Capabilities,
+  CustomBookmark,
   DeviceMetrics,
   DeviceRecord,
+  IntegrationKind,
+  IntegrationSetting,
   MetricSamplePoint,
   MetricsSummary,
   Overview,
+  PiholeSummary,
   ProxmoxSummary,
   ScanStage,
   SystemStatus,
@@ -135,6 +139,8 @@ export const api = {
   proxmox: () => get<ProxmoxSummary[]>('/api/integrations/proxmox'),
   truenas: () => get<TrueNASSummary[]>('/api/integrations/truenas'),
   adguard: () => get<AdGuardSummary[]>('/api/integrations/adguard'),
+  pihole: () => get<PiholeSummary[]>('/api/integrations/pihole'),
+  customBookmarks: () => get<CustomBookmark[]>('/api/integrations/custom'),
   startScan: (opts: { full?: boolean; only?: ScanStage } = {}) =>
     send<{ status: string }>('/api/scans', 'POST', opts),
   ackAlert: (id: number) => send<{ ok: boolean }>(`/api/alerts/${id}/ack`, 'POST'),
@@ -143,6 +149,36 @@ export const api = {
   wake: (mac: string) =>
     send<{ ok: boolean }>(`/api/devices/${encodeURIComponent(mac)}/wake`, 'POST'),
   latestScanRaw: () => get<{ started_at: string; result: Omit<LatestScan, 'started_at'> }>('/api/scans/latest'),
+
+  // -- Integration settings (add/edit/remove from the dashboard) --
+  listIntegrationSettings: () => get<IntegrationSetting[]>('/api/settings/integrations'),
+  createIntegration: (kind: IntegrationKind, name: string, config: Record<string, unknown>, enabled = true) =>
+    send<IntegrationSetting>('/api/settings/integrations', 'POST', { kind, name, config, enabled }),
+  updateIntegration: (
+    id: number,
+    patch: { name?: string; enabled?: boolean; config?: Record<string, unknown> },
+  ) => send<IntegrationSetting>(`/api/settings/integrations/${id}`, 'PATCH', patch),
+  deleteIntegration: (id: number) => send<{ ok: boolean }>(`/api/settings/integrations/${id}`, 'DELETE'),
+  uploadIntegrationLogo: async (id: number, file: File): Promise<{ ok: boolean; logo_url: string }> => {
+    const form = new FormData()
+    form.append('file', file)
+    if (pendingAuth) await pendingAuth
+    let resp = await fetch(`${BASE}/api/settings/integrations/${id}/logo`, {
+      method: 'POST',
+      headers: authHeaders(), // no Content-Type — the browser sets the multipart boundary
+      body: form,
+    })
+    if (resp.status === 401) {
+      await ensureAuth()
+      resp = await fetch(`${BASE}/api/settings/integrations/${id}/logo`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: form,
+      })
+    }
+    if (!resp.ok) throw new Error(`logo upload: ${resp.status}`)
+    return resp.json()
+  },
 }
 
 export interface LatestScanDevice {

@@ -204,6 +204,39 @@ export interface AdGuardSummary {
   error?: string
 }
 
+export interface PiholeSummary {
+  name: string
+  host: string
+  num_dns_queries?: number
+  num_blocked_filtering?: number
+  percent_blocked?: number
+  domains_being_blocked?: number
+  unique_clients?: number
+  error?: string
+}
+
+export interface CustomBookmark {
+  id: number
+  name: string
+  url: string
+  status: 'up' | 'down'
+  logo_url: string | null
+  error?: string
+}
+
+// --- Integration settings (GET/POST/PATCH/DELETE /api/settings/integrations) --- //
+export type IntegrationKind = 'proxmox' | 'truenas' | 'adguard' | 'pihole' | 'custom'
+
+export interface IntegrationSetting {
+  id?: number
+  kind: IntegrationKind
+  name: string
+  enabled: boolean
+  config: Record<string, string | number | boolean>
+  logo_url?: string | null
+  editable: boolean
+}
+
 // --- System / server status (GET /api/system) ---------------------------- //
 export interface HostInfo {
   hostname: string
