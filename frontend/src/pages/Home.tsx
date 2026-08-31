@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import TokenDialog from '@/components/TokenDialog'
+import HeroTitle from '@/components/HeroTitle'
 import Header from '@/sections/Header'
 import StatCards from '@/sections/StatCards'
 import DevicesTable from '@/sections/DevicesTable'
@@ -56,6 +57,7 @@ export default function Home() {
       />
 
       <div className="relative z-10 mx-auto max-w-[1560px] px-6 pb-14 pt-5">
+        <HeroTitle />
         <Header onScanDone={bump} />
         <main className="animate-in fade-in mt-5 space-y-[18px] duration-500">
           <StatCards refreshKey={refreshKey} />
