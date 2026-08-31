@@ -147,6 +147,35 @@
     color: transparent;
     -webkit-text-fill-color: transparent;
   }
+
+  /* The big DOOM-font ASCII hero wordmark (see HeroTitle.tsx). Gradient
+     sweeps the full violet/teal/pink/blue quartet — wider than
+     .text-gradient's two-stop — and drifts slowly via background-position,
+     never a per-character effect (that's what actually froze the tab in
+     round 4's AsciiPanel — see the memory on that). One drop-shadow on the
+     whole block for the glow, not per-glyph. */
+  .hero-ascii {
+    background-image: linear-gradient(
+      100deg,
+      var(--violet),
+      var(--blue) 35%,
+      var(--teal) 60%,
+      var(--pink) 85%,
+      var(--violet)
+    );
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 22px rgba(139, 92, 246, 0.35)) drop-shadow(0 0 46px rgba(45, 212, 191, 0.18));
+    animation: hero-ascii-sheen 14s linear infinite;
+  }
+  @keyframes hero-ascii-sheen {
+    to {
+      background-position: -200% 0;
+    }
+  }
 }
 
 @layer utilities {
