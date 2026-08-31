@@ -18,20 +18,82 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from urllib.parse import urlsplit, urlunsplit
 
+import httpx
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from netscan import __version__, system
 from netscan.alerts.notify import send_alerts
 from netscan.api.deps import AppState, get_state, init_state
-from netscan.config import load_settings
-from netscan.integrations import adguard, proxmox, truenas
+from netscan.config import (
+    AdGuardInstance,
+    CustomInstance,
+    PiholeInstance,
+    ProxmoxInstance,
+    TrueNASInstance,
+    load_settings,
+)
+from netscan.integrations import adguard, pihole, proxmox, truenas
 from netscan.models import ScanResult
 from netscan.scanner import engine, speed, tools
 
 logger = logging.getLogger("netscan")
+
+# Maps an integration "kind" string to the Pydantic model that validates its
+# config — used by the settings CRUD endpoints below for both kinds of
+# integration (YAML-defined, read-only) and DB-defined (editable).
+KIND_MODELS: dict[str, type] = {
+    "proxmox": ProxmoxInstance,
+    "truenas": TrueNASInstance,
+    "adguard": AdGuardInstance,
+    "pihole": PiholeInstance,
+    "custom": CustomInstance,
+}
+# Fields that hold a credential — masked in list responses, and an update
+# that resends the mask (or leaves the field out) keeps the stored value
+# instead of overwriting it with the mask string.
+_SECRET_FIELDS: dict[str, set[str]] = {
+    "proxmox": {"token_secret"},
+    "truenas": {"api_key"},
+    "adguard": {"password"},
+    "pihole": {"password"},
+    "custom": set(),
+}
+_SECRET_MASK = "••••••••"
+
+
+def _redact_config(kind: str, config: dict[str, object]) -> dict[str, object]:
+    redacted = dict(config)
+    for field in _SECRET_FIELDS.get(kind, ()):
+        if redacted.get(field):
+            redacted[field] = _SECRET_MASK
+    return redacted
+
+
+def _merge_config_for_update(
+    kind: str, existing: dict[str, object], incoming: dict[str, object]
+) -> dict[str, object]:
+    merged = dict(existing)
+    merged.update(incoming)
+    for field in _SECRET_FIELDS.get(kind, ()):
+        if merged.get(field) in (None, "", _SECRET_MASK):
+            merged[field] = existing.get(field, "")
+    return merged
+
+
+def _db_instances(state: AppState, kind: str, model_cls: type) -> list:
+    """Enabled DB-managed instances of one kind, validated + deserialized."""
+    out = []
+    for row in state.store.list_integrations(kind=kind):
+        if not row.enabled:
+            continue
+        try:
+            out.append(model_cls(name=row.name, **json.loads(row.config_json)))
+        except Exception:
+            logger.warning("Integración %s (id=%s) tiene config inválida, se omite", kind, row.id)
+    return out
 
 
 def setup_logging() -> None:
@@ -129,6 +191,19 @@ class TrustRequest(BaseModel):
     notes: str | None = None
 
 
+class IntegrationCreateRequest(BaseModel):
+    kind: str
+    name: str
+    enabled: bool = True
+    config: dict[str, object] = Field(default_factory=dict)
+
+
+class IntegrationUpdateRequest(BaseModel):
+    name: str | None = None
+    enabled: bool | None = None
+    config: dict[str, object] | None = None
+
+
 def _run_scan_task(state: AppState, req: ScanRequest) -> None:
     """Blocking scan executed in a worker thread."""
     if not state.scan_lock.acquire(blocking=False):
@@ -200,8 +275,11 @@ def create_app() -> FastAPI:
         token = state.settings.api_token
         # Static assets and the SPA shell stay reachable without a token so the
         # dashboard can load and then prompt for it on the first API call.
+        # Integration logos are exempted too: they're rendered via plain
+        # <img src>, which can't attach an X-API-Key header, and a branding
+        # image isn't sensitive the way the rest of /api is.
         path = request.url.path
-        needs_auth = path.startswith(("/api", "/ws"))
+        needs_auth = path.startswith(("/api", "/ws")) and not path.endswith("/logo")
         if token and needs_auth and not _token_ok(request.headers, token):
             from fastapi.responses import JSONResponse
 
@@ -332,15 +410,186 @@ def create_app() -> FastAPI:
 
     @app.get("/api/integrations/proxmox")
     def get_proxmox() -> list[dict[str, object]]:
-        return proxmox.collect_all(get_state().settings.proxmox)
+        state = get_state()
+        return proxmox.collect_all(state.settings.proxmox + _db_instances(state, "proxmox", ProxmoxInstance))
 
     @app.get("/api/integrations/truenas")
     def get_truenas() -> list[dict[str, object]]:
-        return truenas.collect_all(get_state().settings.truenas)
+        state = get_state()
+        return truenas.collect_all(state.settings.truenas + _db_instances(state, "truenas", TrueNASInstance))
 
     @app.get("/api/integrations/adguard")
     def get_adguard() -> list[dict[str, object]]:
-        return adguard.collect_all(get_state().settings.adguard)
+        state = get_state()
+        return adguard.collect_all(state.settings.adguard + _db_instances(state, "adguard", AdGuardInstance))
+
+    @app.get("/api/integrations/pihole")
+    def get_pihole() -> list[dict[str, object]]:
+        state = get_state()
+        return pihole.collect_all(state.settings.pihole + _db_instances(state, "pihole", PiholeInstance))
+
+    @app.get("/api/integrations/custom")
+    def get_custom() -> list[dict[str, object]]:
+        """Bookmark tiles: no data API, just a cheap up/down HTTP HEAD check."""
+        state = get_state()
+        out: list[dict[str, object]] = []
+        for row in state.store.list_integrations(kind="custom"):
+            if not row.enabled:
+                continue
+            try:
+                cfg = CustomInstance(name=row.name, **json.loads(row.config_json))
+            except Exception:
+                continue
+            status = "down"
+            try:
+                resp = httpx.head(cfg.url, timeout=3.0, follow_redirects=True)
+                status = "up" if resp.status_code < 500 else "down"
+            except Exception:
+                status = "down"
+            out.append(
+                {
+                    "id": row.id,
+                    "name": cfg.name,
+                    "url": cfg.url,
+                    "status": status,
+                    "logo_url": f"/api/settings/integrations/{row.id}/logo" if row.logo_path else None,
+                }
+            )
+        return out
+
+
+    @app.get("/api/settings/integrations")
+    def list_integration_settings() -> list[dict[str, object]]:
+        """All configured integrations — YAML-defined (read-only) and
+        DB-defined (editable from the dashboard), merged for the settings UI."""
+        state = get_state()
+        out: list[dict[str, object]] = []
+        for kind, instances in (
+            ("proxmox", state.settings.proxmox),
+            ("truenas", state.settings.truenas),
+            ("adguard", state.settings.adguard),
+            ("pihole", state.settings.pihole),
+        ):
+            for inst in instances:
+                config = _redact_config(kind, inst.model_dump(exclude={"name", "enabled"}))
+                out.append(
+                    {
+                        "kind": kind,
+                        "name": inst.name,
+                        "enabled": inst.enabled,
+                        "config": config,
+                        "editable": False,
+                    }
+                )
+        for row in state.store.list_integrations():
+            out.append(
+                {
+                    "id": row.id,
+                    "kind": row.kind,
+                    "name": row.name,
+                    "enabled": row.enabled,
+                    "config": _redact_config(row.kind, json.loads(row.config_json)),
+                    "logo_url": f"/api/settings/integrations/{row.id}/logo" if row.logo_path else None,
+                    "editable": True,
+                }
+            )
+        return out
+
+    @app.post("/api/settings/integrations", status_code=201)
+    def create_integration_setting(req: IntegrationCreateRequest) -> dict[str, object]:
+        model_cls = KIND_MODELS.get(req.kind)
+        if model_cls is None:
+            raise HTTPException(status_code=400, detail=f"Tipo de integración desconocido: {req.kind}")
+        try:
+            validated = model_cls(name=req.name, **req.config)
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=f"Configuración inválida: {exc}") from exc
+        config_dict = validated.model_dump(exclude={"name", "enabled"})
+        row = get_state().store.create_integration(
+            kind=req.kind, name=req.name, config_json=json.dumps(config_dict), enabled=req.enabled
+        )
+        return {
+            "id": row.id,
+            "kind": row.kind,
+            "name": row.name,
+            "enabled": row.enabled,
+            "config": _redact_config(row.kind, config_dict),
+        }
+
+    @app.patch("/api/settings/integrations/{integration_id}")
+    def update_integration_setting(integration_id: int, req: IntegrationUpdateRequest) -> dict[str, object]:
+        store = get_state().store
+        row = store.get_integration(integration_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Integración no encontrada")
+        model_cls = KIND_MODELS[row.kind]
+        config_json = None
+        if req.config is not None:
+            merged = _merge_config_for_update(row.kind, json.loads(row.config_json), req.config)
+            try:
+                validated = model_cls(name=req.name or row.name, **merged)
+            except Exception as exc:
+                raise HTTPException(status_code=422, detail=f"Configuración inválida: {exc}") from exc
+            config_json = json.dumps(validated.model_dump(exclude={"name", "enabled"}))
+        updated = store.update_integration(
+            integration_id, name=req.name, config_json=config_json, enabled=req.enabled
+        )
+        assert updated is not None
+        return {"id": updated.id, "kind": updated.kind, "name": updated.name, "enabled": updated.enabled}
+
+    @app.delete("/api/settings/integrations/{integration_id}")
+    def delete_integration_setting(integration_id: int) -> dict[str, bool]:
+        store = get_state().store
+        row = store.get_integration(integration_id)
+        if row and row.logo_path:
+            logo_file = get_state().settings.data_dir / row.logo_path
+            logo_file.unlink(missing_ok=True)
+        ok = store.delete_integration(integration_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Integración no encontrada")
+        return {"ok": True}
+
+    @app.post("/api/settings/integrations/{integration_id}/logo")
+    async def upload_integration_logo(integration_id: int, file: UploadFile) -> dict[str, object]:
+        store = get_state().store
+        row = store.get_integration(integration_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Integración no encontrada")
+        if row.kind != "custom":
+            raise HTTPException(
+                status_code=400, detail="El logo solo se puede subir para integraciones personalizadas"
+            )
+        allowed = {"image/png": ".png", "image/svg+xml": ".svg", "image/jpeg": ".jpg", "image/webp": ".webp"}
+        ext = allowed.get(file.content_type or "")
+        if not ext:
+            raise HTTPException(
+                status_code=415, detail="Formato de imagen no soportado (usa PNG, SVG, JPG o WEBP)"
+            )
+        data = await file.read()
+        if len(data) > 2 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="El logo no puede superar 2MB")
+        settings = get_state().settings
+        logos_dir = settings.data_dir / "logos"
+        logos_dir.mkdir(parents=True, exist_ok=True)
+        # Old logo may have had a different extension — clear any prior file first.
+        for old in logos_dir.glob(f"{integration_id}.*"):
+            old.unlink(missing_ok=True)
+        dest = logos_dir / f"{integration_id}{ext}"
+        dest.write_bytes(data)
+        store.update_integration(integration_id, logo_path=f"logos/{integration_id}{ext}")
+        return {"ok": True, "logo_url": f"/api/settings/integrations/{integration_id}/logo"}
+
+    @app.get("/api/settings/integrations/{integration_id}/logo")
+    def get_integration_logo(integration_id: int):
+        row = get_state().store.get_integration(integration_id)
+        if not row or not row.logo_path:
+            raise HTTPException(status_code=404, detail="Sin logo")
+        full_path = get_state().settings.data_dir / row.logo_path
+        if not full_path.is_file():
+            raise HTTPException(status_code=404, detail="Archivo de logo no encontrado")
+        from fastapi.responses import FileResponse
+
+        return FileResponse(str(full_path))
 
     @app.get("/api/overview")
     def overview() -> dict[str, object]:

@@ -40,6 +40,7 @@ dependencies = [
     "cryptography>=49.0.0",  # <49.0.0: multiple PYSEC/GHSA advisories, see pip-audit
     "psutil>=5.9.0",
     "pyfiglet>=1.0.2",  # ASCII-art startup banner
+    "python-multipart>=0.0.9",  # FastAPI needs this for UploadFile (integration logo upload)
 ]
 
 [project.optional-dependencies]

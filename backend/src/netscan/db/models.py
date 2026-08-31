@@ -80,3 +80,27 @@ class AlertRecord(SQLModel, table=True):
     device_ip: str = ""
     detail: str = ""
     acknowledged: bool = False
+
+
+class IntegrationInstance(SQLModel, table=True):
+    """One dashboard-managed integration instance (Proxmox/TrueNAS/AdGuard/
+    Pi-hole/custom bookmark). Kept as one flexible table with a JSON config
+    blob rather than one table per kind — these are admin-configured,
+    low-volume rows (a homelab has a handful at most), and each kind's own
+    Pydantic model (see config.py) validates config_json on read/write.
+
+    Separate from (and merged at read time with) whatever's defined in
+    netscan.yaml: YAML-defined instances stay read-only in the UI so
+    existing deployments aren't disrupted by this table's existence.
+    """
+
+    __tablename__ = "integrations"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kind: str  # proxmox | truenas | adguard | pihole | custom
+    name: str
+    enabled: bool = True
+    config_json: str = "{}"  # kind-specific fields, including credentials
+    logo_path: str | None = None  # relative path under data_dir/logos/, "custom" only
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)

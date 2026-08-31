@@ -61,6 +61,28 @@ class AdGuardInstance(BaseModel):
     enabled: bool = True
 
 
+class PiholeInstance(BaseModel):
+    """One Pi-hole endpoint (API v6 only — v5 is end-of-life)."""
+
+    name: str
+    host: str
+    port: int = 80
+    password: str = ""  # the Pi-hole admin password / app password
+    use_ssl: bool = False
+    verify_ssl: bool = False
+    enabled: bool = True
+
+
+class CustomInstance(BaseModel):
+    """A monitored bookmark tile for any other service — name, URL, and an
+    optional uploaded logo (logo_path lives on IntegrationInstance itself,
+    not here, since it's a file on disk rather than connection config)."""
+
+    name: str
+    url: str
+    enabled: bool = True
+
+
 class ScanDefaults(BaseModel):
     network: str = ""  # empty = auto-detect
     workers: int = 16
@@ -107,6 +129,7 @@ class Settings(BaseSettings):
     proxmox: list[ProxmoxInstance] = Field(default_factory=list)
     truenas: list[TrueNASInstance] = Field(default_factory=list)
     adguard: list[AdGuardInstance] = Field(default_factory=list)
+    pihole: list[PiholeInstance] = Field(default_factory=list)
 
     # Apprise notification URLs (ntfy://, tgram://, discord://, ...)
     notify_urls: list[str] = Field(default_factory=list)
