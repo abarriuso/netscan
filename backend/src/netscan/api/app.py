@@ -670,6 +670,14 @@ def create_app() -> FastAPI:
     def metrics_summary() -> dict[str, object]:
         return get_state().store.metrics_summary()
 
+    @app.get("/api/metrics/history")
+    def metrics_history(limit: int = 200) -> dict[str, object]:
+        return {"points": get_state().store.metrics_history(limit=limit)}
+
+    @app.get("/api/scans/history")
+    def scan_history(limit: int = 100) -> dict[str, object]:
+        return {"scans": get_state().store.scan_history(limit=limit)}
+
     @app.get("/api/devices/{mac}/metrics")
     def device_metrics(mac: str, limit: int = 100) -> dict[str, object]:
         samples = get_state().store.metric_samples(mac, limit=limit)

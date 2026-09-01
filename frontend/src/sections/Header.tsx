@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Activity, ChevronDown, KeyRound, Play } from 'lucide-react'
-import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Kbd } from '@/components/ui/kbd'
+import { toast } from 'sonner'
 import { usePoll, useScanProgress } from '@/hooks/useNetscan'
 import { api, requestTokenDialog } from '@/lib/api'
 import type { ScanStage } from '@/types'
@@ -98,14 +99,21 @@ const TOOLS: ToolAction[] = [
   },
 ]
 
+const fmtElapsed = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+
 export default function Header({ onScanDone }: { onScanDone: () => void }) {
-  const { progress, scanning, startScan } = useScanProgress()
+  const { progress, scanning, elapsed, startScan } = useScanProgress()
   const { data: caps, error: capsError } = usePoll(api.capabilities, 60000)
   const connected = !capsError
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
 
   useEffect(() => {
-    if (progress.stage === 'done') onScanDone()
+    if (progress.stage === 'done') {
+      onScanDone()
+      toast.success('Escaneo completado')
+    } else if (progress.stage.startsWith('error')) {
+      toast.error('Error en el escaneo', { description: progress.stage })
+    }
   }, [progress.stage, onScanDone])
 
   const label = progress.stage.startsWith('error')
@@ -157,15 +165,22 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
                   </Badge>
                 ) : (
                   <>
-                    <Activity className="h-3 w-3 animate-pulse" />
-                    {label}
-                    <span className="text-[10px]">
-                      {progress.done}/{progress.total}
-                    </span>
+                    <Activity className="h-3 w-3 shrink-0 animate-pulse text-[color:var(--teal)]" />
+                    <span className="truncate">{label}</span>
+                    {progress.total > 0 && (
+                      <span className="shrink-0 tabular-nums text-[10px]">
+                        {progress.done}/{progress.total}
+                      </span>
+                    )}
                   </>
                 )}
               </span>
-              <span>{pct}%</span>
+              {!progress.stage.startsWith('error') && (
+                <span className="shrink-0 tabular-nums">
+                  <span className="mr-1.5 text-muted-foreground/60">{fmtElapsed(elapsed)}</span>
+                  {pct}%
+                </span>
+              )}
             </div>
             <Progress value={pct} className="h-1" />
           </div>
@@ -195,7 +210,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
               style={{ background: 'linear-gradient(135deg, var(--violet), var(--blue))' }}
             >
               <Play className="h-3.5 w-3.5" />
-              Ejecutar scan
+              {scanning ? 'Escaneando…' : 'Ejecutar scan'}
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>

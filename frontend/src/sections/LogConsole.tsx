@@ -20,7 +20,7 @@ function levelClass(line: string): string {
 /** Live tail of netscan.log — what the backend is doing right now, without
  *  needing a separate terminal window open. */
 export default function LogConsole() {
-  const { data, error } = usePoll(() => api.logs(300), 2500)
+  const { data, error } = usePoll(() => api.logs(300), 5000)
   const lines = data?.lines ?? []
   const scrollRef = useRef<HTMLDivElement>(null)
   const wasAtBottom = useRef(true)

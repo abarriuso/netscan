@@ -8,11 +8,13 @@ import type {
   DeviceRecord,
   IntegrationKind,
   IntegrationSetting,
+  MetricHistoryPoint,
   MetricSamplePoint,
   MetricsSummary,
   Overview,
   PiholeSummary,
   ProxmoxSummary,
+  ScanHistoryPoint,
   ScanStage,
   SystemStatus,
   TrueNASSummary,
@@ -91,15 +93,40 @@ function ensureAuth(): Promise<void> {
   return pendingAuth
 }
 
+// --- Lightweight GET layer: in-flight dedup + a short TTL cache. Several
+// panels poll independently and some hit the same endpoint (/api/devices is
+// read by both the table and the analytics panel); without this, a scan-done
+// refresh fires the same request several times at once. Concurrent callers for
+// one path share a single request, and a resolved response is reused for
+// CACHE_TTL_MS so near-simultaneous polls don't re-fetch. Mutations (see
+// `send`) clear the cache so a change is visible on the next poll. ---
+const CACHE_TTL_MS = 2000
+const _inflight = new Map<string, Promise<unknown>>()
+const _cache = new Map<string, { at: number; value: unknown }>()
+
+export function invalidateCache(): void {
+  _cache.clear()
+}
+
 async function get<T>(path: string): Promise<T> {
-  if (pendingAuth) await pendingAuth
-  let resp = await fetch(`${BASE}${path}`, { headers: authHeaders() })
-  if (resp.status === 401) {
-    await ensureAuth()
-    resp = await fetch(`${BASE}${path}`, { headers: authHeaders() })
-  }
-  if (!resp.ok) throw new Error(`${path}: ${resp.status}`)
-  return resp.json() as Promise<T>
+  const cached = _cache.get(path)
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value as T
+  const existing = _inflight.get(path)
+  if (existing) return existing as Promise<T>
+  const run = (async () => {
+    if (pendingAuth) await pendingAuth
+    let resp = await fetch(`${BASE}${path}`, { headers: authHeaders() })
+    if (resp.status === 401) {
+      await ensureAuth()
+      resp = await fetch(`${BASE}${path}`, { headers: authHeaders() })
+    }
+    if (!resp.ok) throw new Error(`${path}: ${resp.status}`)
+    const value = await resp.json()
+    _cache.set(path, { at: Date.now(), value })
+    return value
+  })().finally(() => _inflight.delete(path))
+  _inflight.set(path, run)
+  return run as Promise<T>
 }
 
 async function send<T>(path: string, method: string, body?: unknown): Promise<T> {
@@ -116,6 +143,9 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
     resp = await make()
   }
   if (!resp.ok) throw new Error(`${path}: ${resp.status}`)
+  // A successful mutation changes server state — drop cached GETs so the next
+  // poll reflects it immediately instead of serving up to CACHE_TTL_MS stale.
+  invalidateCache()
   return resp.json() as Promise<T>
 }
 
@@ -123,6 +153,8 @@ export const api = {
   overview: () => get<Overview>('/api/overview'),
   system: () => get<SystemStatus>('/api/system'),
   metricsSummary: () => get<MetricsSummary>('/api/metrics/summary'),
+  metricsHistory: (limit = 200) => get<{ points: MetricHistoryPoint[] }>(`/api/metrics/history?limit=${limit}`),
+  scanHistory: (limit = 100) => get<{ scans: ScanHistoryPoint[] }>(`/api/scans/history?limit=${limit}`),
   deviceMetrics: (mac: string, limit = 60) =>
     get<{ mac: string; samples: MetricSamplePoint[] }>(
       `/api/devices/${encodeURIComponent(mac)}/metrics?limit=${limit}`,
@@ -134,6 +166,7 @@ export const api = {
     ),
   capabilities: () => get<Capabilities>('/api/capabilities'),
   logs: (lines = 300) => get<{ path: string; lines: string[] }>(`/api/logs?lines=${lines}`),
+  scanProgress: () => get<{ stage: string; done: number; total: number }>('/api/scans/progress'),
   devices: () => get<DeviceRecord[]>('/api/devices'),
   alerts: (unack = false) => get<AlertRecord[]>(`/api/alerts${unack ? '?unacknowledged=true' : ''}`),
   proxmox: () => get<ProxmoxSummary[]>('/api/integrations/proxmox'),

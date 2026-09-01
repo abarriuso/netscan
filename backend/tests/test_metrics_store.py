@@ -98,3 +98,44 @@ def test_migration_adds_columns_to_legacy_db(tmp_path):
     rec = store.device_by_mac("ca:fe:ca:fe:ca:fe")
     assert rec is not None
     assert rec.quality is None  # column exists, value defaulted
+
+
+def test_metrics_history_groups_samples_by_scan(tmp_path):
+    """All devices in one scan share a timestamp, so each scan is one point."""
+    store = _store(tmp_path)
+    devs = [
+        Device(
+            ip="192.168.1.1",
+            mac="aa:00:00:00:00:01",
+            metrics=DeviceMetrics(latency_avg_ms=2.0, throughput_mbps=900, quality=90),
+        ),
+        Device(
+            ip="192.168.1.2",
+            mac="aa:00:00:00:00:02",
+            metrics=DeviceMetrics(latency_avg_ms=4.0, throughput_mbps=800, quality=70),
+        ),
+    ]
+    store.record_scan(ScanResult(total_devices=2, devices=devs))
+
+    history = store.metrics_history()
+    assert len(history) == 1
+    point = history[0]
+    assert point["devices"] == 2
+    assert point["avg_quality"] == 80
+    assert point["avg_latency_ms"] == 3.0
+    assert point["avg_throughput_mbps"] == 850.0
+    assert "t" in point
+
+
+def test_scan_history_lists_scans_chronologically(tmp_path):
+    store = _store(tmp_path)
+    store.record_scan(ScanResult(network="10.0.0.0/24", duration_s=3.0, total_devices=1,
+                                 devices=[Device(ip="10.0.0.1", mac="aa:00:00:00:00:01")]))
+    store.record_scan(ScanResult(network="10.0.0.0/24", duration_s=7.5, total_devices=2,
+                                 devices=[Device(ip="10.0.0.1", mac="aa:00:00:00:00:01"),
+                                          Device(ip="10.0.0.2", mac="aa:00:00:00:00:02")]))
+    scans = store.scan_history()
+    assert len(scans) == 2
+    assert scans[0]["total_devices"] == 1
+    assert scans[-1]["total_devices"] == 2
+    assert scans[-1]["duration_s"] == 7.5

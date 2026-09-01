@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { api, progressSocket } from '@/lib/api'
 import type { ScanProgress, ScanStage } from '@/types'
 
@@ -25,29 +26,47 @@ export function usePoll<T>(getter: () => Promise<T>, intervalMs = 10000, refresh
 
   useEffect(() => {
     refresh()
-    const id = setInterval(refresh, intervalMs)
-    return () => clearInterval(id)
+    // Pause polling while the tab is hidden — background tabs shouldn't keep
+    // hammering the API — and catch up immediately on becoming visible again.
+    const id = setInterval(() => {
+      if (!document.hidden) refresh()
+    }, intervalMs)
+    const onVisible = () => {
+      if (!document.hidden) refresh()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [refresh, intervalMs, refreshKey])
 
   return { data, error, refresh }
 }
 
-/** Live scan progress over WebSocket with a one-shot HTTP fallback. */
+/** Live scan progress: WebSocket for low latency, plus an HTTP fallback poll
+ *  while a scan runs so the UI keeps updating even if the socket never connects
+ *  (a reverse proxy without WS upgrade, say) — a running scan must never look
+ *  frozen. Also exposes elapsed seconds and fires start/failure toasts. */
 export function useScanProgress() {
   const [progress, setProgress] = useState<ScanProgress>({ stage: 'idle', done: 0, total: 0 })
   const [scanning, setScanning] = useState(false)
+  const [elapsed, setElapsed] = useState(0)
   const wsRef = useRef<WebSocket | null>(null)
+  const startRef = useRef<number>(0)
+
+  const apply = useCallback((p: ScanProgress) => {
+    setProgress(p)
+    if (p.stage === 'done' || p.stage.startsWith('error')) setScanning(false)
+    else if (p.stage !== 'idle') setScanning(true)
+  }, [])
 
   useEffect(() => {
     let dead = false
     let retry: ReturnType<typeof setTimeout> | undefined
     const connect = () => {
       if (dead) return
-      const ws = progressSocket((p) => {
-        setProgress(p)
-        if (p.stage === 'done' || p.stage.startsWith('error')) setScanning(false)
-        else if (p.stage !== 'idle') setScanning(true)
-      })
+      const ws = progressSocket((p) => apply(p as ScanProgress))
       ws.onclose = () => {
         if (!dead) retry = setTimeout(connect, 3000)
       }
@@ -64,22 +83,51 @@ export function useScanProgress() {
         ws.close()
       }
     }
-  }, [])
+  }, [apply])
+
+  // HTTP fallback while scanning.
+  useEffect(() => {
+    if (!scanning) return
+    const id = setInterval(() => {
+      api
+        .scanProgress()
+        .then((p) => apply(p as ScanProgress))
+        .catch(() => {})
+    }, 2000)
+    return () => clearInterval(id)
+  }, [scanning, apply])
+
+  // Elapsed-time ticker (real progress feedback, not decoration).
+  useEffect(() => {
+    if (!scanning) return
+    if (!startRef.current) startRef.current = Date.now()
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [scanning])
 
   const startScan = useCallback(async (opts: { full?: boolean; only?: ScanStage } = {}) => {
+    startRef.current = Date.now()
+    setElapsed(0)
     setScanning(true)
+    setProgress({ stage: opts.only ?? 'arp', done: 0, total: 0 })
+    toast(
+      opts.full ? 'Escaneo completo iniciado' : opts.only ? `Ejecutando: ${opts.only}` : 'Escaneo rápido iniciado',
+      { description: 'Puedes seguir el progreso en la cabecera.' },
+    )
     try {
       await api.startScan(opts)
-    } catch {
+    } catch (e) {
       setScanning(false)
+      toast.error('No se pudo iniciar el escaneo', { description: (e as Error).message })
     }
   }, [])
 
-  return { progress, scanning, startScan }
+  return { progress, scanning, elapsed, startScan }
 }
 
-/** Smoothly animate a numeric value toward its target with requestAnimationFrame. */
-export function useAnimatedNumber(target: number, duration = 600): number {
+/** Smoothly animate a numeric value toward its target with requestAnimationFrame
+ *  (easeOutCubic). Respects prefers-reduced-motion. */
+export function useAnimatedNumber(target: number, duration = 700): number {
   const [value, setValue] = useState(target)
   const fromRef = useRef(target)
   const rafRef = useRef<number>(0)
@@ -96,7 +144,6 @@ export function useAnimatedNumber(target: number, duration = 600): number {
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     if (reduce || !Number.isFinite(target)) {
-      // Jump straight to the value on the next frame (no in-effect setState).
       rafRef.current = requestAnimationFrame(() => setValue(target))
       return () => cancelAnimationFrame(rafRef.current)
     }

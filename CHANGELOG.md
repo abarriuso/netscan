@@ -5,6 +5,34 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Añadido — rediseño del dashboard web
+- **Navegación por secciones** (Resumen · Dispositivos · Analítica · Integraciones ·
+  Sistema) en vez de una única página con todo apilado; solo se monta y sondea la
+  sección activa.
+- **Gráficas de series temporales**: nuevos endpoints `/api/metrics/history` y
+  `/api/scans/history`, y una pestaña Analítica con la evolución de latencia,
+  calidad, throughput y dispositivos por escaneo (Recharts).
+- **Feedback de escaneo** claro: toast al iniciar/terminar/fallar, etapa actual +
+  contador + tiempo transcurrido, y sondeo HTTP de respaldo si el WebSocket no
+  conecta.
+- **Responsive**: la tabla oculta columnas secundarias y las pestañas se reducen a
+  iconos en pantallas pequeñas.
+
+### Cambiado — rendimiento y consistencia del dashboard
+- Capa GET con deduplicación e invalidación en mutaciones (evita pedir
+  `/api/devices` por duplicado) y **pausa del sondeo con la pestaña en segundo plano**.
+- **Code-splitting** de la pestaña Analítica (Recharts) e Integraciones para
+  aligerar la carga inicial.
+- Estados de carga uniformes (skeletons), *hover* fluido en tarjetas y transiciones
+  que respetan `prefers-reduced-motion`.
+
+### Cambiado — el frontend usa pnpm
+- El dashboard pasa de **npm a pnpm** (`pnpm-lock.yaml`, campo `packageManager`).
+  Build, Docker, workflows de CI e instaladores (`install.sh`/`install.bat`,
+  `netscan up`) usan `pnpm` vía `corepack` (incluido con Node ≥16.9), sin
+  instalación global aparte.
+
+
 ### Añadido — arranque, servicio web y métricas
 - **`netscan up`**: un solo comando que sirve la API y el dashboard integrado
   en el mismo puerto y abre el navegador. La API sirve `frontend/dist` como

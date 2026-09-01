@@ -438,12 +438,12 @@ ruff format --check .     # formato
 mypy src/netscan          # tipos
 
 cd ../frontend
-npm run lint && npm run typecheck && npm run build
+pnpm lint && pnpm typecheck && pnpm build
 ```
 
 CI en `.github/workflows/ci.yml`: matriz Ubuntu/Windows × Python 3.11/3.12,
 lint+build del frontend, chequeo de licencias de dependencias, auditoría de
-vulnerabilidades (`pip-audit` + `npm audit`) y releases automáticos al
+vulnerabilidades (`pip-audit` + `pnpm audit`) y releases automáticos al
 pushear tags `v*` (backend + instalador Windows + bundle Linux, ver
 `release.yml`).
 
