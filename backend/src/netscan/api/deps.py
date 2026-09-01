@@ -47,6 +47,7 @@ class AppState:
         self.scans_completed = 0
         self.last_scan_duration_s: float | None = None
         self.frontend_dist: Path | None = _find_frontend_dist()
+        self.live: object | None = None  # LiveMonitor, started in lifespan
         # Failed-auth timestamps per client IP (rate limiting; see api/app.py).
         self.auth_failures: dict[str, deque[float]] = defaultdict(lambda: deque(maxlen=50))
 

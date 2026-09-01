@@ -97,6 +97,25 @@ export interface ScanHistoryPoint {
   network: string
 }
 
+export interface LiveDevice {
+  mac: string
+  ip: string
+  name: string
+  vendor: string
+  trusted: boolean
+  up: boolean
+  latency_ms: number | null
+}
+
+export interface LiveSnapshot {
+  series: { t: string; latency_ms: number | null; online: number }[]
+  devices: LiveDevice[]
+  online: number
+  total: number
+  interval_s: number
+  updated_at: string | null
+}
+
 export interface AlertRecord {
   id: number
   created_at: string

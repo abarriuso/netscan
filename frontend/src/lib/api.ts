@@ -8,6 +8,7 @@ import type {
   DeviceRecord,
   IntegrationKind,
   IntegrationSetting,
+  LiveSnapshot,
   MetricHistoryPoint,
   MetricSamplePoint,
   MetricsSummary,
@@ -155,6 +156,7 @@ export const api = {
   metricsSummary: () => get<MetricsSummary>('/api/metrics/summary'),
   metricsHistory: (limit = 200) => get<{ points: MetricHistoryPoint[] }>(`/api/metrics/history?limit=${limit}`),
   scanHistory: (limit = 100) => get<{ scans: ScanHistoryPoint[] }>(`/api/scans/history?limit=${limit}`),
+  live: () => get<LiveSnapshot>('/api/live'),
   deviceMetrics: (mac: string, limit = 60) =>
     get<{ mac: string; samples: MetricSamplePoint[] }>(
       `/api/devices/${encodeURIComponent(mac)}/metrics?limit=${limit}`,

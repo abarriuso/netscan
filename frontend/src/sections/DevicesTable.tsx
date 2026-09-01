@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { Gauge, Power, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { GlassPanel, QualityBadge } from '@/components/metrics'
 import { Input } from '@/components/ui/input'
@@ -17,6 +17,8 @@ import { api } from '@/lib/api'
 import type { DeviceRecord, PortInfo } from '@/types'
 import PanelError from './PanelError'
 
+const DeviceDetailDialog = lazy(() => import('./DeviceDetailDialog'))
+
 function portsOf(dev: DeviceRecord): PortInfo[] {
   try {
     return JSON.parse(dev.open_ports_json) as PortInfo[]
@@ -28,6 +30,7 @@ function portsOf(dev: DeviceRecord): PortInfo[] {
 export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
   const { data: devices, error, refresh } = usePoll(api.devices, 15000, refreshKey)
   const loading = devices == null && !error
+  const [detail, setDetail] = useState<DeviceRecord | null>(null)
   const [filter, setFilter] = useState('')
   const [testing, setTesting] = useState<Set<string>>(new Set())
 
@@ -63,6 +66,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
   }
 
   return (
+    <>
     <GlassPanel
       title="Dispositivos"
       right={
@@ -111,8 +115,14 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
               return (
                 <TableRow key={dev.mac} className={`border-white/[0.06] transition-colors hover:bg-white/[0.03] ${dev.online ? '' : 'opacity-40'}`}>
                   <TableCell>
-                    <div className="font-semibold">{dev.hostname || dev.mdns_name || dev.ip}</div>
-                    <div className="text-[11.5px] text-muted-foreground">{dev.vendor || '—'}</div>
+                    <button
+                      onClick={() => setDetail(dev)}
+                      title="Ver histórico"
+                      className="text-left transition-colors hover:text-[color:var(--teal)]"
+                    >
+                      <div className="font-semibold">{dev.hostname || dev.mdns_name || dev.ip}</div>
+                      <div className="text-[11.5px] text-muted-foreground">{dev.vendor || '—'}</div>
+                    </button>
                   </TableCell>
                   <TableCell className="font-mono text-xs">
                     {dev.ip}
@@ -238,5 +248,11 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
         </Table>
       </div>
     </GlassPanel>
+    {detail && (
+      <Suspense fallback={null}>
+        <DeviceDetailDialog device={detail} onClose={() => setDetail(null)} />
+      </Suspense>
+    )}
+    </>
   )
 }

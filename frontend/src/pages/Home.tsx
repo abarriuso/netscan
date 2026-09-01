@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useState } from 'react'
-import { Activity, BarChart3, LayoutDashboard, Network, Plug } from 'lucide-react'
+import { Activity, BarChart3, LayoutDashboard, Network, Plug, Radio } from 'lucide-react'
 import TokenDialog from '@/components/TokenDialog'
 import HeroTitle from '@/components/HeroTitle'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -15,12 +15,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 // Lazy-loaded so the chart-heavy Analytics tab (Recharts) and the large
 // Integrations panel are code-split out of the initial bundle — the shell and
 // the default tab load without them, and they arrive when their tab is opened.
+const LiveView = lazy(() => import('@/sections/LiveView'))
 const AnalyticsPanel = lazy(() => import('@/sections/AnalyticsPanel'))
 const TrendsPanel = lazy(() => import('@/sections/TrendsPanel'))
 const ServicesPanel = lazy(() => import('@/sections/ServicesPanel'))
 const Integrations = lazy(() => import('@/sections/Integrations'))
 
 const TABS = [
+  { value: 'live', label: 'En vivo', icon: Radio },
   { value: 'resumen', label: 'Resumen', icon: LayoutDashboard },
   { value: 'dispositivos', label: 'Dispositivos', icon: Network },
   { value: 'analitica', label: 'Analítica', icon: BarChart3 },
@@ -49,7 +51,7 @@ export default function Home() {
   // Remember the last section across reloads (per-viewer convenience).
   const [tab, setTab] = useState(() => {
     try {
-      return localStorage.getItem('netscan_tab') || 'resumen'
+      return localStorage.getItem('netscan_tab') || 'live'
     } catch {
       return 'resumen'
     }
@@ -101,12 +103,12 @@ export default function Home() {
         }}
       />
 
-      <div className="relative z-10 mx-auto max-w-[1560px] px-4 pb-14 pt-5 sm:px-6">
+      <div className="relative z-10 mx-auto max-w-[1560px] px-4 pb-14 pt-7 sm:px-6">
         <HeroTitle />
         <Header onScanDone={bump} />
 
         <Tabs value={tab} onValueChange={onTab} className="mt-5 gap-4">
-          <TabsList className="glass grid h-auto w-full grid-cols-5 gap-1 rounded-xl bg-white/[0.055] p-1.5">
+          <TabsList className="glass grid h-auto w-full grid-cols-3 gap-1 rounded-xl bg-white/[0.055] p-1.5 sm:grid-cols-6">
             {TABS.map(({ value, label, icon: Icon }) => (
               <TabsTrigger
                 key={value}
@@ -118,6 +120,12 @@ export default function Home() {
               </TabsTrigger>
             ))}
           </TabsList>
+
+          <TabsContent value="live" className={PANEL_ANIM}>
+            <Suspense fallback={<PanelFallback />}>
+              <LiveView />
+            </Suspense>
+          </TabsContent>
 
           <TabsContent value="resumen" className={PANEL_ANIM}>
             <StatCards refreshKey={refreshKey} />

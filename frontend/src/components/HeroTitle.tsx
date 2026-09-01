@@ -12,7 +12,7 @@ const DOOM_ASCII =
  *  accessible heading lives in Header.tsx's "NetScan" text. */
 export default function HeroTitle() {
   return (
-    <div className="pointer-events-none select-none overflow-x-auto pb-1 pt-2 text-center" aria-hidden="true">
+    <div className="pointer-events-none mb-2 select-none overflow-x-auto pb-6 pt-6 text-center" aria-hidden="true">
       <pre
         className="hero-ascii mx-auto inline-block whitespace-pre font-mono text-[9px] font-bold leading-[1.15] sm:text-[13px] md:text-[17px] lg:text-[21px]"
       >
