@@ -81,6 +81,22 @@ export interface MetricsSummary {
   worst_quality: number | null
 }
 
+export interface MetricHistoryPoint {
+  t: string
+  avg_latency_ms: number | null
+  avg_quality: number | null
+  avg_packet_loss_pct: number | null
+  avg_throughput_mbps: number | null
+  devices: number
+}
+
+export interface ScanHistoryPoint {
+  started_at: string
+  duration_s: number
+  total_devices: number
+  network: string
+}
+
 export interface AlertRecord {
   id: number
   created_at: string

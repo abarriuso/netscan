@@ -249,14 +249,14 @@ fi
 
 # --- 4. Node.js + dashboard ----------------------------------
 echo; c_cyan "[4/5] Instalando y compilando el dashboard..."
-if ! command -v npm >/dev/null 2>&1; then
+if ! command -v node >/dev/null 2>&1 && ! command -v corepack >/dev/null 2>&1; then
   # Una plantilla LXC/VM pelada (Proxmox, WSL mínimo, ...) nunca trae
   # Node preinstalado — sin esto, el dashboard se saltaba en silencio y la
   # API respondía "Not Found" en "/" (confirmado en vivo: LXC de Proxmox
   # con Ubuntu 26.04). Se requiere Node 20+; el paquete "nodejs" de los
   # repos de Debian/Ubuntu suele ir muy por detrás o no existir en la
   # plantilla base, así que se usa el script oficial de NodeSource.
-  c_yellow "      Node/npm no encontrado. Intentando instalarlo (se requiere Node 20+)..."
+  c_yellow "      Node no encontrado. Intentando instalarlo (se requiere Node 20+)..."
   if command -v apt-get >/dev/null 2>&1; then
     if curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >/tmp/netscan-node-setup.$$ 2>&1; then
       sudo apt-get install -y nodejs || true
@@ -273,22 +273,23 @@ if ! command -v npm >/dev/null 2>&1; then
   fi
 fi
 
-if command -v npm >/dev/null 2>&1; then
-  # npm install es fatal (como en install.bat); un fallo en el build del
+if command -v corepack >/dev/null 2>&1 || command -v node >/dev/null 2>&1; then
+  export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+  # pnpm install es fatal (como en install.bat); un fallo en el build del
   # dashboard NO debe abortar el resto de la instalación (degradación
   # elegante: la API sigue funcionando sin UI integrada), así que se
   # comprueba fuera de una cadena '&&' para no disparar 'set -e'.
-  if ! ( cd "$ROOT/frontend" && npm install --no-audit --no-fund ); then
-    echo "ERROR: fallo instalando dependencias del dashboard (npm install)." >&2
+  if ! ( cd "$ROOT/frontend" && corepack pnpm install ); then
+    echo "ERROR: fallo instalando dependencias del dashboard (pnpm install)." >&2
     exit 1
   fi
-  if ( cd "$ROOT/frontend" && npm run build ); then
+  if ( cd "$ROOT/frontend" && corepack pnpm run build ); then
     c_green "      Dashboard compilado (frontend/dist)."
   else
     c_yellow "      AVISO: el build del dashboard falló; la API funcionará sin UI integrada."
   fi
 else
-  c_yellow "      Node/npm no disponible (y no se pudo instalar automáticamente). El backend y la CLI funcionan sin el dashboard."
+  c_yellow "      Node no disponible (y no se pudo instalar automáticamente). El backend y la CLI funcionan sin el dashboard."
   c_yellow "      Instala Node 20+ (https://nodejs.org) y ejecuta: ./netscan.sh up --build"
 fi
 

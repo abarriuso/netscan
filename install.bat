@@ -158,7 +158,7 @@ if defined SYS_PATH if defined USR_PATH set "PATH=!SYS_PATH!;!USR_PATH!"
 REM --- 4. Node.js + frontend ----------------------------------
 echo.
 echo [4/5] Instalando dependencias del dashboard...
-where npm >nul 2>&1
+where node >nul 2>&1
 if %errorlevel% neq 0 (
     echo       Node.js no encontrado. Instalando Node LTS con winget...
     where winget >nul 2>&1
@@ -171,7 +171,7 @@ if %errorlevel% neq 0 (
     for /f "tokens=2,*" %%a in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%b"
     for /f "tokens=2,*" %%a in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "USR_PATH=%%b"
     if defined SYS_PATH if defined USR_PATH set "PATH=!SYS_PATH!;!USR_PATH!"
-    where npm >nul 2>&1
+    where node >nul 2>&1
     if !errorlevel! neq 0 (
         echo       Node instalado pero el PATH no se refresco.
         echo       Cierra esta ventana y vuelve a ejecutar install.bat para el dashboard.
@@ -179,13 +179,14 @@ if %errorlevel% neq 0 (
     )
 )
 cd frontend
-call npm install --no-audit --no-fund
+set COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+call corepack pnpm install
 if !errorlevel! neq 0 (
     cd ..
     goto :error
 )
-echo       Compilando el dashboard ^(npm run build^)...
-call npm run build
+echo       Compilando el dashboard ^(pnpm run build^)...
+call corepack pnpm run build
 if !errorlevel! neq 0 (
     echo       AVISO: el build del dashboard fallo; la API funcionara sin UI integrada.
 )

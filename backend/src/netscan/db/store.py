@@ -293,6 +293,68 @@ class InventoryStore:
             "worst_quality": min(qualities) if qualities else None,
         }
 
+    def metrics_history(self, limit: int = 200) -> list[dict[str, object]]:
+        """Network-wide metric averages per scan, over time.
+
+        Every device measured in one scan shares a single ``created_at`` (see
+        ``record_scan``), so grouping samples by that timestamp reconstructs a
+        per-scan network trend. Chronological (oldest first), newest ``limit``.
+        """
+        with Session(self.engine) as session:
+            rows = list(
+                session.exec(
+                    select(MetricSample).order_by(MetricSample.created_at.asc())  # type: ignore[attr-defined]
+                ).all()
+            )
+        buckets: dict[datetime, list[MetricSample]] = {}
+        order: list[datetime] = []
+        for sample in rows:
+            if sample.created_at not in buckets:
+                buckets[sample.created_at] = []
+                order.append(sample.created_at)
+            buckets[sample.created_at].append(sample)
+
+        def _avg(values: list[float | None]) -> float | None:
+            nums = [v for v in values if v is not None]
+            return round(sum(nums) / len(nums), 2) if nums else None
+
+        def _avg_int(values: list[int | None]) -> int | None:
+            nums = [v for v in values if v is not None]
+            return round(sum(nums) / len(nums)) if nums else None
+
+        points: list[dict[str, object]] = []
+        for ts in order:
+            samples = buckets[ts]
+            points.append(
+                {
+                    "t": ts.isoformat(),
+                    "avg_latency_ms": _avg([sm.latency_ms for sm in samples]),
+                    "avg_quality": _avg_int([sm.quality for sm in samples]),
+                    "avg_packet_loss_pct": _avg([sm.packet_loss_pct for sm in samples]),
+                    "avg_throughput_mbps": _avg([sm.throughput_mbps for sm in samples]),
+                    "devices": len(samples),
+                }
+            )
+        return points[-limit:]
+
+    def scan_history(self, limit: int = 100) -> list[dict[str, object]]:
+        """Metadata of recent scans over time (chronological, newest ``limit``)."""
+        with Session(self.engine) as session:
+            rows = list(
+                session.exec(
+                    select(ScanRecord).order_by(ScanRecord.started_at.asc())  # type: ignore[attr-defined]
+                ).all()
+            )
+        return [
+            {
+                "started_at": r.started_at.isoformat(),
+                "duration_s": r.duration_s,
+                "total_devices": r.total_devices,
+                "network": r.network,
+            }
+            for r in rows[-limit:]
+        ]
+
     def record_speedtest(self, mac: str, metrics) -> bool:  # metrics: DeviceMetrics
         """Persist an on-demand speed test result for a single device."""
         with Session(self.engine) as session:

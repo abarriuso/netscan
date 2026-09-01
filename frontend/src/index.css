@@ -134,6 +134,23 @@
     background: rgba(255, 255, 255, 0.09);
   }
 
+  /* Consistent, fluid hover lift for interactive cards (KPIs and the like).
+     transition-duration is globally neutralised under prefers-reduced-motion
+     (see the reset above), so this stays still for users who ask it to. */
+  .card-hover {
+    transition:
+      transform 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
   /* Gradient-filled text — the one "accent" KPI value, used sparingly.
      `-webkit-text-fill-color` (not just `color`) is what actually lets
      `background-clip: text` show through in Chrome/Safari; both are

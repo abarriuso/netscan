@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Gauge, Power, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { GlassPanel, QualityBadge } from '@/components/metrics'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -26,6 +27,7 @@ function portsOf(dev: DeviceRecord): PortInfo[] {
 
 export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
   const { data: devices, error, refresh } = usePoll(api.devices, 15000, refreshKey)
+  const loading = devices == null && !error
   const [filter, setFilter] = useState('')
   const [testing, setTesting] = useState<Set<string>>(new Set())
 
@@ -64,13 +66,13 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
     <GlassPanel
       title="Dispositivos"
       right={
-        <div className="flex items-center gap-3">
-          <span className="text-[11.5px] font-medium text-muted-foreground">{filtered.length} descubiertos</span>
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <span className="shrink-0 text-[11.5px] font-medium text-muted-foreground">{filtered.length} descubiertos</span>
           <Input
             placeholder="filtrar…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="h-7 w-40 border-white/15 bg-white/5 text-xs"
+            className="h-7 w-28 min-w-0 border-white/15 bg-white/5 text-xs sm:w-40"
           />
         </div>
       }
@@ -86,20 +88,28 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
               <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Host</TableHead>
               <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">IP / MAC</TableHead>
               <TableHead className="text-right text-[10.5px] uppercase tracking-wider text-muted-foreground">Latencia</TableHead>
-              <TableHead className="text-right text-[10.5px] uppercase tracking-wider text-muted-foreground">Jitter</TableHead>
-              <TableHead className="text-right text-[10.5px] uppercase tracking-wider text-muted-foreground">Pérdida</TableHead>
+              <TableHead className="hidden text-right text-[10.5px] uppercase tracking-wider text-muted-foreground md:table-cell">Jitter</TableHead>
+              <TableHead className="hidden text-right text-[10.5px] uppercase tracking-wider text-muted-foreground md:table-cell">Pérdida</TableHead>
               <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Calidad</TableHead>
-              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">OS</TableHead>
+              <TableHead className="hidden text-[10.5px] uppercase tracking-wider text-muted-foreground lg:table-cell">OS</TableHead>
               <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Puertos</TableHead>
               <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Trust</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
+            {loading &&
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={`sk-${i}`} className="border-white/[0.06] hover:bg-transparent">
+                  <TableCell colSpan={10}>
+                    <Skeleton className="h-6 w-full" />
+                  </TableCell>
+                </TableRow>
+              ))}
             {filtered.map((dev) => {
               const ports = portsOf(dev)
               return (
-                <TableRow key={dev.mac} className={`border-white/[0.06] hover:bg-white/[0.03] ${dev.online ? '' : 'opacity-40'}`}>
+                <TableRow key={dev.mac} className={`border-white/[0.06] transition-colors hover:bg-white/[0.03] ${dev.online ? '' : 'opacity-40'}`}>
                   <TableCell>
                     <div className="font-semibold">{dev.hostname || dev.mdns_name || dev.ip}</div>
                     <div className="text-[11.5px] text-muted-foreground">{dev.vendor || '—'}</div>
@@ -127,10 +137,10 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                       '—'
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                  <TableCell className="hidden text-right font-mono text-xs text-muted-foreground md:table-cell">
                     {dev.jitter_ms != null ? `${dev.jitter_ms}ms` : '—'}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs">
+                  <TableCell className="hidden text-right font-mono text-xs md:table-cell">
                     {dev.packet_loss_pct != null ? (
                       <span
                         className={
@@ -150,7 +160,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                   <TableCell>
                     <QualityBadge score={dev.quality} />
                   </TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell className="hidden text-xs lg:table-cell">
                     {dev.os_guess || <span className="text-muted-foreground">—</span>}
                   </TableCell>
                   <TableCell className="max-w-64">
@@ -217,7 +227,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                 </TableRow>
               )
             })}
-            {filtered.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <TableRow className="border-white/[0.06] hover:bg-transparent">
                 <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
                   sin dispositivos — lanza un scan

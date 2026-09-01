@@ -8,8 +8,8 @@ un WebSocket de progreso de escaneo (`/ws/progress`).
 ## Desarrollo
 
 ```bash
-npm install
-npm run dev        # http://localhost:3000 (proxy a la API en :8600)
+pnpm install
+pnpm dev        # http://localhost:3000 (proxy a la API en :8600)
 ```
 
 El backend debe estar corriendo (`netscan.bat serve` o `netscan serve`).
@@ -17,9 +17,9 @@ El backend debe estar corriendo (`netscan.bat serve` o `netscan serve`).
 ## Calidad
 
 ```bash
-npm run lint       # ESLint
-npm run typecheck  # tsc --noEmit
-npm run build      # build de producción en dist/
+pnpm lint       # ESLint
+pnpm typecheck  # tsc --noEmit
+pnpm build      # build de producción en dist/
 ```
 
 ## Autenticación
@@ -30,5 +30,5 @@ token la primera vez que la API responda 401 y lo guardará en
 
 ## Docker
 
-La imagen (`Dockerfile`) construye el estático con `npm ci` y lo sirve con
+La imagen (`Dockerfile`) construye el estático con `pnpm install` y lo sirve con
 nginx; `nginx.conf` proxifica `/api` y `/ws` hacia el backend.

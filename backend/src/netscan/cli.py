@@ -259,15 +259,23 @@ def _ensure_frontend_built(build: bool) -> bool:
         return True
     if not frontend.is_dir():
         return False
-    npm = shutil.which("npm")
-    if not npm:
-        console.print("[yellow]npm no encontrado: sirvo la API sin el dashboard integrado.[/yellow]")
+    import os
+
+    if shutil.which("pnpm"):
+        pm = ["pnpm"]
+    elif shutil.which("corepack"):
+        pm = ["corepack", "pnpm"]
+    else:
+        pm = None
+    if pm is None:
+        console.print("[yellow]pnpm/corepack no encontrado: sirvo la API sin el dashboard integrado.[/yellow]")
         return (dist / "index.html").is_file()
+    env = {**os.environ, "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"}
     if not (frontend / "node_modules").is_dir():
-        console.print("[cyan]Instalando dependencias del dashboard (npm install)...[/cyan]")
-        subprocess.run([npm, "install", "--no-audit", "--no-fund"], cwd=frontend, check=False)
-    console.print("[cyan]Compilando el dashboard (npm run build)...[/cyan]")
-    proc = subprocess.run([npm, "run", "build"], cwd=frontend, check=False)
+        console.print("[cyan]Instalando dependencias del dashboard (pnpm install)...[/cyan]")
+        subprocess.run([*pm, "install"], cwd=frontend, check=False, env=env)
+    console.print("[cyan]Compilando el dashboard (pnpm run build)...[/cyan]")
+    proc = subprocess.run([*pm, "run", "build"], cwd=frontend, check=False, env=env)
     return proc.returncode == 0 and (dist / "index.html").is_file()
 
 
@@ -416,9 +424,9 @@ def doctor() -> None:
     row("mDNS (zeroconf)", caps.mdns or None, "descubrimiento IoT")
 
     row(
-        "Node/npm",
-        shutil.which("npm") is not None or None,
-        shutil.which("npm") or "necesario solo para compilar el dashboard",
+        "Node/pnpm",
+        (shutil.which("pnpm") or shutil.which("corepack")) is not None or None,
+        shutil.which("pnpm") or shutil.which("corepack") or "necesario solo para compilar el dashboard",
     )
 
     fe = system.frontend_status()

@@ -1,4 +1,5 @@
 import { AnimatedNumber } from '@/components/metrics'
+import { Skeleton } from '@/components/ui/skeleton'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import PanelError from './PanelError'
@@ -24,7 +25,7 @@ function Kpi({
   // placeholder through `color: transparent` just makes it disappear.
   const showAccent = accent && value !== '—'
   return (
-    <div className="glass flex flex-col gap-1.5 px-[18px] py-4">
+    <div className="glass card-hover flex flex-col gap-1.5 px-[18px] py-4">
       <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
       <span
         className={`text-[26px] font-extrabold leading-none tracking-tight transition-colors duration-300 ${showAccent ? 'text-gradient' : ''}`}
@@ -47,6 +48,20 @@ function Kpi({
 export default function StatCards({ refreshKey }: { refreshKey: number }) {
   const { data, error } = usePoll(api.overview, 15000, refreshKey)
   const m = data?.metrics
+
+  if (!data && !error) {
+    return (
+      <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-3 xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="glass flex flex-col gap-2 px-[18px] py-4">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-16" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-2">

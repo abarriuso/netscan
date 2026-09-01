@@ -8,13 +8,13 @@ que tu código se distribuye bajo esa licencia.
 ```bash
 python -m venv backend/.venv
 backend/.venv/Scripts/pip install -e "backend[dev]"
-cd frontend && npm install
+cd frontend && pnpm install
 ```
 
 ## Antes de abrir un PR
 
 1. `cd backend && pytest && ruff check . && ruff format --check . && mypy src/netscan`
-2. `cd frontend && npm run lint && npm run typecheck && npm run build`
+2. `cd frontend && pnpm lint && pnpm typecheck && pnpm build`
 3. Si añades una dependencia Python, verifica que su licencia sea compatible
    con GPL-2.0-or-later (MIT/BSD/Apache/LGPL) y añádela a `NOTICE`.
 4. Si integras una herramienta externa GPL/AGPL, **no la importes ni la
