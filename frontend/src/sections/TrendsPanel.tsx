@@ -119,11 +119,13 @@ export default function TrendsPanel({ refreshKey }: { refreshKey: number }) {
   return (
     <div className="space-y-2">
       <PanelError error={error || scanErr} />
-      <div className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-3">
         <TrendChart title="Latencia media" unit=" ms" color="#2dd4bf" gradientId="tr-lat" data={points} dataKey="avg_latency_ms" decimals={1} />
         <TrendChart title="Calidad media" unit="/100" color="#8b5cf6" gradientId="tr-q" data={points} dataKey="avg_quality" />
         <TrendChart title="Throughput medio" unit=" Mbps" color="#3b82f6" gradientId="tr-tp" data={points} dataKey="avg_throughput_mbps" />
         <TrendChart title="Dispositivos por scan" unit="" color="#ec4899" gradientId="tr-dev" data={scanRows} dataKey="total_devices" />
+        <TrendChart title="Dispositivos online" unit="" color="#34d399" gradientId="tr-on" data={points} dataKey="devices" />
+        <TrendChart title="Pérdida de paquetes" unit="%" color="#fbbf24" gradientId="tr-loss" data={points} dataKey="avg_packet_loss_pct" decimals={1} />
       </div>
     </div>
   )

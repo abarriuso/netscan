@@ -139,3 +139,20 @@ def test_scan_history_lists_scans_chronologically(tmp_path):
     assert scans[0]["total_devices"] == 1
     assert scans[-1]["total_devices"] == 2
     assert scans[-1]["duration_s"] == 7.5
+
+
+def test_live_monitor_snapshot_shape(tmp_path):
+    """With an empty store no device is probed, so a tick just records an
+    empty aggregate point — exercisable without touching the network."""
+    from netscan.live import LiveMonitor
+
+    store = _store(tmp_path)
+    lm = LiveMonitor(store, interval_s=1, ping_timeout=0.1)
+    lm._tick()
+    snap = lm.snapshot()
+    assert snap["total"] == 0
+    assert snap["online"] == 0
+    assert snap["devices"] == []
+    assert len(snap["series"]) == 1
+    assert snap["series"][0]["online"] == 0
+    assert snap["series"][0]["latency_ms"] is None

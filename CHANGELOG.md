@@ -5,6 +5,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Añadido — monitor en vivo y más gráficas
+- **Monitor en vivo**: un servicio de fondo (`netscan/live.py`) hace ping
+  continuo a los dispositivos conocidos y expone `/api/live`. Nueva pestaña
+  **"En vivo"** con la latencia de red en directo y un **mapa de red** (estado
+  vivo verde/rojo + RTT de cada equipo).
+- **Analítica** amplía a 6 series: se suman *dispositivos online* y *pérdida de
+  paquetes* en el tiempo.
+- **Detalle por dispositivo**: al pinchar un equipo en la tabla, un diálogo con
+  su histórico de latencia, calidad, jitter y pérdida.
+- El título del dashboard respira más (espaciado).
+
 ### Añadido — rediseño del dashboard web
 - **Navegación por secciones** (Resumen · Dispositivos · Analítica · Integraciones ·
   Sistema) en vez de una única página con todo apilado; solo se monta y sondea la

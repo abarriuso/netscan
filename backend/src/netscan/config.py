@@ -107,6 +107,11 @@ class ScanDefaults(BaseModel):
     use_speedtest: bool = True  # latency stats + TCP handshake per device
     speedtest_pings: int = 5  # ICMP echoes per device for jitter/loss
     use_throughput: bool = False  # HTTP download throughput estimate (heavier)
+    # Live monitor — continuous background ping of known devices
+    live_enabled: bool = True
+    live_interval_s: float = 5.0
+    live_buffer: int = 180  # samples kept in memory for the live latency chart
+    live_max_devices: int = 80  # cap devices probed per tick
 
 
 class Settings(BaseSettings):

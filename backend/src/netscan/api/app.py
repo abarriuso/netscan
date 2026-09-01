@@ -249,6 +249,17 @@ async def lifespan(app: FastAPI):
     setup_logging()
     state.loop = asyncio.get_running_loop()
     threading.Thread(target=_scheduler_loop, args=(state,), daemon=True).start()
+    if state.settings.scan.live_enabled:
+        from netscan.live import LiveMonitor
+
+        state.live = LiveMonitor(
+            state.store,
+            interval_s=state.settings.scan.live_interval_s,
+            ping_timeout=state.settings.scan.ping_timeout,
+            buffer=state.settings.scan.live_buffer,
+            max_devices=state.settings.scan.live_max_devices,
+        )
+        state.live.start()
     logger.info("NetScan API v%s lista", __version__)
     yield
 
@@ -352,6 +363,13 @@ def create_app() -> FastAPI:
     @app.get("/api/scans/progress")
     def scan_progress() -> dict[str, object]:
         return get_state().scan_progress
+
+    @app.get("/api/live")
+    def live() -> dict[str, object]:
+        st = get_state()
+        if st.live is None:
+            return {"series": [], "devices": [], "online": 0, "total": 0, "interval_s": 0}
+        return st.live.snapshot()  # type: ignore[attr-defined]
 
     @app.websocket("/ws/progress")
     async def ws_progress(ws: WebSocket) -> None:
