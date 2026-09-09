@@ -12,6 +12,7 @@ network, independent of the heavier per-scan history kept in the database.
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -19,6 +20,8 @@ from datetime import datetime
 from statistics import fmean
 
 from netscan.scanner import speed
+
+logger = logging.getLogger(__name__)
 
 
 def _ip_key(ip: str) -> tuple[int, ...]:
@@ -61,7 +64,7 @@ class LiveMonitor:
             try:
                 self._tick()
             except Exception:  # a bad tick must never kill the loop
-                pass
+                logger.exception("Fallo en el tick del monitor en vivo")
             self._stop.wait(self.interval_s)
 
     def _first_port(self, dev) -> int | None:
