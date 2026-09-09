@@ -41,6 +41,9 @@ def _cfg(**overrides) -> ScanDefaults:
         "use_nmap_os": False,
         "use_rustscan": False,
         "use_nuclei": False,
+        # Viene activo por defecto y measure_device saldría a la red de verdad,
+        # sobrescribiendo la latencia mockeada. Se prueba aparte en test_speed.
+        "use_speedtest": False,
     }
     base.update(overrides)
     return ScanDefaults(**base)
