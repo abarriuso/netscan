@@ -268,7 +268,9 @@ def _ensure_frontend_built(build: bool) -> bool:
     else:
         pm = None
     if pm is None:
-        console.print("[yellow]pnpm/corepack no encontrado: sirvo la API sin el dashboard integrado.[/yellow]")
+        console.print(
+            "[yellow]pnpm/corepack no encontrado: sirvo la API sin el dashboard integrado.[/yellow]"
+        )
         return (dist / "index.html").is_file()
     env = {**os.environ, "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"}
     if not (frontend / "node_modules").is_dir():

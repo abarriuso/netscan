@@ -129,11 +129,25 @@ def test_metrics_history_groups_samples_by_scan(tmp_path):
 
 def test_scan_history_lists_scans_chronologically(tmp_path):
     store = _store(tmp_path)
-    store.record_scan(ScanResult(network="10.0.0.0/24", duration_s=3.0, total_devices=1,
-                                 devices=[Device(ip="10.0.0.1", mac="aa:00:00:00:00:01")]))
-    store.record_scan(ScanResult(network="10.0.0.0/24", duration_s=7.5, total_devices=2,
-                                 devices=[Device(ip="10.0.0.1", mac="aa:00:00:00:00:01"),
-                                          Device(ip="10.0.0.2", mac="aa:00:00:00:00:02")]))
+    store.record_scan(
+        ScanResult(
+            network="10.0.0.0/24",
+            duration_s=3.0,
+            total_devices=1,
+            devices=[Device(ip="10.0.0.1", mac="aa:00:00:00:00:01")],
+        )
+    )
+    store.record_scan(
+        ScanResult(
+            network="10.0.0.0/24",
+            duration_s=7.5,
+            total_devices=2,
+            devices=[
+                Device(ip="10.0.0.1", mac="aa:00:00:00:00:01"),
+                Device(ip="10.0.0.2", mac="aa:00:00:00:00:02"),
+            ],
+        )
+    )
     scans = store.scan_history()
     assert len(scans) == 2
     assert scans[0]["total_devices"] == 1
