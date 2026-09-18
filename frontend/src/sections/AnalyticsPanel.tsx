@@ -74,13 +74,13 @@ export default function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
     <div className="grid gap-[18px] lg:grid-cols-3">
       <GlassPanel title="Top vendors">
         <PanelError error={error} />
-        <MiniBars rows={topVendors} max={maxV} gradient="linear-gradient(90deg, var(--violet-2), var(--violet))" />
+        <MiniBars rows={topVendors} max={maxV} gradient="linear-gradient(90deg, var(--accent-cyan-deep), var(--accent-cyan))" />
       </GlassPanel>
       <GlassPanel title="Top sistemas operativos">
-        <MiniBars rows={topOS} max={maxO} gradient="linear-gradient(90deg, #0d9488, var(--teal))" />
+        <MiniBars rows={topOS} max={maxO} gradient="linear-gradient(90deg, #0d9488, var(--accent-teal))" />
       </GlassPanel>
       <GlassPanel title="Top puertos abiertos">
-        <MiniBars rows={topPorts} max={maxP} gradient="linear-gradient(90deg, #be185d, var(--pink))" />
+        <MiniBars rows={topPorts} max={maxP} gradient="linear-gradient(90deg, var(--accent-cyan-deep), var(--accent-sky))" />
       </GlassPanel>
     </div>
   )

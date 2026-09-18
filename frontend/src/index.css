@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,59 +6,80 @@
 
 @layer base {
   /*
-   * "Aurora" palette — deep near-black violet base, a violet/teal/pink/blue
-   * accent quartet used mainly in gradients, and the usual three semantic
-   * status colors. Stored as space-separated RGB triplets (not oklch) so
-   * Tailwind's `rgb(var(--x) / <alpha-value>)` opacity-modifier pattern
-   * works with plain color-picked hex values ported straight from the
-   * approved mockup. Dark-only — no light/dark toggle wired up.
+   * "TERMINAL BRUTALIST" theme — a hard-edged, high-contrast operator console
+   * with light cyberpunk accents. Design rules that everything below serves:
+   *   1. HARD edges. radius ~= 0. No soft rounded pills. Borders are load-bearing.
+   *   2. Ink-black base, bone-white ink, a single electric-cyan primary, and a
+   *      restrained magenta + amber for signal/alarm. No rainbow, no pastels.
+   *   3. Shadows are OFFSET SOLID BLOCKS (neo-brutalist drop), never soft blur.
+   *   4. Mono for all data/labels; a display face for headings. Uppercase +
+   *      `//` separators carry the "console" personality.
+   *   5. Motion is cheap + purposeful: a slow scanline sweep, a corner-bracket
+   *      focus, a blinking caret. Compositor-only, killed under reduced-motion.
+   *
+   * Colors are space-separated RGB triplets so Tailwind's
+   * `rgb(var(--x) / <alpha-value>)` opacity modifier keeps working.
+   * Dark-only — no light mode wired up.
    */
   :root,
   .dark {
-    --background: 7 6 15;
-    --foreground: 241 238 249;
-    --card: 18 15 30;
-    --card-foreground: 241 238 249;
-    --popover: 18 15 30;
-    --popover-foreground: 241 238 249;
-    --primary: 139 92 246;
-    --primary-foreground: 255 255 255;
-    --secondary: 30 26 46;
-    --secondary-foreground: 241 238 249;
-    --muted: 30 26 46;
-    --muted-foreground: 131 126 156;
-    --accent: 40 34 58;
-    --accent-foreground: 241 238 249;
-    --destructive: 248 113 113;
-    --destructive-foreground: 255 255 255;
-    /* Solid pre-blended tones, NOT raw white — shadcn's own primitives
-       (Input, Select, Button outline, Separator, …) reference border-input
-       / border-border / bg-border at full opacity with no `/NN` modifier,
-       so the stored value has to already look right at alpha=1. Custom
-       glass panels use their own literal `border-white/11` etc. and are
-       unaffected by this. */
-    --border: 38 33 54;
-    --input: 56 48 82;
-    --ring: 139 92 246;
-    --radius: 0.875rem;
-    --ok: 52 211 153;
-    --warn: 251 191 36;
-    --sidebar-background: 18 15 30;
-    --sidebar-foreground: 241 238 249;
-    --sidebar-primary: 139 92 246;
-    --sidebar-primary-foreground: 255 255 255;
-    --sidebar-accent: 40 34 58;
-    --sidebar-accent-foreground: 241 238 249;
-    --sidebar-border: 38 33 54;
-    --sidebar-ring: 139 92 246;
+    --background: 8 9 12;           /* near-black ink */
+    --foreground: 233 236 241;     /* bone white */
+    --card: 13 15 20;              /* panel fill, a hair above bg */
+    --card-foreground: 233 236 241;
+    --popover: 11 13 17;
+    --popover-foreground: 233 236 241;
+    --primary: 45 226 230;         /* electric cyan */
+    --primary-foreground: 4 12 14; /* ink on cyan */
+    --secondary: 20 23 30;
+    --secondary-foreground: 233 236 241;
+    --muted: 20 23 30;
+    --muted-foreground: 130 140 156;
+    --accent: 24 28 36;
+    --accent-foreground: 233 236 241;
+    --destructive: 255 74 94;      /* hot alarm red */
+    --destructive-foreground: 8 9 12;
+    /* Solid pre-blended tones (shadcn primitives use these at alpha=1). The
+       border is intentionally BRIGHT and visible — brutalism leans on it. */
+    --border: 38 44 55;
+    --input: 52 60 74;
+    --ring: 45 226 230;
+    --radius: 0.125rem;            /* hard corners — 2px, not pills */
+    --ok: 54 224 158;              /* signal green */
+    --warn: 255 190 55;            /* amber */
+    --sidebar-background: 13 15 20;
+    --sidebar-foreground: 233 236 241;
+    --sidebar-primary: 45 226 230;
+    --sidebar-primary-foreground: 4 12 14;
+    --sidebar-accent: 24 28 36;
+    --sidebar-accent-foreground: 233 236 241;
+    --sidebar-border: 38 44 55;
+    --sidebar-ring: 45 226 230;
 
-    /* Extra accent hues, only ever used in gradients/decoration, never as a
-       flat semantic color — kept as hex since gradients need a literal. */
-    --violet: #8b5cf6;
-    --violet-2: #6d28d9;
-    --teal: #2dd4bf;
-    --pink: #ec4899;
-    --blue: #3b82f6;
+    /* Signal accent family — cyan primary + magenta/amber/green highlights and
+       a cool sky for multi-series charts. Literal hex (gradients / Recharts
+       need literals). Legacy variable NAMES kept so existing refs don't break;
+       only values changed to the new brutalist-cyber palette. */
+    --accent-cyan: #2de2e6;
+    --accent-cyan-deep: #0b7c85;
+    --accent-magenta: #ff2fb9;     /* the cyberpunk kick — used sparingly */
+    --accent-amber: #ffbe37;
+    --accent-green: #36e09e;
+    --accent-sky: #4cc9ff;
+    --accent-slate: #82909c;
+    /* Back-compat aliases (old names → new values). */
+    --teal: #2de2e6;
+    --sky: #4cc9ff;
+    --blue: #4cc9ff;
+    --violet: #2de2e6;
+    --violet-2: #0b7c85;
+    --pink: #ff2fb9;
+
+    /* Named tokens the new brutalist utilities read. */
+    --hard-shadow: 4px 4px 0 0 rgb(0 0 0 / 0.55);
+    --hard-shadow-cyan: 4px 4px 0 0 rgb(45 226 230 / 0.22);
+    --grid-line: rgba(120, 200, 210, 0.055);
+    --scanline: rgba(45, 226, 230, 0.045);
   }
 }
 
@@ -68,7 +89,20 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: 'cv11', 'ss01';
+    font-feature-settings: 'cv11', 'ss01', 'zero';
+    /* Faint global scanlines — the CRT/terminal texture, painted once. */
+    background-image: repeating-linear-gradient(
+      0deg,
+      var(--scanline) 0px,
+      var(--scanline) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+  /* Display face for section headings; mono for everything data. */
+  h1, h2, h3 {
+    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -84,139 +118,209 @@
 }
 
 @layer utilities {
-  /* Fixed, heavily-blurred gradient blobs behind everything — the "aurora."
-     Pure decoration: position:fixed + pointer-events:none so they never
-     affect layout or intercept input, and a blur this large is cheap for
-     the compositor (it's a GPU filter on a handful of static elements).
-     The drift keyframes below only ever animate `transform` (never
-     top/left/width) so the browser can run them entirely on the compositor
-     thread — no layout, no paint, just like the round-4 lesson learned the
-     hard way on the old AsciiPanel sweep animation. */
-  .aurora-blob {
+  /* Fixed technical grid behind everything — visible, blueprint-style, faded
+     at the edges. Static, no blur, compositor-cheap (single painted layer). */
+  .app-bg {
     position: fixed;
-    border-radius: 9999px;
-    filter: blur(110px);
-    pointer-events: none;
+    inset: 0;
     z-index: 0;
-    will-change: transform;
+    pointer-events: none;
+    background-color: rgb(var(--background));
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 40px 40px;
+    -webkit-mask-image: radial-gradient(ellipse 100% 75% at 50% 0%, #000 45%, transparent 100%);
+    mask-image: radial-gradient(ellipse 100% 75% at 50% 0%, #000 45%, transparent 100%);
   }
 
-  @keyframes aurora-drift-1 {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-    50% { transform: translate3d(4%, 3%, 0) scale(1.08); }
-  }
-  @keyframes aurora-drift-2 {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-    50% { transform: translate3d(-4%, 2.5%, 0) scale(1.05); }
-  }
-  @keyframes aurora-drift-3 {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-    50% { transform: translate3d(3%, -3.5%, 0) scale(1.1); }
-  }
-  @keyframes aurora-drift-4 {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-    50% { transform: translate3d(-3%, -2.5%, 0) scale(1.06); }
+  /* A single wide cyan wash at the top + a faint magenta counter-glow — the
+     "neon spill." Plain radial gradients, no filter, no animation. */
+  .app-glow {
+    position: fixed;
+    top: -26%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(1300px, 130vw);
+    height: 640px;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 100% at 42% 0%, rgba(45, 226, 230, 0.12), transparent 60%),
+      radial-gradient(ellipse 45% 90% at 72% 8%, rgba(255, 47, 185, 0.05), transparent 62%);
   }
 
-  /* The frosted-glass panel every section sits in. */
+  /* THE panel shell. Brutalist card: hard corners, a bright 1px border, a
+     solid offset drop shadow (no soft blur), and a top hairline in cyan so
+     every panel reads like a terminal window. Class stays `.glass` so all
+     existing usages restyle in place. */
   .glass {
-    background: rgba(255, 255, 255, 0.055);
-    backdrop-filter: blur(22px) saturate(160%);
-    -webkit-backdrop-filter: blur(22px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.11);
+    position: relative;
+    background: rgb(var(--card));
+    border: 1px solid rgb(var(--border));
     border-radius: var(--radius);
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    box-shadow: var(--hard-shadow);
+  }
+  .glass::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--primary) / 0.55) 15%,
+      rgb(var(--primary) / 0.55) 85%,
+      transparent
+    );
+    opacity: 0.6;
+    pointer-events: none;
   }
 
   .glass-strong {
-    background: rgba(255, 255, 255, 0.09);
+    background: rgb(var(--secondary));
   }
 
-  /* Consistent, fluid hover lift for interactive cards (KPIs and the like).
-     transition-duration is globally neutralised under prefers-reduced-motion
-     (see the reset above), so this stays still for users who ask it to. */
+  /* Interactive card lift — brutalist: it SNAPS up-left and the offset shadow
+     grows, like a physical key press. Cheap paint + transform only. */
   .card-hover {
     transition:
-      transform 0.2s ease,
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
+      transform 0.12s cubic-bezier(0.2, 0, 0, 1),
+      border-color 0.12s ease,
+      box-shadow 0.12s ease;
   }
   .card-hover:hover {
-    transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow:
-      0 12px 40px rgba(0, 0, 0, 0.42),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transform: translate(-2px, -2px);
+    border-color: rgb(var(--primary) / 0.7);
+    box-shadow: 6px 6px 0 0 rgb(45 226 230 / 0.18);
   }
 
-  /* Gradient-filled text — the one "accent" KPI value, used sparingly.
-     `-webkit-text-fill-color` (not just `color`) is what actually lets
-     `background-clip: text` show through in Chrome/Safari; both are
-     inheritable, so a child that needs a normal (non-clipped) color, like
-     a "/100" suffix, must set its own `color` AND
-     `[-webkit-text-fill-color:currentColor]` to opt back out. */
+  /* HUD corner brackets — four L-shaped cyan ticks at a panel's corners.
+     Add `.hud` to any `.glass` panel that deserves the console framing. */
+  .hud::after {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    pointer-events: none;
+    background:
+      linear-gradient(rgb(var(--primary) / 0.55), rgb(var(--primary) / 0.55)) left top,
+      linear-gradient(rgb(var(--primary) / 0.55), rgb(var(--primary) / 0.55)) left top,
+      linear-gradient(rgb(var(--primary) / 0.55), rgb(var(--primary) / 0.55)) right top,
+      linear-gradient(rgb(var(--primary) / 0.55), rgb(var(--primary) / 0.55)) right top,
+      linear-gradient(rgb(var(--primary) / 0.55), rgb(var(--primary) / 0.55)) left bottom,
+      linear-gradient(rgb(var(--primary) / 0.55), rgb(var(--primary) / 0.55)) left bottom,
+      linear-gradient(rgb(var(--primary) / 0.55), rgb(var(--primary) / 0.55)) right bottom,
+      linear-gradient(rgb(var(--primary) / 0.55), rgb(var(--primary) / 0.55)) right bottom;
+    background-repeat: no-repeat;
+    background-size:
+      10px 1px, 1px 10px,
+      10px 1px, 1px 10px,
+      10px 1px, 1px 10px,
+      10px 1px, 1px 10px;
+    opacity: 0.7;
+  }
+
+  /* Accent-filled data value — the electric cyan number. Sparingly. */
   .text-gradient {
-    background-image: linear-gradient(135deg, var(--violet), var(--teal));
+    background-image: linear-gradient(120deg, var(--accent-cyan), var(--accent-sky));
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
     -webkit-text-fill-color: transparent;
   }
 
-  /* The big DOOM-font ASCII hero wordmark (see HeroTitle.tsx). Gradient
-     sweeps the full violet/teal/pink/blue quartet — wider than
-     .text-gradient's two-stop — and drifts slowly via background-position,
-     never a per-character effect (that's what actually froze the tab in
-     round 4's AsciiPanel — see the memory on that). One drop-shadow on the
-     whole block for the glow, not per-glyph. */
+  /* A tiny label chip: uppercase mono with the `//` operator prefix baked in
+     via a utility class in markup (`.kbd-label`). */
+  .kbd-label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: rgb(var(--muted-foreground));
+  }
+
+  /* Blinking terminal caret — for "live" indicators. */
+  .caret::after {
+    content: '_';
+    margin-left: 1px;
+    color: rgb(var(--primary));
+    animation: caret-blink 1.1s steps(1) infinite;
+  }
+  @keyframes caret-blink {
+    0%, 50% { opacity: 1; }
+    50.01%, 100% { opacity: 0; }
+  }
+
+  /* The big ASCII "NETSCAN" hero wordmark. Cyan→sky→magenta sweep with a slow
+     compositor-only sheen and a glow + hard cyber flicker seam. */
   .hero-ascii {
     background-image: linear-gradient(
       100deg,
-      var(--violet),
-      var(--blue) 35%,
-      var(--teal) 60%,
-      var(--pink) 85%,
-      var(--violet)
+      var(--accent-cyan),
+      var(--accent-sky) 45%,
+      var(--accent-cyan) 68%,
+      var(--accent-magenta)
     );
-    background-size: 200% 100%;
+    background-size: 220% 100%;
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
     -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 22px rgba(139, 92, 246, 0.35)) drop-shadow(0 0 46px rgba(45, 212, 191, 0.18));
+    opacity: 0.95;
+    filter: drop-shadow(0 0 14px rgba(45, 226, 230, 0.28)) drop-shadow(0 0 2px rgba(255, 47, 185, 0.25));
     animation: hero-ascii-sheen 14s linear infinite;
   }
   @keyframes hero-ascii-sheen {
     to {
-      background-position: -200% 0;
+      background-position: -220% 0;
     }
+  }
+
+  /* Live scanline that sweeps down a panel — opt in with `.scan`. Purely
+     decorative; a single translateY on the compositor. */
+  .scan {
+    position: relative;
+    overflow: hidden;
+  }
+  .scan::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 40%;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, rgba(45, 226, 230, 0.06), transparent);
+    animation: scan-sweep 5.5s linear infinite;
+  }
+  @keyframes scan-sweep {
+    0% { transform: translateY(-120%); }
+    100% { transform: translateY(320%); }
   }
 }
 
 @layer utilities {
-  /* Slim, glass-consistent scrollbars — the default OS scrollbar is the
-     single fastest "does anyone actually look at this app" tell. */
+  /* Slim, palette-consistent scrollbars — square, brutalist. */
   ::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
+    width: 10px;
+    height: 10px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.14);
-    border-radius: 999px;
-    border: 2px solid transparent;
+    background: rgba(45, 226, 230, 0.22);
+    border-radius: 0;
+    border: 3px solid transparent;
     background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.22);
+    background: rgba(45, 226, 230, 0.4);
     background-clip: padding-box;
   }
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+    scrollbar-color: rgba(45, 226, 230, 0.28) transparent;
   }
 }

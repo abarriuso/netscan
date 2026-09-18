@@ -14,11 +14,11 @@ function fmtClock(iso: string): string {
 
 function DeviceTile({ d }: { d: LiveDevice }) {
   return (
-    <div className={`glass card-hover flex flex-col gap-1 p-3 ${d.up ? '' : 'opacity-60'}`}>
+    <div className={`glass card-hover flex flex-col gap-1 border-l-2 p-3 ${d.up ? 'border-l-ok/70' : 'border-l-destructive/70'} ${d.up ? '' : 'opacity-60'}`}>
       <div className="flex items-center gap-2">
         <span
-          className={`h-2 w-2 shrink-0 rounded-full ${d.up ? 'bg-ok' : 'bg-destructive'}`}
-          style={{ boxShadow: d.up ? '0 0 8px #34d399' : '0 0 8px #f87171' }}
+          className={`h-2 w-2 shrink-0 ${d.up ? 'bg-ok' : 'bg-destructive'}`}
+          style={{ boxShadow: d.up ? '0 0 8px #36e09e' : '0 0 8px #ff4a5e' }}
         />
         <span className="truncate text-[13px] font-semibold" title={d.name}>
           {d.name}
@@ -26,7 +26,7 @@ function DeviceTile({ d }: { d: LiveDevice }) {
       </div>
       <div className="flex items-center justify-between font-mono text-[11px]">
         <span className="text-muted-foreground">{d.ip}</span>
-        <span className={d.up ? 'text-foreground/90' : 'text-destructive'}>
+        <span className={d.up ? 'text-primary' : 'text-destructive'}>
           {d.up ? `${d.latency_ms}ms` : 'sin respuesta'}
         </span>
       </div>
@@ -66,41 +66,42 @@ export default function LiveView() {
             <AreaChart data={series} margin={{ top: 6, right: 10, bottom: 0, left: -12 }}>
               <defs>
                 <linearGradient id="live-lat" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2dd4bf" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#2dd4bf" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor="#2de2e6" stopOpacity={0.42} />
+                  <stop offset="100%" stopColor="#2de2e6" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+              <CartesianGrid stroke="rgba(120,200,210,0.07)" vertical={false} />
               <XAxis
                 dataKey="t"
                 tickFormatter={fmtClock}
-                tick={{ fill: 'rgba(255,255,255,0.42)', fontSize: 10 }}
+                tick={{ fill: 'rgba(233,236,241,0.42)', fontSize: 10, fontFamily: 'JetBrains Mono' }}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={50}
               />
               <YAxis
                 width={42}
-                tick={{ fill: 'rgba(255,255,255,0.42)', fontSize: 10 }}
+                tick={{ fill: 'rgba(233,236,241,0.42)', fontSize: 10, fontFamily: 'JetBrains Mono' }}
                 tickLine={false}
                 axisLine={false}
                 domain={['auto', 'auto']}
               />
               <Tooltip
                 contentStyle={{
-                  background: 'rgba(22,18,31,0.95)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: 10,
+                  background: 'rgba(11,13,17,0.96)',
+                  border: '1px solid rgba(45,226,230,0.35)',
+                  borderRadius: 2,
                   fontSize: 12,
+                  fontFamily: 'JetBrains Mono',
                 }}
-                labelStyle={{ color: 'rgba(255,255,255,0.6)' }}
+                labelStyle={{ color: 'rgba(233,236,241,0.6)' }}
                 labelFormatter={(v) => fmtClock(String(v))}
                 formatter={(val: number | string) => [`${val} ms`, 'latencia media']}
               />
               <Area
                 type="monotone"
                 dataKey="latency_ms"
-                stroke="#2dd4bf"
+                stroke="#2de2e6"
                 strokeWidth={2}
                 fill="url(#live-lat)"
                 dot={false}

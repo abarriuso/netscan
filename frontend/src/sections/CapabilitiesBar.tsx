@@ -19,15 +19,15 @@ export default function CapabilitiesBar() {
             <Tooltip>
               <TooltipTrigger>
                 <span
-                  className={`flex items-center gap-2 rounded-[10px] border px-3.5 py-2.5 text-[13px] font-semibold ${
+                  className={`flex items-center gap-2 rounded-none border px-3.5 py-2.5 font-mono text-[12px] font-semibold uppercase tracking-wide ${
                     tool.available
-                      ? 'border-[color:var(--teal)]/40 bg-white/[0.09] shadow-[0_0_0_1px_rgba(45,212,191,0.08)_inset]'
-                      : 'border-white/10 bg-white/[0.09] opacity-40'
+                      ? 'border-primary/40 bg-primary/[0.06] text-foreground shadow-[inset_0_0_0_1px_rgba(45,226,230,0.08)]'
+                      : 'border-border bg-secondary/40 opacity-40'
                   }`}
                 >
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${tool.available ? 'bg-[color:var(--teal)]' : 'bg-muted-foreground'}`}
-                    style={tool.available ? { boxShadow: '0 0 6px var(--teal)' } : undefined}
+                    className={`h-1.5 w-1.5 ${tool.available ? 'bg-primary' : 'bg-muted-foreground'}`}
+                    style={tool.available ? { boxShadow: '0 0 6px var(--accent-cyan)' } : undefined}
                   />
                   {key}
                 </span>

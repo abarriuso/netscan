@@ -50,14 +50,13 @@ export default function TokenDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : dismiss())}>
-      <DialogContent className="glass border-white/[0.12] bg-[#141021]/90 text-foreground shadow-2xl backdrop-blur-xl backdrop-saturate-150 sm:max-w-md">
+      <DialogContent className="glass border-border bg-popover text-foreground shadow-2xl sm:max-w-md">
         <DialogHeader>
           <div className="flex items-center gap-2.5">
             <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: 'linear-gradient(135deg, var(--violet), var(--blue))' }}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-none bg-primary"
             >
-              <KeyRound className="h-4 w-4 text-white" />
+              <KeyRound className="h-4 w-4 text-primary-foreground" />
             </div>
             <DialogTitle>Token de API</DialogTitle>
           </div>
@@ -89,15 +88,14 @@ export default function TokenDialog() {
         <DialogFooter>
           <button
             onClick={dismiss}
-            className="rounded-[10px] px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="rounded-none px-4 py-2 font-mono text-[12px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
           >
             {required ? 'Ahora no' : 'Cancelar'}
           </button>
           <button
             onClick={save}
             disabled={!value.trim()}
-            className="rounded-[10px] px-4 py-2 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(109,40,217,0.45)] transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:hover:brightness-100"
-            style={{ background: 'linear-gradient(135deg, var(--violet), var(--blue))' }}
+            className="rounded-none bg-primary px-4 py-2 font-mono text-[12px] font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform] duration-150 hover:brightness-110 active:translate-x-0 disabled:opacity-50 disabled:hover:brightness-100"
           >
             Guardar
           </button>

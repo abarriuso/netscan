@@ -135,7 +135,7 @@ export default function IntegrationFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass max-h-[85vh] overflow-y-auto border-white/[0.12] bg-[#141021]/90 text-foreground shadow-2xl backdrop-blur-xl backdrop-saturate-150 sm:max-w-md">
+      <DialogContent className="glass max-h-[85vh] overflow-y-auto border-border bg-popover text-foreground shadow-2xl sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{editing ? 'Editar integración' : 'Añadir integración'}</DialogTitle>
           <DialogDescription>
@@ -155,9 +155,9 @@ export default function IntegrationFormDialog({
                     key={k}
                     type="button"
                     onClick={() => changeKind(k)}
-                    className={`rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                    className={`rounded-none border px-3 py-2 text-left text-xs font-medium transition-colors ${
                       kind === k
-                        ? 'border-violet-400/50 bg-violet-500/15 text-foreground'
+                        ? 'border-primary/50 bg-primary/15 text-foreground'
                         : 'border-white/10 bg-white/[0.03] text-muted-foreground hover:border-white/20'
                     }`}
                   >
@@ -231,15 +231,14 @@ export default function IntegrationFormDialog({
         <DialogFooter>
           <button
             onClick={() => onOpenChange(false)}
-            className="rounded-[10px] px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="rounded-none px-4 py-2 font-mono text-[12px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
           >
             Cancelar
           </button>
           <button
             onClick={save}
             disabled={saving}
-            className="rounded-[10px] px-4 py-2 text-[13px] font-semibold text-white shadow-[0_4px_20px_rgba(109,40,217,0.45)] transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg, var(--violet), var(--blue))' }}
+            className="rounded-none bg-primary px-4 py-2 font-mono text-[12px] font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform] duration-150 hover:brightness-110 disabled:opacity-50"
           >
             {saving ? 'Guardando…' : 'Guardar'}
           </button>

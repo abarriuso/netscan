@@ -76,7 +76,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
             placeholder="filtrar…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="h-7 w-28 min-w-0 border-white/15 bg-white/5 text-xs sm:w-40"
+            className="h-7 w-28 min-w-0 rounded-none border-border bg-secondary text-xs sm:w-40"
           />
         </div>
       }
@@ -89,15 +89,15 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
         <Table>
           <TableHeader className="[&_tr]:border-white/10">
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Host</TableHead>
-              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">IP / MAC</TableHead>
-              <TableHead className="text-right text-[10.5px] uppercase tracking-wider text-muted-foreground">Latencia</TableHead>
-              <TableHead className="hidden text-right text-[10.5px] uppercase tracking-wider text-muted-foreground md:table-cell">Jitter</TableHead>
-              <TableHead className="hidden text-right text-[10.5px] uppercase tracking-wider text-muted-foreground md:table-cell">Pérdida</TableHead>
-              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Calidad</TableHead>
-              <TableHead className="hidden text-[10.5px] uppercase tracking-wider text-muted-foreground lg:table-cell">OS</TableHead>
-              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Puertos</TableHead>
-              <TableHead className="text-[10.5px] uppercase tracking-wider text-muted-foreground">Trust</TableHead>
+              <TableHead className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Host</TableHead>
+              <TableHead className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">IP / MAC</TableHead>
+              <TableHead className="text-right font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Latencia</TableHead>
+              <TableHead className="hidden text-right font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground md:table-cell">Jitter</TableHead>
+              <TableHead className="hidden text-right font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground md:table-cell">Pérdida</TableHead>
+              <TableHead className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Calidad</TableHead>
+              <TableHead className="hidden font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground lg:table-cell">OS</TableHead>
+              <TableHead className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Puertos</TableHead>
+              <TableHead className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Trust</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -118,7 +118,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                     <button
                       onClick={() => setDetail(dev)}
                       title="Ver histórico"
-                      className="text-left transition-colors hover:text-[color:var(--teal)]"
+                      className="text-left transition-colors hover:text-primary"
                     >
                       <div className="font-semibold">{dev.hostname || dev.mdns_name || dev.ip}</div>
                       <div className="text-[11.5px] text-muted-foreground">{dev.vendor || '—'}</div>
@@ -179,7 +179,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                         <TooltipProvider key={p.port}>
                           <Tooltip>
                             <TooltipTrigger>
-                              <span className="rounded-[5px] border border-primary/30 bg-primary/[0.14] px-1.5 py-0.5 font-mono text-[10.5px] text-[#d7c8ff]">
+                              <span className="rounded-none border border-primary/40 bg-primary/[0.12] px-1.5 py-0.5 font-mono text-[10.5px] text-primary">
                                 {p.port}
                               </span>
                             </TooltipTrigger>
@@ -191,7 +191,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                         </TooltipProvider>
                       ))}
                       {ports.length > 6 && (
-                        <span className="rounded-[5px] border border-white/15 px-1.5 py-0.5 font-mono text-[10.5px] text-muted-foreground">
+                        <span className="rounded-none border border-border px-1.5 py-0.5 font-mono text-[10.5px] text-muted-foreground">
                           +{ports.length - 6}
                         </span>
                       )}
@@ -218,7 +218,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                         disabled={testing.has(dev.mac)}
                         title="Speed test (latencia, jitter, pérdida, TCP)"
                         aria-label={`speed test de ${dev.ip}`}
-                        className="flex h-[26px] w-[26px] items-center justify-center rounded-[7px] border border-white/10 bg-white/5 text-muted-foreground hover:text-foreground"
+                        className="flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground hover:border-primary/60 hover:text-primary"
                       >
                         <Gauge className={`h-3.5 w-3.5 ${testing.has(dev.mac) ? 'animate-spin' : ''}`} strokeWidth={1.6} />
                       </button>
@@ -227,7 +227,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                           onClick={() => api.wake(dev.mac)}
                           title="Wake-on-LAN"
                           aria-label={`despertar ${dev.ip} por Wake-on-LAN`}
-                          className="flex h-[26px] w-[26px] items-center justify-center rounded-[7px] border border-white/10 bg-white/5 text-muted-foreground hover:text-foreground"
+                          className="flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground hover:border-primary/60 hover:text-primary"
                         >
                           <Power className="h-3.5 w-3.5" strokeWidth={1.6} />
                         </button>

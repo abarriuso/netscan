@@ -68,53 +68,30 @@ export default function Home() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
       <TokenDialog />
-      {/* Fixed, heavily-blurred gradient blobs behind everything — the "aurora."
-          Each drifts on its own slow, offset loop (different keyframe +
-          duration + delay) so the four never move in sync. */}
-      <div
-        className="aurora-blob -left-32 -top-56 h-[620px] w-[620px] opacity-40"
-        style={{
-          background: 'radial-gradient(circle at 30% 30%, var(--violet), transparent 70%)',
-          animation: 'aurora-drift-1 52s ease-in-out infinite',
-        }}
-      />
-      <div
-        className="aurora-blob -right-64 top-48 h-[700px] w-[700px] opacity-30"
-        style={{
-          background: 'radial-gradient(circle at 60% 40%, var(--teal), transparent 70%)',
-          animation: 'aurora-drift-2 64s ease-in-out infinite',
-          animationDelay: '-12s',
-        }}
-      />
-      <div
-        className="aurora-blob -bottom-64 left-1/3 h-[560px] w-[560px] opacity-25"
-        style={{
-          background: 'radial-gradient(circle at 50% 50%, var(--pink), transparent 70%)',
-          animation: 'aurora-drift-3 58s ease-in-out infinite',
-          animationDelay: '-30s',
-        }}
-      />
-      <div
-        className="aurora-blob bottom-24 right-[10%] h-[480px] w-[480px] opacity-20"
-        style={{
-          background: 'radial-gradient(circle, var(--blue), transparent 70%)',
-          animation: 'aurora-drift-4 70s ease-in-out infinite',
-          animationDelay: '-45s',
-        }}
-      />
+      {/* Sober, STATIC background: a faint technical grid plus a single soft
+          cyan glow at the top. No blur filters, no animation — the compositor
+          paints these once and never touches them again (the old theme's four
+          animated blur(110px) blobs were by far its heaviest render cost). */}
+      <div className="app-bg" aria-hidden="true" />
+      <div className="app-glow" aria-hidden="true" />
 
       <div className="relative z-10 mx-auto max-w-[1560px] px-4 pb-14 pt-7 sm:px-6">
         <HeroTitle />
         <Header onScanDone={bump} />
 
         <Tabs value={tab} onValueChange={onTab} className="mt-5 gap-4">
-          <TabsList className="glass grid h-auto w-full grid-cols-3 gap-1 rounded-xl bg-white/[0.055] p-1.5 sm:grid-cols-6">
-            {TABS.map(({ value, label, icon: Icon }) => (
+          <TabsList className="glass hud relative grid h-auto w-full grid-cols-3 gap-0 rounded-none border border-border bg-card p-0 sm:grid-cols-6">
+            {TABS.map(({ value, label, icon: Icon }, i) => (
               <TabsTrigger
                 key={value}
                 value={value}
-                className="gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-muted-foreground transition-colors data-[state=active]:bg-white/10 data-[state=active]:text-foreground data-[state=active]:shadow-sm sm:text-sm"
+                className="group relative flex items-center justify-center gap-2 rounded-none border-r border-border/70 px-2 py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors last:border-r-0 data-[state=active]:bg-primary/[0.07] data-[state=active]:text-primary sm:justify-start sm:text-[11.5px]"
               >
+                {/* active top ticker */}
+                <span className="pointer-events-none absolute inset-x-0 top-0 h-[2px] scale-x-0 bg-primary transition-transform duration-150 group-data-[state=active]:scale-x-100" />
+                <span className="hidden font-mono text-[9.5px] tabular-nums text-muted-foreground/60 group-data-[state=active]:text-primary/70 lg:inline">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="hidden sm:inline">{label}</span>
               </TabsTrigger>

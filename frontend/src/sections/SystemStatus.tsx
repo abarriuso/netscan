@@ -56,7 +56,7 @@ export default function SystemStatus() {
                 <div key={i} title={`core ${i}: ${c.toFixed(0)}%`} className="relative h-full flex-1 overflow-hidden rounded-[3px] bg-white/[0.08]">
                   <div
                     className="absolute inset-x-0 bottom-0 rounded-[3px]"
-                    style={{ height: `${c}%`, background: 'linear-gradient(180deg, var(--teal), var(--violet))' }}
+                    style={{ height: `${c}%`, background: 'linear-gradient(180deg, var(--accent-cyan), var(--accent-cyan-deep))' }}
                   />
                 </div>
               ))}
@@ -84,7 +84,7 @@ export default function SystemStatus() {
               <Sub>
                 disco {d.mount} — {d.percent.toFixed(0)}% usado
               </Sub>
-              <Meter percent={d.percent} gradient="blue-teal" />
+              <Meter percent={d.percent} gradient="sky" />
             </div>
           ))}
         </div>
@@ -97,13 +97,13 @@ export default function SystemStatus() {
           {mainIface ? (
             <div className="flex gap-5">
               <div className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-bold" style={{ color: 'var(--teal)' }}>
+                <span className="text-[11px] font-bold" style={{ color: 'var(--accent-cyan)' }}>
                   ↓ BAJADA
                 </span>
                 <span className="text-lg font-extrabold leading-none">{formatBps(mainIface.down_bps)}</span>
               </div>
               <div className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-bold" style={{ color: 'var(--pink)' }}>
+                <span className="text-[11px] font-bold" style={{ color: 'var(--accent-slate)' }}>
                   ↑ SUBIDA
                 </span>
                 <span className="text-lg font-extrabold leading-none">{formatBps(mainIface.up_bps)}</span>

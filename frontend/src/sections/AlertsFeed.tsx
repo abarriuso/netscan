@@ -6,7 +6,7 @@ import { api } from '@/lib/api'
 import PanelError from './PanelError'
 
 const KIND_STYLE: Record<string, { icon: typeof Sparkle; iconClass: string }> = {
-  new_device: { icon: Sparkle, iconClass: 'bg-primary/[0.16] text-[#c4b5fd]' },
+  new_device: { icon: Sparkle, iconClass: 'bg-primary/[0.16] text-primary' },
   mac_changed: { icon: ShieldQuestion, iconClass: 'bg-[color:var(--teal)]/[0.16] text-[color:var(--teal)]' },
   device_down: { icon: TrendingDown, iconClass: 'bg-destructive/[0.16] text-destructive' },
   device_back: { icon: TrendingUp, iconClass: 'bg-ok/[0.16] text-ok' },

@@ -129,17 +129,18 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
   const run = (action: ToolAction) => startScan({ full: action.full, only: action.stage })
 
   return (
-    <header className="glass flex flex-wrap items-center justify-between gap-4 px-6 py-3.5">
+    <header className="glass hud flex flex-wrap items-center justify-between gap-4 px-6 py-3.5">
       <div className="flex items-center gap-3">
         <div
           role="img"
           aria-label="NetScan"
-          className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border font-mono text-[15px] font-bold leading-[0.85] tracking-tight"
+          className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-none border-2 font-mono text-[15px] font-bold leading-[0.85] tracking-tight"
           style={{
-            background: 'rgba(45,212,191,0.08)',
-            borderColor: 'rgba(45,212,191,0.35)',
-            color: 'var(--teal)',
+            background: 'rgba(45,226,230,0.08)',
+            borderColor: 'rgba(45,226,230,0.5)',
+            color: 'var(--accent-cyan)',
             textAlign: 'center',
+            boxShadow: '3px 3px 0 0 rgba(45,226,230,0.15)',
           }}
         >
           ◜◝
@@ -147,9 +148,11 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
           ◟◞
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="text-[19px] font-extrabold tracking-tight">NetScan</span>
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            Homelab Monitor
+          <span className="font-display text-[19px] font-extrabold tracking-tight">
+            NetScan<span className="text-primary">.</span>
+          </span>
+          <span className="font-mono text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+            // Homelab Monitor
           </span>
         </div>
       </div>
@@ -160,13 +163,13 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
             <div className="flex items-center justify-between font-mono text-xs text-muted-foreground">
               <span className="flex min-w-0 items-center gap-1.5">
                 {progress.stage.startsWith('error') ? (
-                  <Badge variant="destructive" className="min-w-0 truncate font-mono text-xs">
+                  <Badge variant="destructive" className="min-w-0 truncate rounded-none font-mono text-xs">
                     {progress.stage}
                   </Badge>
                 ) : (
                   <>
-                    <Activity className="h-3 w-3 shrink-0 animate-pulse text-[color:var(--teal)]" />
-                    <span className="truncate">{label}</span>
+                    <Activity className="h-3 w-3 shrink-0 animate-pulse text-[color:var(--accent-cyan)]" />
+                    <span className="truncate uppercase tracking-wide">{label}</span>
                     {progress.total > 0 && (
                       <span className="shrink-0 tabular-nums text-[10px]">
                         {progress.done}/{progress.total}
@@ -182,22 +185,22 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
                 </span>
               )}
             </div>
-            <Progress value={pct} className="h-1" />
+            <Progress value={pct} className="h-1 rounded-none" />
           </div>
         )}
 
-        <span className={`flex items-center gap-2 text-[12.5px] font-semibold ${connected ? 'text-ok' : 'text-destructive'}`}>
+        <span className={`flex items-center gap-2 font-mono text-[11.5px] font-semibold uppercase tracking-wider ${connected ? 'text-ok' : 'text-destructive'}`}>
           <span
-            className={`h-[7px] w-[7px] rounded-full bg-current ${connected ? 'animate-pulse' : ''}`}
+            className={`h-[7px] w-[7px] bg-current ${connected ? 'animate-pulse' : ''}`}
             style={{ boxShadow: '0 0 8px currentColor' }}
           />
-          {connected ? 'Live — conectado' : 'Sin conexión'}
+          {connected ? <span className="caret">Live</span> : 'Offline'}
         </span>
 
         <button
           onClick={requestTokenDialog}
           title="Token de API"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-white/[0.1] text-muted-foreground transition-colors hover:border-white/20 hover:text-foreground"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-none border border-border text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
         >
           <KeyRound className="h-4 w-4" />
         </button>
@@ -206,17 +209,16 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
           <DropdownMenuTrigger asChild>
             <button
               disabled={scanning}
-              className="flex items-center gap-2 rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-[0_4px_20px_rgba(109,40,217,0.45)] transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 disabled:hover:brightness-100"
-              style={{ background: 'linear-gradient(135deg, var(--violet), var(--blue))' }}
+              className="flex items-center gap-2 rounded-none bg-primary px-4 py-2.5 font-mono text-[12.5px] font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform,box-shadow] duration-150 hover:-translate-x-[1px] hover:-translate-y-[1px] hover:brightness-110 hover:shadow-[6px_6px_0_0_rgba(45,226,230,0.28)] active:translate-x-0 active:translate-y-0 disabled:opacity-50 disabled:hover:brightness-100"
             >
               <Play className="h-3.5 w-3.5" />
-              {scanning ? 'Escaneando…' : 'Ejecutar scan'}
+              {scanning ? 'Scanning…' : 'Ejecutar scan'}
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-96 border-white/[0.12] bg-[#141021]/90 text-foreground shadow-2xl backdrop-blur-xl backdrop-saturate-150"
+            className="w-96 rounded-none border-border bg-popover text-foreground shadow-hard-lg"
           >
             <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
               escaneos
