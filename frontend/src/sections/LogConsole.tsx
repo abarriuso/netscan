@@ -39,7 +39,7 @@ export default function LogConsole() {
           const el = e.currentTarget
           wasAtBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
         }}
-        className="max-h-[210px] overflow-y-auto rounded-[10px] border border-white/[0.07] bg-black/35 p-3.5 font-mono text-[12px] leading-[1.85]"
+        className="max-h-[210px] overflow-y-auto rounded-none border border-border bg-black/50 p-3.5 font-mono text-[12px] leading-[1.85]"
       >
         {lines.length === 0 ? (
           <p className="text-muted-foreground">sin actividad todavía</p>

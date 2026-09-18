@@ -49,7 +49,7 @@ function Mini({
             <XAxis dataKey="t" tickFormatter={fmtT} tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 9 }} tickLine={false} axisLine={false} minTickGap={36} />
             <YAxis width={40} tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 9 }} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
             <Tooltip
-              contentStyle={{ background: 'rgba(22,18,31,0.95)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, fontSize: 12 }}
+              contentStyle={{ background: 'rgba(11,13,17,0.96)', border: '1px solid rgba(45,226,230,0.35)', borderRadius: 2, fontSize: 12, fontFamily: 'JetBrains Mono' }}
               labelStyle={{ color: 'rgba(255,255,255,0.6)' }}
               labelFormatter={(v) => fmtT(String(v))}
               formatter={(val: number | string) => [`${Number(val).toFixed(decimals)}${unit}`, title]}
@@ -69,7 +69,7 @@ export default function DeviceDetailDialog({ device, onClose }: { device: Device
   const samples = data?.samples ?? []
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl border-white/[0.12] bg-[#141021]/95 backdrop-blur-xl">
+      <DialogContent className="max-w-2xl border-border bg-popover">
         <DialogHeader>
           <DialogTitle>{device.hostname || device.mdns_name || device.ip}</DialogTitle>
           <DialogDescription className="font-mono text-xs">
@@ -78,9 +78,9 @@ export default function DeviceDetailDialog({ device, onClose }: { device: Device
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Mini data={samples} dataKey="latency_ms" color="#2dd4bf" unit=" ms" title="Latencia" decimals={1} />
-          <Mini data={samples} dataKey="quality" color="#8b5cf6" unit="/100" title="Calidad" />
-          <Mini data={samples} dataKey="jitter_ms" color="#3b82f6" unit=" ms" title="Jitter" decimals={1} />
+          <Mini data={samples} dataKey="latency_ms" color="#22d3ee" unit=" ms" title="Latencia" decimals={1} />
+          <Mini data={samples} dataKey="quality" color="#38bdf8" unit="/100" title="Calidad" />
+          <Mini data={samples} dataKey="jitter_ms" color="#2de2e6" unit=" ms" title="Jitter" decimals={1} />
           <Mini data={samples} dataKey="packet_loss_pct" color="#fbbf24" unit="%" title="Pérdida" decimals={1} />
         </div>
       </DialogContent>

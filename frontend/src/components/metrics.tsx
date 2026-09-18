@@ -42,7 +42,7 @@ export function Meter({
   label,
   value,
   invertColor = false,
-  gradient = 'violet-teal',
+  gradient = 'cyan',
   className,
 }: {
   percent: number
@@ -50,18 +50,18 @@ export function Meter({
   value?: string
   invertColor?: boolean
   /** Which two-stop gradient to use for the "normal range" fill. */
-  gradient?: 'violet-teal' | 'blue-teal' | 'pink-violet'
+  gradient?: 'cyan' | 'sky' | 'teal'
   className?: string
 }) {
   const clamped = Math.max(0, Math.min(100, percent || 0))
   const animated = useAnimatedNumber(clamped)
   const solid = fillClass(clamped, invertColor)
   const gradientClass =
-    gradient === 'blue-teal'
-      ? 'bg-[linear-gradient(90deg,var(--blue),var(--teal))]'
-      : gradient === 'pink-violet'
-        ? 'bg-[linear-gradient(90deg,#be185d,var(--pink))]'
-        : 'bg-[linear-gradient(90deg,var(--violet-2),var(--violet))]'
+    gradient === 'sky'
+      ? 'bg-[linear-gradient(90deg,var(--accent-cyan-deep),var(--accent-sky))]'
+      : gradient === 'teal'
+        ? 'bg-[linear-gradient(90deg,var(--accent-cyan-deep),var(--accent-teal))]'
+        : 'bg-[linear-gradient(90deg,var(--accent-cyan-deep),var(--accent-cyan))]'
   return (
     <div className={cn('space-y-1.5', className)}>
       {(label || value) && (
@@ -87,7 +87,7 @@ export function QualityBadge({ score }: { score: number | null | undefined }) {
   if (score == null) return <span className="text-xs text-muted-foreground">—</span>
   const gradient =
     score >= 80
-      ? 'bg-[linear-gradient(90deg,var(--teal),#34d399)]'
+      ? 'bg-[linear-gradient(90deg,var(--accent-cyan-deep),var(--accent-cyan))]'
       : score >= 50
         ? 'bg-[linear-gradient(90deg,#fbbf24,#fca311)]'
         : 'bg-[linear-gradient(90deg,#f87171,#ef4444)]'
@@ -165,9 +165,12 @@ export function GlassPanel({
 }) {
   return (
     <div className={cn('glass p-5', className)}>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-[14.5px] font-bold tracking-tight">{title}</h2>
-        {right ?? (meta && <span className="text-[11.5px] font-medium text-muted-foreground">{meta}</span>)}
+      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border/70 pb-3">
+        <h2 className="flex items-baseline gap-2 font-display text-[14.5px] font-bold tracking-tight">
+          <span className="select-none font-mono text-primary/70">//</span>
+          {title}
+        </h2>
+        {right ?? (meta && <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{meta}</span>)}
       </div>
       <div className={contentClassName}>{children}</div>
     </div>

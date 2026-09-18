@@ -9,6 +9,7 @@ module.exports = {
       fontFamily: {
         sans: ['"Inter"', ...defaultTheme.fontFamily.sans],
         mono: ['"JetBrains Mono"', ...defaultTheme.fontFamily.mono],
+        display: ['"Space Grotesk"', '"Inter"', ...defaultTheme.fontFamily.sans],
       },
       colors: {
         border: "rgb(var(--border) / <alpha-value>)",
@@ -68,6 +69,9 @@ module.exports = {
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        hard: "4px 4px 0 0 rgb(0 0 0 / 0.55)",
+        "hard-lg": "6px 6px 0 0 rgb(0 0 0 / 0.6)",
+        "hard-cyan": "4px 4px 0 0 rgb(45 226 230 / 0.22)",
       },
       keyframes: {
         "accordion-down": {

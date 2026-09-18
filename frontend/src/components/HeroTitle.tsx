@@ -6,10 +6,9 @@ const DOOM_ASCII =
   " _   _  _____ _____ _____ _____   ___   _   _ \n| \\ | ||  ___|_   _/  ___/  __ \\ / _ \\ | \\ | |\n|  \\| || |__   | | \\ `--.| /  \\// /_\\ \\|  \\| |\n| . ` ||  __|  | |  `--. \\ |    |  _  || . ` |\n| |\\  || |___  | | /\\__/ / \\__/\\| | | || |\\  |\n\\_| \\_/\\____/  \\_/ \\____/ \\____/\\_| |_/\\_| \\_/"
 
 /** The big DOOM-font ASCII "NETSCAN" wordmark that opens the dashboard —
- *  translucent over the aurora blobs (no glass card behind it, the blobs
- *  bleed straight through the letterforms), gradient-filled, with a slow
- *  compositor-only sheen sweep. Purely decorative: aria-hidden, the real
- *  accessible heading lives in Header.tsx's "NetScan" text. */
+ *  gradient-filled (cyan→sky→magenta), aria-hidden, with a slow
+ *  compositor-only sheen sweep. Purely decorative: the real accessible
+ *  heading lives in Header.tsx's "NetScan" text. */
 export default function HeroTitle() {
   return (
     <div className="pointer-events-none mb-2 select-none overflow-x-auto pb-6 pt-6 text-center" aria-hidden="true">

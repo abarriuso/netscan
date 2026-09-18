@@ -14,16 +14,40 @@ integraciones configurables desde la propia web para **Proxmox VE**,
 
 ## Capturas
 
-Inventario en vivo — KPIs, estado del sistema, dispositivos descubiertos y alertas:
+Vista **En vivo** — latencia de red en tiempo real y mapa de equipos (online/offline):
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-live.png" width="820" alt="NetScan En vivo: gráfico de latencia en tiempo real y mapa de red con estado de cada equipo">
+</p>
+
+**Resumen** — KPIs, estado del sistema, inventario de dispositivos y alertas:
 
 <p align="center">
   <img src="docs/screenshots/dashboard-overview.png" width="820" alt="Dashboard de NetScan: KPIs, estado del sistema, inventario de dispositivos y alertas">
 </p>
 
-Integraciones configurables desde la web (Proxmox/TrueNAS/AdGuard/Pi-hole/marcadores propios), analítica de red y servicios TLS descubiertos:
+**Dispositivos** — inventario detallado con latencia, jitter, pérdida, calidad, puertos abiertos y confianza:
 
 <p align="center">
-  <img src="docs/screenshots/dashboard-integrations.png" width="820" alt="Panel de integraciones de NetScan: alta/edición desde la web, Pi-hole, y marcadores personalizados">
+  <img src="docs/screenshots/dashboard-devices.png" width="820" alt="Inventario de dispositivos de NetScan con métricas por equipo y puertos abiertos">
+</p>
+
+**Analítica** — series de latencia/calidad/throughput, top vendors/SO/puertos, servicios web y hallazgos TLS:
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-analytics.png" width="820" alt="Analítica de red de NetScan: gráficos de métricas, rankings y hallazgos de seguridad">
+</p>
+
+**Integraciones** configurables desde la web (Proxmox/TrueNAS/AdGuard/Pi-hole/marcadores propios):
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-integrations.png" width="820" alt="Panel de integraciones de NetScan: Proxmox, TrueNAS, AdGuard, Pi-hole y marcadores personalizados">
+</p>
+
+**Sistema** — recursos del host y estado del servidor NetScan:
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-system.png" width="820" alt="Panel de sistema de NetScan: CPU, memoria, discos, red y estado del servidor">
 </p>
 
 `netscan.sh doctor` / `netscan.bat doctor` — diagnóstico de un vistazo antes de arrancar:

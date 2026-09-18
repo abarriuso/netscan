@@ -35,7 +35,7 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
       )}
       <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3">
         {webServices.map((svc) => (
-          <div key={svc.url} className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+          <div key={svc.url} className="flex flex-col gap-2 rounded-none border border-border bg-secondary/50 p-3.5">
             <a
               href={svc.url}
               target="_blank"
@@ -57,7 +57,7 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
                 {(svc.tech ?? []).slice(0, 6).map((t) => (
                   <span
                     key={t}
-                    className="rounded-[6px] border border-[color:var(--blue)]/30 bg-[color:var(--blue)]/[0.12] px-2 py-0.5 text-[10.5px] text-[#a8c8ff]"
+                    className="rounded-none border border-[color:var(--accent-sky)]/40 bg-[color:var(--accent-sky)]/[0.1] px-2 py-0.5 font-mono text-[10.5px] text-[color:var(--accent-sky)]"
                   >
                     {t}
                   </span>
@@ -73,7 +73,7 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
             hallazgos de seguridad ({vulns.length})
           </p>
           {vulns.map((v, i) => (
-            <div key={i} className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-[12.5px]">
+            <div key={i} className="flex items-center gap-2 rounded-none border-l-2 border-l-destructive/70 bg-destructive/10 px-3 py-2 text-[12.5px]">
               <span className="rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-white">{v.severity}</span>
               {v.tool && <span className="font-mono text-[10.5px] text-muted-foreground">{v.tool}</span>}
               <span className="truncate">{v.name || v.template}</span>

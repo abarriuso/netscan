@@ -59,8 +59,7 @@ function IntegrationManager({ onChanged }: { onChanged: () => void }) {
       right={
         <button
           onClick={openCreate}
-          className="flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12px] font-semibold text-white transition-[filter] hover:brightness-110"
-          style={{ background: 'linear-gradient(135deg, var(--violet), var(--blue))' }}
+          className="flex items-center gap-1.5 rounded-none bg-primary px-3 py-1.5 font-mono text-[11.5px] font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform,box-shadow] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:brightness-110"
         >
           <Plus className="h-3.5 w-3.5" />
           Añadir
@@ -139,7 +138,7 @@ export default function Integrations() {
           {(pve ?? []).length === 0 && !pveError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
           {(pve ?? []).map((inst) =>
             inst.error ? (
-              <div key={inst.name} className="rounded-lg border border-destructive/40 p-3 text-xs">
+              <div key={inst.name} className="rounded-none border border-destructive/40 p-3 text-xs">
                 <span className="font-semibold">{inst.name}</span>
                 <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-white">error</span>
                 <p className="mt-1 text-muted-foreground">{inst.error}</p>
@@ -174,7 +173,7 @@ export default function Integrations() {
           {(tnas ?? []).length === 0 && !tnasError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
           {(tnas ?? []).map((inst) =>
             inst.error ? (
-              <div key={inst.name} className="rounded-lg border border-destructive/40 p-3 text-xs">
+              <div key={inst.name} className="rounded-none border border-destructive/40 p-3 text-xs">
                 <span className="font-semibold">{inst.name}</span>
                 <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-white">error</span>
                 <p className="mt-1 text-muted-foreground">{inst.error}</p>
@@ -193,7 +192,7 @@ export default function Integrations() {
                       {pool.size ? (
                         <div className="pb-1">
                           <StatLine label="Capacidad usada" value={`${formatBytes(pool.allocated)} / ${formatBytes(pool.size)}`} />
-                          <Meter percent={used} gradient="blue-teal" />
+                          <Meter percent={used} gradient="sky" />
                         </div>
                       ) : null}
                     </div>
@@ -220,7 +219,7 @@ export default function Integrations() {
           {(ag ?? []).length === 0 && !agError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
           {(ag ?? []).map((inst) =>
             inst.error ? (
-              <div key={inst.name} className="rounded-lg border border-destructive/40 p-3 text-xs">
+              <div key={inst.name} className="rounded-none border border-destructive/40 p-3 text-xs">
                 <span className="font-semibold">{inst.name}</span>
                 <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-white">error</span>
                 <p className="mt-1 text-muted-foreground">{inst.error}</p>
@@ -238,7 +237,7 @@ export default function Integrations() {
                     percent={
                       inst.num_dns_queries ? ((inst.num_blocked_filtering ?? 0) / inst.num_dns_queries) * 100 : 0
                     }
-                    gradient="pink-violet"
+                    gradient="teal"
                   />
                 </div>
                 <StatLine
@@ -258,7 +257,7 @@ export default function Integrations() {
           {(ph ?? []).length === 0 && !phError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
           {(ph ?? []).map((inst) =>
             inst.error ? (
-              <div key={inst.name} className="rounded-lg border border-destructive/40 p-3 text-xs">
+              <div key={inst.name} className="rounded-none border border-destructive/40 p-3 text-xs">
                 <span className="font-semibold">{inst.name}</span>
                 <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-white">error</span>
                 <p className="mt-1 text-muted-foreground">{inst.error}</p>
@@ -272,7 +271,7 @@ export default function Integrations() {
                   valueClass="text-[color:var(--pink)]"
                 />
                 <div className="py-1">
-                  <Meter percent={inst.percent_blocked ?? 0} gradient="pink-violet" />
+                  <Meter percent={inst.percent_blocked ?? 0} gradient="teal" />
                 </div>
                 <StatLine label="Tasa de bloqueo" value={`${(inst.percent_blocked ?? 0).toFixed(1)}%`} />
                 <StatLine label="Dominios en lista" value={(inst.domains_being_blocked ?? 0).toLocaleString()} />
@@ -294,16 +293,16 @@ export default function Integrations() {
                 href={b.url}
                 target="_blank"
                 rel="noreferrer"
-                className="flex flex-col items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center transition-colors hover:border-white/20 hover:bg-white/[0.06]"
+                className="flex flex-col items-center gap-2 rounded-none border border-border bg-secondary/60 p-3 text-center transition-colors hover:border-primary/50 hover:bg-secondary"
               >
-                <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white/10">
+                <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-none bg-white/10">
                   {b.logo_url ? (
                     <img src={b.logo_url} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <span className="font-mono text-xs font-bold text-muted-foreground">{b.name.slice(0, 2).toUpperCase()}</span>
                   )}
                   <span
-                    className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#141021] ${b.status === 'up' ? 'bg-ok' : 'bg-destructive'}`}
+                    className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${b.status === 'up' ? 'bg-ok' : 'bg-destructive'}`}
                   />
                 </div>
                 <span className="truncate text-[11px] font-medium">{b.name}</span>

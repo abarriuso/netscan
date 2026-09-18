@@ -25,22 +25,25 @@ function Kpi({
   // placeholder through `color: transparent` just makes it disappear.
   const showAccent = accent && value !== '—'
   return (
-    <div className="glass card-hover flex flex-col gap-1.5 px-[18px] py-4">
-      <span className="text-[11.5px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+    <div className="glass card-hover group relative flex flex-col gap-1.5 px-[18px] py-4">
+      <span className="kbd-label flex items-center gap-1.5">
+        <span className="text-primary/60">//</span>
+        {label}
+      </span>
       <span
-        className={`text-[26px] font-extrabold leading-none tracking-tight transition-colors duration-300 ${showAccent ? 'text-gradient' : ''}`}
+        className={`font-display text-[27px] font-extrabold leading-none tracking-tight transition-colors duration-300 ${showAccent ? 'text-gradient' : ''}`}
       >
         {value}
         {frac && (
           <span
-            className="text-base font-semibold text-muted-foreground"
+            className="font-mono text-base font-semibold text-muted-foreground"
             style={showAccent ? { WebkitTextFillColor: 'currentColor' } : undefined}
           >
             {frac}
           </span>
         )}
       </span>
-      {delta && <span className={`text-[11.5px] font-semibold transition-colors duration-300 ${deltaClass}`}>{delta}</span>}
+      {delta && <span className={`font-mono text-[10.5px] font-semibold uppercase tracking-wide transition-colors duration-300 ${deltaClass || 'text-muted-foreground'}`}>{delta}</span>}
     </div>
   )
 }
