@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'src/components/ui']),
+  globalIgnores(['dist', 'coverage', 'src/components/ui']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -18,6 +18,20 @@ export default defineConfig([
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+    },
+  },
+  {
+    // Test files and the Vitest setup use Vitest globals (describe/it/expect,
+    // configured via `test.globals: true`) plus Node globals in the setup.
+    files: ['**/*.{test,spec}.{ts,tsx}', 'src/test/**/*.{ts,tsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      // Tests occasionally need `any` casts to poke at mock internals.
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
 ])
