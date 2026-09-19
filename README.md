@@ -53,16 +53,16 @@ Vista **En vivo** — latencia de red en tiempo real y mapa de equipos (online/o
 `netscan.sh doctor` / `netscan.bat doctor` — diagnóstico de un vistazo antes de arrancar:
 
 <p align="center">
-  <img src="docs/screenshots/doctor-cli.png" width="620" alt="netscan doctor: tabla de diagnóstico en terminal">
+  <img src="docs/screenshots/doctor-cli.png" width="760" alt="netscan doctor: tabla de diagnóstico en terminal">
 </p>
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  backend/   Python 3.11+ · FastAPI · SQLite · scapy          │
-│  frontend/  React 19 · TypeScript · Vite · Tailwind · shadcn │
-│  CI/CD      GitHub Actions (lint · mypy · pytest · build)    │
-│  Licencia   GPL-2.0-or-later                                 │
-└──────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│  backend/   Python 3.11+ · FastAPI · SQLite · scapy            │
+│  frontend/  React 19 · TypeScript · Vite · Tailwind · shadcn   │
+│  CI/CD      GitHub Actions (lint · mypy · pytest · build)      │
+│  Licencia   GPL-2.0-or-later                                   │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ## Instalación en un comando
