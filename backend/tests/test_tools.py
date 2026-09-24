@@ -100,7 +100,7 @@ def test_testssl_scan_timeout_returns_empty(monkeypatch):
 
 
 def test_wol_rejects_bad_mac():
-    with pytest.raises(ValueError, match="MAC inválida"):
+    with pytest.raises(ValueError, match="Invalid MAC"):
         wol.wake("not-a-mac")
 
 

@@ -4,6 +4,7 @@ import { GlassPanel } from '@/components/metrics'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 const KIND_STYLE: Record<string, { icon: typeof Sparkle; iconClass: string }> = {
   new_device: { icon: Sparkle, iconClass: 'bg-primary/[0.16] text-primary' },
@@ -21,6 +22,7 @@ function timeAgo(iso: string): string {
 }
 
 export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
+  const { t } = useI18n()
   const { data: alerts, error, refresh } = usePoll(() => api.alerts(false), 15000, refreshKey)
 
   const ack = async (id: number) => {
@@ -31,9 +33,9 @@ export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
   const list = alerts ?? []
 
   return (
-    <GlassPanel title="Alertas" meta={`${list.length} recientes`}>
+    <GlassPanel title={t('alertsTitle')} meta={t('alertsRecent', list.length)}>
       <PanelError error={error} />
-      {list.length === 0 && <p className="text-sm text-muted-foreground">todo tranquilo por aquí</p>}
+      {list.length === 0 && <p className="text-sm text-muted-foreground">{t('allQuietHere')}</p>}
       <div className="divide-y divide-white/[0.06]">
         {list.slice(0, 12).map((alert) => {
           const style = KIND_STYLE[alert.kind] ?? KIND_STYLE.new_device
@@ -44,11 +46,14 @@ export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
                 <Icon className="h-3.5 w-3.5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-2 text-[13px] font-semibold">
-                  {alert.detail}
+                {/* Headline in the UI language; the server's own detail (old
+                    IP, vendor…) stays one hover away. */}
+                <p className="flex items-center gap-2 text-[13px] font-semibold" title={alert.detail}>
+                  {t('alertKind', alert.kind)}
+                  {alert.device_ip ? ` · ${alert.device_ip}` : ''}
                   {!alert.acknowledged && (
                     <span className="rounded-full border border-warn/35 bg-warn/[0.14] px-2 py-0.5 text-[10px] font-bold text-warn">
-                      sin leer
+                      {t('unread')}
                     </span>
                   )}
                 </p>
@@ -63,7 +68,7 @@ export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
                   variant="ghost"
                   className="h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
                   onClick={() => ack(alert.id)}
-                  aria-label="marcar alerta como leída"
+                  aria-label={t('markRead')}
                 >
                   <Check className="h-3.5 w-3.5" />
                 </Button>

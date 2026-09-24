@@ -183,7 +183,7 @@ describe('api client', () => {
 
     it('falls back to a generic message for a 5xx with no JSON body', async () => {
       const err = await errorFromResponse(textResponse(500), '/api/z')
-      expect(err.message).toBe('error interno del servidor')
+      expect(err.message).toBe('internal server error')
       expect((err as Error & { status?: number }).status).toBe(500)
     })
 

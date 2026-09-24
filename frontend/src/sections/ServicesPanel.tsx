@@ -2,20 +2,23 @@ import { GlassPanel } from '@/components/metrics'
 import { usePoll } from '@/hooks/useNetscan'
 import { fetchLatestScan } from '@/lib/api'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 function CertBadge({ days, selfSigned, tls }: { days: number | null; selfSigned: boolean; tls: boolean }) {
-  if (!tls) return <span className="text-xs font-semibold text-warn">sin TLS · HTTP plano</span>
+  const { t } = useI18n()
+  if (!tls) return <span className="text-xs font-semibold text-warn">{t('noTls')}</span>
   if (days == null) return null
   const cls = days < 0 ? 'text-destructive' : days < 30 ? 'text-warn' : 'text-ok'
   return (
     <span className={`text-xs font-semibold ${cls}`}>
-      {days < 0 ? `caducado hace ${-days}d` : `cert válido · ${days}d restantes`}
-      {selfSigned ? ' · autofirmado' : ''}
+      {days < 0 ? t('certExpired', -days) : t('certValid', days)}
+      {selfSigned ? t('selfSigned') : ''}
     </span>
   )
 }
 
 export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
+  const { t } = useI18n()
   const { data: scan, error } = usePoll(fetchLatestScan, 20000, refreshKey)
 
   const webServices = (scan?.devices ?? []).flatMap((d) =>
@@ -25,13 +28,13 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
 
   return (
     <GlassPanel
-      title="Servicios web & TLS"
-      meta={scan ? `${webServices.length} descubiertos · último scan ${new Date(scan.started_at).toLocaleTimeString()}` : undefined}
+      title={t('servicesTitle')}
+      meta={scan ? t('servicesMeta', webServices.length, new Date(scan.started_at).toLocaleTimeString()) : undefined}
     >
       <PanelError error={error} />
-      {!scan && !error && <p className="text-sm text-muted-foreground">sin scans todavía</p>}
+      {!scan && !error && <p className="text-sm text-muted-foreground">{t('noScans')}</p>}
       {scan && webServices.length === 0 && (
-        <p className="text-sm text-muted-foreground">ninguna web UI detectada en el último scan</p>
+        <p className="text-sm text-muted-foreground">{t('noWebUI')}</p>
       )}
       <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3">
         {webServices.map((svc) => (
@@ -70,7 +73,7 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
       {vulns.length > 0 && (
         <div className="mt-4 space-y-1.5 border-t border-white/10 pt-4">
           <p className="text-[10.5px] font-bold uppercase tracking-wider text-destructive">
-            hallazgos de seguridad ({vulns.length})
+            {t('findings', vulns.length)}
           </p>
           {vulns.map((v, i) => (
             <div key={i} className="flex items-center gap-2 rounded-none border-l-2 border-l-destructive/70 bg-destructive/10 px-3 py-2 text-[12.5px]">

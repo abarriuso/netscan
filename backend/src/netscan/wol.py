@@ -33,7 +33,7 @@ def wake(mac: str, broadcast: str = "", port: int = 9, repeats: int = 3) -> None
     """
     cleaned = mac.replace("-", ":").lower()
     if not _MAC_RE.match(cleaned):
-        raise ValueError(f"MAC inválida: {mac}")
+        raise ValueError(f"Invalid MAC: {mac}")
     target = broadcast or _default_broadcast()
     mac_bytes = bytes.fromhex(cleaned.replace(":", ""))
     packet = b"\xff" * 6 + mac_bytes * 16

@@ -11,11 +11,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cancelAuth, hasToken, onAuthRequired, onTokenDialogRequested, submitToken } from '@/lib/api'
+import { useI18n } from '@/i18n/context'
 
 /** Global token entry dialog. Opens itself either when the API rejects a
  *  request with 401 (`onAuthRequired`) or when the user clicks the header's
  *  settings button (`onTokenDialogRequested`) to change a saved token. */
 export default function TokenDialog() {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [required, setRequired] = useState(false)
   const [value, setValue] = useState('')
@@ -58,14 +60,12 @@ export default function TokenDialog() {
             >
               <KeyRound className="h-4 w-4 text-primary-foreground" />
             </div>
-            <DialogTitle>Token de API</DialogTitle>
+            <DialogTitle>{t('apiToken')}</DialogTitle>
           </div>
           <DialogDescription>
-            {required
-              ? 'Este NetScan requiere un token para hablar con la API.'
-              : 'Cambia el token guardado en este navegador.'}{' '}
-            Está en <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-[11px]">/etc/netscan/netscan.env</code>{' '}
-            dentro del servidor (variable <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-[11px]">NETSCAN_API_TOKEN</code>).
+            {required ? t('tokenRequired') : t('tokenChange')}{' '}
+            {t('tokenWhereBefore')} <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-[11px]">/etc/netscan/netscan.env</code>{' '}
+            {t('tokenWhereInside')} <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-[11px]">NETSCAN_API_TOKEN</code>).
           </DialogDescription>
         </DialogHeader>
 
@@ -77,7 +77,7 @@ export default function TokenDialog() {
             id="netscan-token"
             type="password"
             autoFocus
-            placeholder={hasToken() ? '••••••••••••••••' : 'pega el token aquí'}
+            placeholder={hasToken() ? '••••••••••••••••' : t('tokenPlaceholder')}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && save()}
@@ -90,14 +90,14 @@ export default function TokenDialog() {
             onClick={dismiss}
             className="rounded-none px-4 py-2 font-mono text-[12px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
           >
-            {required ? 'Ahora no' : 'Cancelar'}
+            {required ? t('notNow') : t('cancel')}
           </button>
           <button
             onClick={save}
             disabled={!value.trim()}
             className="rounded-none bg-primary px-4 py-2 font-mono text-[12px] font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform] duration-150 hover:brightness-110 active:translate-x-0 disabled:opacity-50 disabled:hover:brightness-100"
           >
-            Guardar
+            {t('save')}
           </button>
         </DialogFooter>
       </DialogContent>

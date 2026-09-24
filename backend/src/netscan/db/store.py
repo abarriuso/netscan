@@ -100,8 +100,7 @@ class InventoryStore:
                                 kind="new_device",
                                 device_mac=dev.mac,
                                 device_ip=dev.ip,
-                                detail=f"Nuevo dispositivo: {dev.ip} "
-                                f"({dev.vendor or dev.mdns_name or 'desconocido'})",
+                                detail=f"New device: {dev.ip} ({dev.vendor or dev.mdns_name or 'unknown'})",
                             )
                         )
                 elif record.ip != dev.ip:
@@ -110,7 +109,7 @@ class InventoryStore:
                             kind="mac_changed",
                             device_mac=dev.mac,
                             device_ip=dev.ip,
-                            detail=f"IP de {dev.mac} cambió {record.ip} → {dev.ip}",
+                            detail=f"IP of {dev.mac} changed {record.ip} → {dev.ip}",
                         )
                     )
                     record.ip = dev.ip
@@ -167,7 +166,7 @@ class InventoryStore:
                                 kind="device_down",
                                 device_mac=mac,
                                 device_ip=record.ip,
-                                detail=f"Dispositivo caído: {record.ip} "
+                                detail=f"Device down: {record.ip} "
                                 f"({record.hostname or record.vendor or mac})",
                             )
                         )

@@ -4,6 +4,7 @@ import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { LiveDevice } from '@/types'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 function fmtClock(iso: string): string {
   const d = new Date(iso)
@@ -13,6 +14,7 @@ function fmtClock(iso: string): string {
 }
 
 function DeviceTile({ d }: { d: LiveDevice }) {
+  const { t } = useI18n()
   return (
     <div className={`glass card-hover flex flex-col gap-1 border-l-2 p-3 ${d.up ? 'border-l-ok/70' : 'border-l-destructive/70'} ${d.up ? '' : 'opacity-60'}`}>
       <div className="flex items-center gap-2">
@@ -27,7 +29,7 @@ function DeviceTile({ d }: { d: LiveDevice }) {
       <div className="flex items-center justify-between font-mono text-[11px]">
         <span className="text-muted-foreground">{d.ip}</span>
         <span className={d.up ? 'text-primary' : 'text-destructive'}>
-          {d.up ? `${d.latency_ms}ms` : 'sin respuesta'}
+          {d.up ? `${d.latency_ms}ms` : t('noResponse')}
         </span>
       </div>
     </div>
@@ -37,6 +39,7 @@ function DeviceTile({ d }: { d: LiveDevice }) {
 /** Real-time view: a live latency chart fed by the backend's background ping,
  *  plus a status map of every known device (up/down + current RTT). */
 export default function LiveView() {
+  const { t } = useI18n()
   const { data: snap, error } = usePoll(api.live, 3000)
   const series = snap?.series ?? []
   const devices = snap?.devices ?? []
@@ -47,20 +50,20 @@ export default function LiveView() {
     <div className="space-y-[18px]">
       <PanelError error={error} />
       <GlassPanel
-        title="Latencia de red en vivo"
+        title={t('liveTitle')}
         right={
           <span className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
             <span
               className="h-1.5 w-1.5 animate-pulse rounded-full bg-[color:var(--teal)]"
               style={{ boxShadow: '0 0 8px var(--teal)' }}
             />
-            en vivo · {snap?.online ?? 0}/{snap?.total ?? 0} online
+            {t('liveMeta', snap?.online ?? 0, snap?.total ?? 0)}
             {last?.latency_ms != null && <span className="text-foreground/90">· {last.latency_ms} ms</span>}
           </span>
         }
       >
         {!hasLive ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">arrancando el monitor… (unos segundos)</p>
+          <p className="py-10 text-center text-sm text-muted-foreground">{t('starting')}</p>
         ) : (
           <ResponsiveContainer width="100%" height={190}>
             <AreaChart data={series} margin={{ top: 6, right: 10, bottom: 0, left: -12 }}>
@@ -96,7 +99,7 @@ export default function LiveView() {
                 }}
                 labelStyle={{ color: 'rgba(233,236,241,0.6)' }}
                 labelFormatter={(v) => fmtClock(String(v))}
-                formatter={(val: number | string) => [`${val} ms`, 'latencia media']}
+                formatter={(val: number | string) => [`${val} ms`, t('meanLatency')]}
               />
               <Area
                 type="monotone"
@@ -113,10 +116,10 @@ export default function LiveView() {
         )}
       </GlassPanel>
 
-      <GlassPanel title="Mapa de red" meta={`${devices.length} equipos`}>
+      <GlassPanel title={t('mapTitle')} meta={t('mapMeta', devices.length)}>
         {devices.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            sin equipos todavía — lanza un scan para poblar el inventario
+            {t('mapEmpty')}
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">

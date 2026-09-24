@@ -3,6 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 function Kpi({
   label,
@@ -49,6 +50,7 @@ function Kpi({
 }
 
 export default function StatCards({ refreshKey }: { refreshKey: number }) {
+  const { t } = useI18n()
   const { data, error } = usePoll(api.overview, 15000, refreshKey)
   const m = data?.metrics
 
@@ -71,38 +73,38 @@ export default function StatCards({ refreshKey }: { refreshKey: number }) {
       <PanelError error={error} />
       <div className="grid grid-cols-2 gap-[14px] lg:grid-cols-3 xl:grid-cols-6">
         <Kpi
-          label="dispositivos online"
+          label={t('kpiOnline')}
           value={<AnimatedNumber value={data?.devices_online ?? 0} />}
           frac={` / ${data?.devices_total ?? 0}`}
-          delta="desde el último scan"
+          delta={t('kpiOnlineDelta')}
         />
         <Kpi
-          label="sin verificar"
+          label={t('kpiUntrusted')}
           value={<AnimatedNumber value={data?.devices_untrusted ?? 0} />}
-          delta={(data?.devices_untrusted ?? 0) > 0 ? 'revisar' : 'todo ok'}
+          delta={(data?.devices_untrusted ?? 0) > 0 ? t('review') : t('allOk')}
           tone={(data?.devices_untrusted ?? 0) > 0 ? 'warn' : 'good'}
         />
         <Kpi
-          label="alertas sin leer"
+          label={t('kpiUnread')}
           value={<AnimatedNumber value={data?.alerts_unacknowledged ?? 0} />}
-          delta={(data?.alerts_unacknowledged ?? 0) > 0 ? 'acción requerida' : 'todo tranquilo'}
+          delta={(data?.alerts_unacknowledged ?? 0) > 0 ? t('actionNeeded') : t('allQuiet')}
           tone={(data?.alerts_unacknowledged ?? 0) > 0 ? 'bad' : 'good'}
         />
         <Kpi
-          label="calidad media"
+          label={t('kpiQuality')}
           value={m?.avg_quality != null ? <AnimatedNumber value={m.avg_quality} /> : '—'}
           frac={m?.avg_quality != null ? '/100' : undefined}
-          delta="estable"
+          delta={t('stable')}
           tone="good"
           accent
         />
         <Kpi
-          label="latencia media"
+          label={t('kpiLatency')}
           value={m?.avg_latency_ms != null ? <AnimatedNumber value={m.avg_latency_ms} decimals={1} /> : '—'}
           frac={m?.avg_latency_ms != null ? ' ms' : undefined}
         />
         <Kpi
-          label="throughput máx"
+          label={t('kpiThroughput')}
           value={m?.max_throughput_mbps != null ? <AnimatedNumber value={m.max_throughput_mbps} decimals={0} /> : '—'}
           frac={m?.max_throughput_mbps != null ? ' Mbps' : undefined}
         />

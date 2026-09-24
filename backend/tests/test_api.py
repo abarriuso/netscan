@@ -153,7 +153,7 @@ def test_http_exception_detail_is_preserved(tmp_path):
     """A raised HTTPException keeps its own status and detail (the global handler
     only catches truly unhandled errors)."""
     client = _client(tmp_path)
-    resp = client.get("/api/scans/latest")  # 404 with a Spanish detail
+    resp = client.get("/api/scans/latest")  # 404 with its own detail
     assert resp.status_code == 404
     assert "detail" in resp.json()
 

@@ -11,50 +11,54 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api'
 import type { IntegrationKind, IntegrationSetting } from '@/types'
+import { useI18n, type TextKey } from '@/i18n/context'
 
 interface FieldSpec {
   key: string
-  label: string
+  /** Product terms (Host, Token ID, API key, URL) stay as-is; the rest are translated. */
+  label?: string
+  labelKey?: TextKey
   type?: 'text' | 'password' | 'number' | 'checkbox'
   placeholder?: string
   default?: string | number | boolean
 }
 
-const KIND_LABELS: Record<IntegrationKind, string> = {
+const KIND_LABELS: Record<Exclude<IntegrationKind, 'custom'>, string> = {
   proxmox: 'Proxmox VE',
   truenas: 'TrueNAS',
   adguard: 'AdGuard Home',
   pihole: 'Pi-hole',
-  custom: 'Personalizada (marcador)',
 }
+
+const KINDS: IntegrationKind[] = ['proxmox', 'truenas', 'adguard', 'pihole', 'custom']
 
 const KIND_FIELDS: Record<IntegrationKind, FieldSpec[]> = {
   proxmox: [
     { key: 'host', label: 'Host', placeholder: '192.168.1.10' },
-    { key: 'port', label: 'Puerto', type: 'number', default: 8006 },
+    { key: 'port', labelKey: 'fieldPort', type: 'number', default: 8006 },
     { key: 'token_id', label: 'Token ID', placeholder: 'root@pam!netscan' },
-    { key: 'token_secret', label: 'Token secreto', type: 'password' },
-    { key: 'verify_ssl', label: 'Verificar certificado SSL', type: 'checkbox', default: false },
+    { key: 'token_secret', labelKey: 'fieldTokenSecret', type: 'password' },
+    { key: 'verify_ssl', labelKey: 'fieldVerifySsl', type: 'checkbox', default: false },
   ],
   truenas: [
     { key: 'host', label: 'Host', placeholder: '192.168.1.11' },
-    { key: 'port', label: 'Puerto', type: 'number', default: 443 },
+    { key: 'port', labelKey: 'fieldPort', type: 'number', default: 443 },
     { key: 'api_key', label: 'API key', type: 'password' },
-    { key: 'use_ssl', label: 'Usar HTTPS', type: 'checkbox', default: true },
-    { key: 'verify_ssl', label: 'Verificar certificado SSL', type: 'checkbox', default: false },
+    { key: 'use_ssl', labelKey: 'fieldUseHttps', type: 'checkbox', default: true },
+    { key: 'verify_ssl', labelKey: 'fieldVerifySsl', type: 'checkbox', default: false },
   ],
   adguard: [
     { key: 'host', label: 'Host', placeholder: '192.168.1.15' },
-    { key: 'port', label: 'Puerto', type: 'number', default: 80 },
-    { key: 'username', label: 'Usuario' },
-    { key: 'password', label: 'Contraseña', type: 'password' },
-    { key: 'use_ssl', label: 'Usar HTTPS', type: 'checkbox', default: false },
+    { key: 'port', labelKey: 'fieldPort', type: 'number', default: 80 },
+    { key: 'username', labelKey: 'fieldUser' },
+    { key: 'password', labelKey: 'fieldPassword', type: 'password' },
+    { key: 'use_ssl', labelKey: 'fieldUseHttps', type: 'checkbox', default: false },
   ],
   pihole: [
     { key: 'host', label: 'Host', placeholder: '192.168.1.15' },
-    { key: 'port', label: 'Puerto', type: 'number', default: 80 },
-    { key: 'password', label: 'Contraseña de administrador', type: 'password' },
-    { key: 'use_ssl', label: 'Usar HTTPS', type: 'checkbox', default: false },
+    { key: 'port', labelKey: 'fieldPort', type: 'number', default: 80 },
+    { key: 'password', labelKey: 'fieldAdminPassword', type: 'password' },
+    { key: 'use_ssl', labelKey: 'fieldUseHttps', type: 'checkbox', default: false },
   ],
   custom: [{ key: 'url', label: 'URL', placeholder: 'https://portainer.lan' }],
 }
@@ -79,6 +83,9 @@ export default function IntegrationFormDialog({
   editing?: IntegrationSetting | null
   onSaved: () => void
 }) {
+  const { t } = useI18n()
+  const kindLabel = (k: IntegrationKind) => (k === 'custom' ? t('kindCustomBookmark') : KIND_LABELS[k])
+  const labelOf = (f: FieldSpec) => (f.labelKey ? t(f.labelKey) : (f.label ?? f.key))
   const [kind, setKind] = useState<IntegrationKind>('custom')
   const [name, setName] = useState('')
   const [values, setValues] = useState<FormValues>(defaultsFor('custom'))
@@ -108,7 +115,7 @@ export default function IntegrationFormDialog({
 
   const save = async () => {
     if (!name.trim()) {
-      setError('Ponle un nombre.')
+      setError(t('nameRequired'))
       return
     }
     setSaving(true)
@@ -127,7 +134,7 @@ export default function IntegrationFormDialog({
       onSaved()
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar la integración.')
+      setError(err instanceof Error ? err.message : t('saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -137,20 +144,18 @@ export default function IntegrationFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="glass max-h-[85vh] overflow-y-auto border-border bg-popover text-foreground shadow-2xl sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{editing ? 'Editar integración' : 'Añadir integración'}</DialogTitle>
+          <DialogTitle>{editing ? t('editIntegration') : t('addIntegration')}</DialogTitle>
           <DialogDescription>
-            {editing
-              ? `${KIND_LABELS[editing.kind]} — cambia lo que haga falta.`
-              : 'Conecta Proxmox, TrueNAS, AdGuard, Pi-hole, o añade un marcador propio con logo.'}
+            {editing ? t('editDesc', kindLabel(editing.kind)) : t('addDesc')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {!editing && (
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Tipo</Label>
+              <Label className="text-xs text-muted-foreground">{t('type')}</Label>
               <div className="grid grid-cols-2 gap-1.5">
-                {(Object.keys(KIND_LABELS) as IntegrationKind[]).map((k) => (
+                {KINDS.map((k) => (
                   <button
                     key={k}
                     type="button"
@@ -161,7 +166,7 @@ export default function IntegrationFormDialog({
                         : 'border-white/10 bg-white/[0.03] text-muted-foreground hover:border-white/20'
                     }`}
                   >
-                    {KIND_LABELS[k]}
+                    {kindLabel(k)}
                   </button>
                 ))}
               </div>
@@ -170,13 +175,13 @@ export default function IntegrationFormDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="integration-name" className="text-xs text-muted-foreground">
-              Nombre
+              {t('name')}
             </Label>
             <Input
               id="integration-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="ej. Proxmox principal"
+              placeholder={t('namePlaceholder')}
               className="border-white/[0.12] bg-white/[0.04]"
             />
           </div>
@@ -191,11 +196,11 @@ export default function IntegrationFormDialog({
                     onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.checked }))}
                     className="h-3.5 w-3.5 rounded border-white/20 bg-white/[0.04]"
                   />
-                  {f.label}
+                  {labelOf(f)}
                 </label>
               ) : (
                 <>
-                  <Label className="text-xs text-muted-foreground">{f.label}</Label>
+                  <Label className="text-xs text-muted-foreground">{labelOf(f)}</Label>
                   <Input
                     type={f.type ?? 'text'}
                     placeholder={f.placeholder}
@@ -215,7 +220,7 @@ export default function IntegrationFormDialog({
 
           {kind === 'custom' && (
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Logo (opcional — PNG/SVG/JPG/WEBP, máx. 2MB)</Label>
+              <Label className="text-xs text-muted-foreground">{t('logoLabel')}</Label>
               <input
                 type="file"
                 accept="image/png,image/svg+xml,image/jpeg,image/webp"
@@ -233,14 +238,14 @@ export default function IntegrationFormDialog({
             onClick={() => onOpenChange(false)}
             className="rounded-none px-4 py-2 font-mono text-[12px] font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
           >
-            Cancelar
+            {t('cancel')}
           </button>
           <button
             onClick={save}
             disabled={saving}
             className="rounded-none bg-primary px-4 py-2 font-mono text-[12px] font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform] duration-150 hover:brightness-110 disabled:opacity-50"
           >
-            {saving ? 'Guardando…' : 'Guardar'}
+            {saving ? t('saving') : t('save')}
           </button>
         </DialogFooter>
       </DialogContent>

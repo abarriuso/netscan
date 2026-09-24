@@ -3,6 +3,7 @@ import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { DeviceRecord, PortInfo } from '@/types'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 function MiniBars({ rows, max, gradient }: { rows: [string, number][]; max: number; gradient: string }) {
   return (
@@ -36,6 +37,7 @@ function portsOf(dev: DeviceRecord): PortInfo[] {
 }
 
 export default function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
+  const { t } = useI18n()
   const { data: devices, error } = usePoll(api.devices, 20000, refreshKey)
 
   const list = devices ?? []
@@ -63,23 +65,23 @@ export default function AnalyticsPanel({ refreshKey }: { refreshKey: number }) {
 
   if (list.length === 0) {
     return (
-      <GlassPanel title="Analítica de red">
+      <GlassPanel title={t('analyticsTitle')}>
         <PanelError error={error} />
-        <p className="text-sm text-muted-foreground">sin datos — lanza un scan</p>
+        <p className="text-sm text-muted-foreground">{t('noData')}</p>
       </GlassPanel>
     )
   }
 
   return (
     <div className="grid gap-[18px] lg:grid-cols-3">
-      <GlassPanel title="Top vendors">
+      <GlassPanel title={t('topVendors')}>
         <PanelError error={error} />
         <MiniBars rows={topVendors} max={maxV} gradient="linear-gradient(90deg, var(--accent-cyan-deep), var(--accent-cyan))" />
       </GlassPanel>
-      <GlassPanel title="Top sistemas operativos">
+      <GlassPanel title={t('topOS')}>
         <MiniBars rows={topOS} max={maxO} gradient="linear-gradient(90deg, #0d9488, var(--accent-teal))" />
       </GlassPanel>
-      <GlassPanel title="Top puertos abiertos">
+      <GlassPanel title={t('topPorts')}>
         <MiniBars rows={topPorts} max={maxP} gradient="linear-gradient(90deg, var(--accent-cyan-deep), var(--accent-sky))" />
       </GlassPanel>
     </div>

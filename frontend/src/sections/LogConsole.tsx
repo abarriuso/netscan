@@ -3,6 +3,7 @@ import { GlassPanel } from '@/components/metrics'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 const LEVEL_CLASS: Record<string, string> = {
   ERROR: 'text-destructive',
@@ -20,6 +21,7 @@ function levelClass(line: string): string {
 /** Live tail of netscan.log — what the backend is doing right now, without
  *  needing a separate terminal window open. */
 export default function LogConsole() {
+  const { t } = useI18n()
   const { data, error } = usePoll(() => api.logs(300), 5000)
   const lines = data?.lines ?? []
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -31,7 +33,7 @@ export default function LogConsole() {
   }, [lines.length])
 
   return (
-    <GlassPanel title="Consola en vivo" meta="tail -f netscan.log">
+    <GlassPanel title={t('consoleTitle')} meta="tail -f netscan.log">
       <PanelError error={error} />
       <div
         ref={scrollRef}
@@ -42,7 +44,7 @@ export default function LogConsole() {
         className="max-h-[210px] overflow-y-auto rounded-none border border-border bg-black/50 p-3.5 font-mono text-[12px] leading-[1.85]"
       >
         {lines.length === 0 ? (
-          <p className="text-muted-foreground">sin actividad todavía</p>
+          <p className="text-muted-foreground">{t('noActivity')}</p>
         ) : (
           lines.map((line, i) => (
             <div key={i} className={`whitespace-pre-wrap ${levelClass(line)}`}>

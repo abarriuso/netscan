@@ -17,6 +17,7 @@ import { useCopyToClipboard, usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { DeviceRecord, PortInfo } from '@/types'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 const DeviceDetailDialog = lazy(() => import('./DeviceDetailDialog'))
 
@@ -51,6 +52,7 @@ const lossColor = (pct: number) =>
   pct > 20 ? 'text-destructive' : pct > 0 ? 'text-warn' : 'text-ok'
 
 export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
+  const { t } = useI18n()
   const { data: devices, error, refresh } = usePoll(api.devices, 15000, refreshKey)
   const loading = devices == null && !error
   const [detail, setDetail] = useState<DeviceRecord | null>(null)
@@ -62,8 +64,8 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
 
   const copyValue = (text: string, label: string) => {
     copy(text).then((ok) => {
-      if (ok) toast.success(`${label} copiado`, { description: text })
-      else toast.error('No se pudo copiar al portapapeles')
+      if (ok) toast.success(t('copied', label), { description: text })
+      else toast.error(t('copyFailed'))
     })
   }
 
@@ -83,10 +85,10 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
     setTesting((s) => new Set(s).add(mac))
     try {
       await api.speedtest(mac)
-      toast.success('Speed test completado', { description: dev.hostname || dev.ip })
+      toast.success(t('speedtestDone'), { description: dev.hostname || dev.ip })
       refresh()
     } catch (e) {
-      toast.error('Speed test falló', { description: (e as Error).message })
+      toast.error(t('speedtestFailed'), { description: (e as Error).message })
     } finally {
       setTesting((s) => {
         const next = new Set(s)
@@ -125,21 +127,21 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
     const next = !dev.trusted
     try {
       await api.setTrusted(dev.mac, next)
-      toast.success(next ? 'Marcado como de confianza' : 'Confianza retirada', {
+      toast.success(next ? t('markedTrusted') : t('trustRemoved'), {
         description: dev.hostname || dev.ip,
       })
       refresh()
     } catch (e) {
-      toast.error('No se pudo cambiar la confianza', { description: (e as Error).message })
+      toast.error(t('trustFailed'), { description: (e as Error).message })
     }
   }
 
   const wake = async (dev: DeviceRecord) => {
     try {
       await api.wake(dev.mac)
-      toast('Wake-on-LAN enviado', { description: dev.hostname || dev.ip })
+      toast(t('wolSent'), { description: dev.hostname || dev.ip })
     } catch (e) {
-      toast.error('No se pudo enviar Wake-on-LAN', { description: (e as Error).message })
+      toast.error(t('wolFailed'), { description: (e as Error).message })
     }
   }
 
@@ -161,7 +163,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
       <TableHead className={`${th} ${extra}`} aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
         <button
           onClick={() => toggleSort(k)}
-          aria-label={`ordenar por ${label}${active ? (sortDir === 'asc' ? ', ascendente' : ', descendente') : ''}`}
+          aria-label={t('sortAria', label, active, sortDir === 'asc')}
           className={`press flex items-center gap-1 transition-colors hover:text-foreground ${align === 'right' ? 'ml-auto flex-row-reverse' : ''} ${active ? 'sort-active text-primary' : ''}`}
         >
           {label}
@@ -172,7 +174,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
   }
 
   const emptyMsg =
-    devices && devices.length > 0 ? 'ningún dispositivo coincide con el filtro' : 'sin dispositivos — lanza un scan'
+    devices && devices.length > 0 ? t('emptyFiltered') : t('emptyNone')
 
   // A click-to-copy value (IP / MAC). Shows a cyan flash + check when copied.
   const CopyChip = ({ value, label, className = '' }: { value: string; label: string; className?: string }) => {
@@ -181,8 +183,8 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
       <button
         type="button"
         onClick={() => copyValue(value, label)}
-        title={`copiar ${label}`}
-        aria-label={`copiar ${label} ${value}`}
+        title={t('copyTitle', label)}
+        aria-label={t('copyAria', label, value)}
         className={`copyable group/copy inline-flex items-center gap-1 ${isCopied ? 'copied-flash' : ''} ${className}`}
       >
         {value}
@@ -198,15 +200,15 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
   return (
     <>
       <GlassPanel
-        title="Dispositivos"
+        title={t('devicesTitle')}
         right={
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">{filtered.length} descubiertos</span>
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">{t('discovered', filtered.length)}</span>
             <Input
-              placeholder="filtrar…"
+              placeholder={t('filterPlaceholder')}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              aria-label="filtrar dispositivos"
+              aria-label={t('filterAria')}
               className="h-7 w-28 min-w-0 rounded-none border-border bg-secondary text-xs sm:w-40"
             />
           </div>
@@ -224,12 +226,12 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
               <TableRow className="border-white/10 hover:bg-transparent">
                 <SortHead label="Host" k="host" />
                 <SortHead label="IP / MAC" k="ip" />
-                <SortHead label="Latencia" k="latency" align="right" />
+                <SortHead label={t('colLatency')} k="latency" align="right" />
                 <SortHead label="Jitter" k="jitter" align="right" extra="hidden md:table-cell" />
-                <SortHead label="Pérdida" k="loss" align="right" extra="hidden md:table-cell" />
-                <SortHead label="Calidad" k="quality" />
+                <SortHead label={t('colLoss')} k="loss" align="right" extra="hidden md:table-cell" />
+                <SortHead label={t('colQuality')} k="quality" />
                 <TableHead className={`${th} hidden lg:table-cell`}>OS</TableHead>
-                <TableHead className={th}>Puertos</TableHead>
+                <TableHead className={th}>{t('colPorts')}</TableHead>
                 <TableHead className={th}>Trust</TableHead>
                 <TableHead />
               </TableRow>
@@ -254,7 +256,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                     <TableCell>
                       <button
                         onClick={() => setDetail(dev)}
-                        title="Ver histórico"
+                        title={t('viewHistory')}
                         className="flex items-center gap-2 text-left transition-colors hover:text-primary"
                       >
                         <span
@@ -276,9 +278,9 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                       {dev.last_latency_ms != null ? (
                         <TooltipProvider>
                           <Tooltip>
-                            <TooltipTrigger aria-label={`latencia ${dev.last_latency_ms} milisegundos`}>{dev.last_latency_ms}ms</TooltipTrigger>
+                            <TooltipTrigger aria-label={t('latencyAria', dev.last_latency_ms)}>{dev.last_latency_ms}ms</TooltipTrigger>
                             <TooltipContent className="font-mono text-xs">
-                              handshake TCP medio:{' '}
+                              {t('tcpHandshake')}{' '}
                               {dev.tcp_connect_avg_ms != null ? `${dev.tcp_connect_avg_ms}ms` : '—'}
                               {dev.throughput_mbps != null && (
                                 <div>throughput: {dev.throughput_mbps} Mbps</div>
@@ -311,7 +313,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                         {ports.slice(0, 6).map((p) => (
                           <TooltipProvider key={p.port}>
                             <Tooltip>
-                              <TooltipTrigger aria-label={`puerto ${p.port} ${p.service}`}>
+                              <TooltipTrigger aria-label={t('portAria', p.port, p.service)}>
                                 <span className="rounded-none border border-primary/40 bg-primary/[0.12] px-1.5 py-0.5 font-mono text-[11px] text-primary">
                                   {p.port}
                                 </span>
@@ -333,8 +335,8 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                     <TableCell>
                       <button
                         onClick={() => toggleTrust(dev)}
-                        title={dev.trusted ? 'verificado' : 'marcar como de confianza'}
-                        aria-label={dev.trusted ? `quitar confianza de ${dev.ip}` : `marcar ${dev.ip} como de confianza`}
+                        title={dev.trusted ? t('verified') : t('markTrusted')}
+                        aria-label={dev.trusted ? t('untrustAria', dev.ip) : t('trustAria', dev.ip)}
                         className={`press flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
                           dev.trusted
                             ? 'border-ok/40 bg-ok/[0.16] text-ok'
@@ -349,8 +351,8 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                         <button
                           onClick={() => runSpeedtest(dev)}
                           disabled={testing.has(dev.mac)}
-                          title="Speed test (latencia, jitter, pérdida, TCP)"
-                          aria-label={`speed test de ${dev.ip}`}
+                          title={t('speedtestTitle')}
+                          aria-label={t('speedtestAria', dev.ip)}
                           className="press flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary disabled:opacity-50"
                         >
                           <Gauge className={`h-3.5 w-3.5 ${testing.has(dev.mac) ? 'animate-spin' : ''}`} strokeWidth={1.6} />
@@ -359,7 +361,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                           <button
                             onClick={() => wake(dev)}
                             title="Wake-on-LAN"
-                            aria-label={`despertar ${dev.ip} por Wake-on-LAN`}
+                            aria-label={t('wakeAria', dev.ip)}
                             className="press flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
                           >
                             <Power className="h-3.5 w-3.5" strokeWidth={1.6} />
@@ -406,7 +408,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                   <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       onClick={() => toggleTrust(dev)}
-                      aria-label={dev.trusted ? `quitar confianza de ${dev.ip}` : `marcar ${dev.ip} como de confianza`}
+                      aria-label={dev.trusted ? t('untrustAria', dev.ip) : t('trustAria', dev.ip)}
                       className={`press flex h-6 w-6 items-center justify-center rounded-full border ${dev.trusted ? 'border-ok/40 bg-ok/[0.16] text-ok' : 'border-destructive/40 bg-destructive/[0.16] text-destructive'}`}
                     >
                       {dev.trusted ? <ShieldCheck className="h-3 w-3" /> : <ShieldQuestion className="h-3 w-3" />}
@@ -414,7 +416,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                     <button
                       onClick={() => runSpeedtest(dev)}
                       disabled={testing.has(dev.mac)}
-                      aria-label={`speed test de ${dev.ip}`}
+                      aria-label={t('speedtestAria', dev.ip)}
                       className="press flex h-6 w-6 items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground disabled:opacity-50"
                     >
                       <Gauge className={`h-3.5 w-3.5 ${testing.has(dev.mac) ? 'animate-spin' : ''}`} strokeWidth={1.6} />
@@ -422,7 +424,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                     {!dev.online && (
                       <button
                         onClick={() => wake(dev)}
-                        aria-label={`despertar ${dev.ip} por Wake-on-LAN`}
+                        aria-label={t('wakeAria', dev.ip)}
                         className="press flex h-6 w-6 items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground"
                       >
                         <Power className="h-3.5 w-3.5" strokeWidth={1.6} />
@@ -435,7 +437,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                 </div>
                 <dl className="mt-3 grid grid-cols-4 gap-2 font-mono text-xs">
                   <div>
-                    <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Lat</dt>
+                    <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('latShort')}</dt>
                     <dd>{dev.last_latency_ms != null ? `${dev.last_latency_ms}ms` : '—'}</dd>
                   </div>
                   <div>
@@ -443,13 +445,13 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                     <dd className="text-muted-foreground">{dev.jitter_ms != null ? `${dev.jitter_ms}ms` : '—'}</dd>
                   </div>
                   <div>
-                    <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Pérdida</dt>
+                    <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('colLoss')}</dt>
                     <dd className={dev.packet_loss_pct != null ? lossColor(dev.packet_loss_pct) : ''}>
                       {dev.packet_loss_pct != null ? `${dev.packet_loss_pct}%` : '—'}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Calidad</dt>
+                    <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('colQuality')}</dt>
                     <dd><QualityBadge score={dev.quality} /></dd>
                   </div>
                 </dl>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { api, progressSocket } from '@/lib/api'
 import type { ScanProgress, ScanStage } from '@/types'
+import { useI18n } from '@/i18n/context'
 
 /** Poll an API getter on an interval; refreshKey forces an extra fetch. */
 export function usePoll<T>(getter: () => Promise<T>, intervalMs = 10000, refreshKey = 0) {
@@ -49,6 +50,7 @@ export function usePoll<T>(getter: () => Promise<T>, intervalMs = 10000, refresh
  *  (a reverse proxy without WS upgrade, say) — a running scan must never look
  *  frozen. Also exposes elapsed seconds and fires start/failure toasts. */
 export function useScanProgress() {
+  const { t } = useI18n()
   const [progress, setProgress] = useState<ScanProgress>({ stage: 'idle', done: 0, total: 0 })
   const [scanning, setScanning] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -120,16 +122,16 @@ export function useScanProgress() {
     setScanning(true)
     setProgress({ stage: opts.only ?? 'arp', done: 0, total: 0 })
     toast(
-      opts.full ? 'Escaneo completo iniciado' : opts.only ? `Ejecutando: ${opts.only}` : 'Escaneo rápido iniciado',
-      { description: 'Puedes seguir el progreso en la cabecera.' },
+      opts.full ? t('toastFullStarted') : opts.only ? t('toastRunning', opts.only) : t('toastQuickStarted'),
+      { description: t('toastProgressHint') },
     )
     try {
       await api.startScan(opts)
     } catch (e) {
       setScanning(false)
-      toast.error('No se pudo iniciar el escaneo', { description: (e as Error).message })
+      toast.error(t('toastScanStartFailed'), { description: (e as Error).message })
     }
-  }, [])
+  }, [t])
 
   return { progress, scanning, elapsed, wsConnected, startScan }
 }
