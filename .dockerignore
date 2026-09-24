@@ -1,0 +1,16 @@
+# Keep the build context small and free of local state and secrets.
+.git
+**/node_modules
+**/.venv*
+**/__pycache__
+**/*.pyc
+frontend/dist
+data
+**/*.db
+**/*.log
+.env
+.env.*
+netscan.yaml
+config.local.yaml
+legacy
+docs

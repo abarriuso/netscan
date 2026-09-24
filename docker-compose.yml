@@ -1,26 +1,20 @@
 services:
-  backend:
+  netscan:
     build:
       context: .
-      dockerfile: docker/Dockerfile.backend
-    network_mode: host          # required for ARP discovery
+      dockerfile: docker/Dockerfile
+    # Host networking so ARP discovery sees your LAN (Linux Docker hosts only).
+    network_mode: host
     cap_add:
       - NET_RAW
+    environment:
+      # 127.0.0.1: the dashboard is only reachable from this machine. To open it
+      # to the LAN, set NETSCAN_API_HOST=0.0.0.0 and a NETSCAN_API_TOKEN in .env.
+      NETSCAN_API_HOST: ${NETSCAN_API_HOST:-127.0.0.1}
+      NETSCAN_API_TOKEN: ${NETSCAN_API_TOKEN:-}
     volumes:
       - ./netscan.yaml:/config/netscan.yaml:ro
       - netscan-data:/data
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-    ports:
-      - "8601:80"
-    extra_hosts:
-      # Allow the nginx proxy to reach the host-published backend on :8600
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      - backend
     restart: unless-stopped
 
 volumes:
