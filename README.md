@@ -4,6 +4,12 @@
 [![License: GPL v2+](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 
+> [!WARNING]
+> **Proyecto en desarrollo.** NetScan está en desarrollo activo: la API, el
+> esquema de la base de datos y la configuración pueden cambiar entre
+> versiones sin compatibilidad hacia atrás. Úsalo en tu red local y no
+> expongas el dashboard a Internet.
+
 Escáner de red, inventario vivo y panel de monitorización para homelabs, con
 integraciones configurables desde la propia web para **Proxmox VE**,
 **TrueNAS**, **AdGuard Home**, **Pi-hole** y cualquier servicio propio
