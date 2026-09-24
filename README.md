@@ -388,21 +388,27 @@ inside the container:
 curl -fsSL https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/bootstrap-lxc.sh | bash
 ```
 
-### Docker (experimental)
+### Docker (Linux host)
 
 ```bash
 cp netscan.example.yaml netscan.yaml
-docker compose up --build
-# API on :8600, dashboard on :8601
+docker compose up --build -d
+# API + dashboard on http://localhost:8600
 ```
 
-The backend uses host networking (`network_mode: host`) so that ARP discovery
-sees your LAN, which needs a **Linux** Docker host. The dashboard container
-reaches the API through `host.docker.internal`, while the backend listens on
-`127.0.0.1` by default, so the dashboard on `:8601` cannot reach the API unless
-the backend listens on the network (`NETSCAN_API_HOST=0.0.0.0` together with a
-`NETSCAN_API_TOKEN`). On Docker Desktop (Windows/macOS) the dashboard gets a
-`502`. For now, prefer the native install, WSL or the Proxmox LXC.
+A single image builds the dashboard and serves it together with the API on port
+8600, like `netscan up`. The container uses host networking
+(`network_mode: host`) so that ARP discovery sees your LAN, which needs a
+**Linux** Docker host; on Docker Desktop (Windows/macOS) use the native install
+or WSL instead.
+
+By default it only listens on `127.0.0.1`. To reach the dashboard from other
+machines, put both variables in a `.env` file next to `docker-compose.yml`:
+
+```bash
+NETSCAN_API_HOST=0.0.0.0
+NETSCAN_API_TOKEN=a-long-random-token
+```
 
 ## Configuration
 
@@ -485,7 +491,7 @@ stays in the NetScan log, not in the client.
   service already grants it). In LXC, the container must be bridged onto the
   same VLAN you want to scan.
 - **`403` / CORS errors from another machine.** Add the browser's origin (e.g.
-  `http://192.168.1.50:8601`) to `NETSCAN_API_CORS_ORIGINS` (comma-separated
+  `http://192.168.1.50:3000`) to `NETSCAN_API_CORS_ORIGINS` (comma-separated
   list).
 - **An integration (Proxmox/TrueNAS/AdGuard) shows red.** Check the URL,
   credentials and that the target is reachable from the NetScan host. The
@@ -533,7 +539,7 @@ frontend lint+build, dependency licence check, vulnerability audit
 │   └── linux/          # netscan.service (systemd) · netscan.desktop
 ├── install.sh · netscan.sh   # Linux/macOS installer and launcher
 ├── install.bat · netscan.bat # Windows installer and launcher
-├── docker/             # Dockerfile.backend
+├── docker/             # Dockerfile: API + dashboard in one image
 ├── legacy/             # the original netscan.py (historical reference)
 └── .github/workflows/  # CI + release + installer + dependabot
 ```

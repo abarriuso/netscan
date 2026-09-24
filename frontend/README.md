@@ -1,34 +1,36 @@
 # NetScan Dashboard
 
-Frontend de NetScan: React 19 + TypeScript + Vite + Tailwind + shadcn/ui.
+NetScan's frontend: React 19 + TypeScript + Vite + Tailwind + shadcn/ui.
 
-Consume la API del backend (`http://localhost:8600` por defecto) con polling y
-un WebSocket de progreso de escaneo (`/ws/progress`).
+It talks to the backend API (`http://localhost:8600` by default) with polling
+and a scan-progress WebSocket (`/ws/progress`). The interface is available in
+English and Spanish (`src/i18n/`).
 
-## Desarrollo
+## Development
 
 ```bash
 pnpm install
-pnpm dev        # http://localhost:3000 (proxy a la API en :8600)
+pnpm dev        # http://localhost:3000 (proxied to the API on :8600)
 ```
 
-El backend debe estar corriendo (`netscan.bat serve` o `netscan serve`).
+The backend must be running (`netscan.bat serve` or `netscan serve`).
 
-## Calidad
+## Quality
 
 ```bash
 pnpm lint       # ESLint
 pnpm typecheck  # tsc --noEmit
-pnpm build      # build de producción en dist/
+pnpm test       # Vitest
+pnpm build      # production build in dist/
 ```
 
-## Autenticación
+## Authentication
 
-Si el backend tiene `NETSCAN_API_TOKEN` configurado, el dashboard pedirá el
-token la primera vez que la API responda 401 y lo guardará en
-`localStorage` (`netscan_token`).
+If the backend has `NETSCAN_API_TOKEN` set, the dashboard asks for the token the
+first time the API answers 401 and stores it in `localStorage`
+(`netscan_token`).
 
 ## Docker
 
-La imagen (`Dockerfile`) construye el estático con `pnpm install` y lo sirve con
-nginx; `nginx.conf` proxifica `/api` y `/ws` hacia el backend.
+There is no separate image for the dashboard: `docker/Dockerfile` builds it and
+the backend serves it together with the API (see the main README).

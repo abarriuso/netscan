@@ -393,21 +393,27 @@ como root dentro del contenedor:
 curl -fsSL https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/bootstrap-lxc.sh | bash
 ```
 
-### Docker (experimental)
+### Docker (host Linux)
 
 ```bash
 cp netscan.example.yaml netscan.yaml
-docker compose up --build
-# API en :8600, dashboard en :8601
+docker compose up --build -d
+# API + dashboard en http://localhost:8600
 ```
 
-El backend usa la red del host (`network_mode: host`) para que el escaneo ARP
-vea tu LAN, lo que exige un host Docker **Linux**. El contenedor del dashboard
-llega a la API por `host.docker.internal`, pero el backend escucha por defecto
-en `127.0.0.1`, así que el dashboard de `:8601` no alcanza la API salvo que el
-backend escuche en la red (`NETSCAN_API_HOST=0.0.0.0` junto con un
-`NETSCAN_API_TOKEN`). En Docker Desktop (Windows/macOS) el dashboard recibe un
-`502`. Por ahora, mejor la instalación nativa, WSL o el LXC de Proxmox.
+Una sola imagen compila el dashboard y lo sirve junto a la API en el puerto
+8600, igual que `netscan up`. El contenedor usa la red del host
+(`network_mode: host`) para que el escaneo ARP vea tu LAN, lo que exige un host
+Docker **Linux**; en Docker Desktop (Windows/macOS) usa la instalación nativa o
+WSL.
+
+Por defecto solo escucha en `127.0.0.1`. Para abrir el dashboard a otros
+equipos, pon estas dos variables en un `.env` junto a `docker-compose.yml`:
+
+```bash
+NETSCAN_API_HOST=0.0.0.0
+NETSCAN_API_TOKEN=un-token-largo-y-aleatorio
+```
 
 ## Configuración
 
@@ -490,7 +496,7 @@ técnico (traza) queda en el log de NetScan, no en el cliente.
   servicio systemd ya lo concede). En LXC, el contenedor debe estar en modo
   bridge sobre la misma VLAN que quieres escanear.
 - **`403` / errores de CORS desde otro equipo.** Añade el origen del navegador
-  (ej. `http://192.168.1.50:8601`) a `NETSCAN_API_CORS_ORIGINS` (lista separada
+  (ej. `http://192.168.1.50:3000`) a `NETSCAN_API_CORS_ORIGINS` (lista separada
   por comas).
 - **Una integración (Proxmox/TrueNAS/AdGuard) sale en rojo.** Verifica URL,
   credenciales y que el destino sea alcanzable desde el host de NetScan. El
@@ -539,7 +545,7 @@ pushear tags `v*` (backend + instalador Windows + bundle Linux, ver
 │   └── linux/          # netscan.service (systemd) · netscan.desktop
 ├── install.sh · netscan.sh   # instalador y lanzador Linux/macOS
 ├── install.bat · netscan.bat # instalador y lanzador Windows
-├── docker/             # Dockerfile.backend
+├── docker/             # Dockerfile: API + dashboard en una sola imagen
 ├── legacy/             # netscan.py original (referencia histórica)
 └── .github/workflows/  # CI + release + installer + dependabot
 ```
