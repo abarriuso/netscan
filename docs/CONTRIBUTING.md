@@ -1,35 +1,36 @@
-# Contribuir a NetScan
+# Contributing to NetScan
 
-¡Gracias por contribuir! NetScan es GPL-2.0-or-later: al enviar un PR aceptas
-que tu código se distribuye bajo esa licencia.
+Thanks for contributing! NetScan is GPL-2.0-or-later: by sending a PR you agree
+that your code is distributed under that licence.
 
-## Puesta en marcha
+## Getting started
 
 ```bash
 python -m venv backend/.venv
-backend/.venv/Scripts/pip install -e "backend[dev]"
+backend/.venv/Scripts/pip install -e "backend[dev]"   # Linux/macOS: backend/.venv/bin/pip
 cd frontend && pnpm install
 ```
 
-## Antes de abrir un PR
+## Before opening a PR
 
 1. `cd backend && pytest && ruff check . && ruff format --check . && mypy src/netscan`
 2. `cd frontend && pnpm lint && pnpm typecheck && pnpm build`
-3. Si añades una dependencia Python, verifica que su licencia sea compatible
-   con GPL-2.0-or-later (MIT/BSD/Apache/LGPL) y añádela a `NOTICE`.
-4. Si integras una herramienta externa GPL/AGPL, **no la importes ni la
-   distribuyas**: invócala como proceso externo con degradación elegante
-   (ver `backend/src/netscan/scanner/tools.py`).
-5. Actualiza tests y README si cambias comportamiento.
+3. If you add a Python dependency, check that its licence is compatible with
+   GPL-2.0-or-later (MIT/BSD/Apache/LGPL) and add it to `NOTICE`.
+4. If you integrate a GPL/AGPL external tool, **do not import or distribute
+   it**: invoke it as an external process with graceful degradation (see
+   `backend/src/netscan/scanner/tools.py`).
+5. Update the tests and the README (`README.md` and `README.es.md`) if you
+   change behaviour.
 
-## Estilo
+## Style
 
-- Python: ruff (line-length 110), type hints obligatorios en APIs públicas.
-- TypeScript: ESLint + strict mode; componentes shadcn/ui vendored no se
-  editan a mano (regenerar con el CLI de shadcn).
-- Commits: formato conventional (`feat:`, `fix:`, `docs:`, …) recomendado.
+- Python: ruff (line length 110), type hints required on public APIs.
+- TypeScript: ESLint + strict mode; vendored shadcn/ui components are not
+  edited by hand (regenerate them with the shadcn CLI).
+- Commits: conventional format (`feat:`, `fix:`, `docs:`, …) recommended.
 
-## Reportar bugs
+## Reporting bugs
 
-Incluye: SO, versión de Python/Node, salida de `netscan caps`, y logs del
-backend con el error.
+Include: OS, Python/Node version, the output of `netscan caps`, and the backend
+logs with the error.

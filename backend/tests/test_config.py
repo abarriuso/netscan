@@ -39,6 +39,21 @@ def test_yaml_loading(tmp_path: Path):
     assert settings.truenas[0].api_key == "key"
 
 
+def test_empty_yaml_keys_use_defaults(tmp_path: Path):
+    # netscan.example.yaml ships "notify_urls:" with only commented entries.
+    cfg = tmp_path / "netscan.yaml"
+    cfg.write_text("notify_urls:\n  # - ntfy://ntfy.sh/topic\nproxmox:\n", encoding="utf-8")
+    settings = load_settings(cfg)
+    assert settings.notify_urls == []
+    assert settings.proxmox == []
+
+
+def test_example_config_loads():
+    example = Path(__file__).resolve().parents[2] / "netscan.example.yaml"
+    settings = load_settings(example)
+    assert settings.notify_urls == []
+
+
 def test_missing_yaml_uses_defaults(tmp_path: Path):
     settings = load_settings(tmp_path / "nope.yaml")
     assert settings.api_port == 8600
