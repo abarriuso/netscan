@@ -1,42 +1,41 @@
-# Política de seguridad
+# Security policy
 
-## Alcance
+## Scope
 
-NetScan es una herramienta de **automatización y monitorización de tu propia
-red**. Ejecuta escaneos ARP, sondeos de puertos y (opcionalmente) auditorías
-con nuclei. Úsala solo contra redes y equipos que te pertenecen o para los que
-tienes autorización expresa.
+NetScan is a tool for **automating and monitoring your own network**. It runs
+ARP scans, port probes and (optionally) audits with nuclei. Only use it against
+networks and machines you own or are explicitly authorised to test.
 
-## Modelo de exposición de la API
+## API exposure model
 
-- Por defecto la API escucha en `127.0.0.1` y **sin autenticación**: solo es
-  accesible desde el propio equipo.
-- Si la expones fuera de localhost (`api_host: 0.0.0.0` o similar), define
-  **siempre** `NETSCAN_API_TOKEN`. Todos los endpoints HTTP y el WebSocket lo
-  exigirán (header `X-API-Key` o `Authorization: Bearer`).
-- Los escaneos por API solo aceptan redes privadas (RFC 1918, loopback y
-  link-local): no se puede usar la API como oráculo de escaneo de Internet.
-- Los secretos (tokens de Proxmox/TrueNAS/AdGuard) deben llegar por variables
-  de entorno, nunca commiteados en `netscan.yaml` (está en `.gitignore`).
+- By default the API listens on `127.0.0.1` with **no authentication**: it is
+  only reachable from the machine itself.
+- If you expose it beyond localhost (`api_host: 0.0.0.0` or similar), **always**
+  set `NETSCAN_API_TOKEN`. Every HTTP endpoint and the WebSocket will then
+  require it (`X-API-Key` header or `Authorization: Bearer`).
+- Scans through the API only accept private networks (RFC 1918, loopback and
+  link-local): the API cannot be used as an Internet scanning oracle.
+- Secrets (Proxmox/TrueNAS/AdGuard tokens) must come from environment
+  variables, never be committed in `netscan.yaml` (which is in `.gitignore`).
 
-## Herramientas externas
+## External tools
 
-nmap, RustScan, nuclei, etc. se instalan por separado y se invocan como
-procesos. `scripts/install-nuclei.ps1` verifica el SHA256 del binario contra
-las checksums oficiales de ProjectDiscovery antes de instalarlo. Algunos
-antivirus marcan nuclei como falso positivo (es una herramienta de auditoría);
-si tu AV lo pone en cuarentena, NetScan funciona sin él.
+nmap, RustScan, nuclei, etc. are installed separately and invoked as processes.
+`scripts/install-nuclei.ps1` checks the binary's SHA256 against
+ProjectDiscovery's official checksums before installing it. Some antivirus
+products flag nuclei as a false positive (it is an auditing tool); if yours
+quarantines it, NetScan works without it.
 
-## Reportar una vulnerabilidad
+## Reporting a vulnerability
 
-**No abras un issue público.** Escribe al mantenedor a través de
+**Do not open a public issue.** Write to the maintainer through
 [GitHub Security Advisories](https://github.com/abarriuso/netscan/security/advisories/new)
-con una descripción del problema, pasos para reproducirlo y el impacto
-estimado. Se acusa recibo en un máximo de 7 días.
+with a description of the problem, steps to reproduce it and the estimated
+impact. Receipt is acknowledged within 7 days.
 
-## Versiones soportadas
+## Supported versions
 
-| Versión | Soportada |
+| Version | Supported |
 | ------- | --------- |
 | main    | ✅        |
-| tags    | solo la última |
+| tags    | latest only |

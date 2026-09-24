@@ -153,4 +153,8 @@ def load_settings(config_path: str | os.PathLike[str] | None = None) -> Settings
     if path.is_file():
         with open(path, encoding="utf-8") as fh:
             file_data = yaml.safe_load(fh) or {}
+    # An empty key (e.g. ``notify_urls:`` with every entry commented out, as
+    # in netscan.example.yaml) loads as None; drop it so the field keeps its
+    # default instead of failing validation and stopping the server.
+    file_data = {key: value for key, value in file_data.items() if value is not None}
     return Settings(**file_data)

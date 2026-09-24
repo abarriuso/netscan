@@ -4,33 +4,41 @@
 [![License: GPL v2+](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 
-Escáner de red, inventario vivo y panel de monitorización para homelabs, con
-integraciones configurables desde la propia web para **Proxmox VE**,
-**TrueNAS**, **AdGuard Home**, **Pi-hole** y cualquier servicio propio
-(marcador con logo personalizado).
+**English** · [Español](README.es.md)
 
-> Del escaneo puntual al vigilante permanente: descubre tu red, detecta
-> intrusos, vigila tus hipervisores y tu NAS — todo en un solo dashboard.
+Network scanner, live inventory and monitoring dashboard for homelabs, with
+integrations you configure from the web itself for **Proxmox VE**,
+**TrueNAS**, **AdGuard Home**, **Pi-hole** and any service of your own
+(a bookmark with a custom logo).
 
-## Capturas
+> From one-off scans to a permanent watch: discover your network, spot
+> intruders, keep an eye on your hypervisors and your NAS — all in one dashboard.
 
-El dashboard (`http://localhost:8600`) reúne seis vistas:
+> [!WARNING]
+> **Work in progress.** NetScan is under active development: the API, the
+> database schema and the configuration may change between versions without
+> backwards compatibility. Use it on your local network and do not expose the
+> dashboard to the Internet.
 
-- **En vivo** — latencia de red en tiempo real y mapa de equipos (online/offline).
-- **Resumen** — KPIs, estado del sistema, inventario de dispositivos y alertas.
-- **Dispositivos** — inventario detallado con latencia, jitter, pérdida, calidad,
-  puertos abiertos y confianza; columnas ordenables y IP/MAC copiables al clic.
-- **Analítica** — series de latencia/calidad/throughput, top vendors/SO/puertos,
-  servicios web y hallazgos TLS.
-- **Integraciones** — Proxmox/TrueNAS/AdGuard/Pi-hole y marcadores propios,
-  configurables desde la web.
-- **Sistema** — recursos del host (CPU, memoria, discos, red) y estado del
-  servidor NetScan.
+## Screenshots
 
-`netscan.sh doctor` / `netscan.bat doctor` — diagnóstico de un vistazo antes de arrancar:
+The dashboard (`http://localhost:8600`) has six views:
+
+- **Live** — real-time network latency and a map of devices (online/offline).
+- **Overview** — KPIs, system status, device inventory and alerts.
+- **Devices** — detailed inventory with latency, jitter, loss, quality, open
+  ports and trust; sortable columns and IP/MAC copied with one click.
+- **Analytics** — latency/quality/throughput series, top vendors/OS/ports, web
+  services and TLS findings.
+- **Integrations** — Proxmox/TrueNAS/AdGuard/Pi-hole and custom bookmarks,
+  configured from the web.
+- **System** — host resources (CPU, memory, disks, network) and NetScan server
+  status.
+
+`netscan.sh doctor` / `netscan.bat doctor` — a diagnosis at a glance before starting:
 
 <p align="center">
-  <img src="docs/screenshots/doctor-cli.png" width="760" alt="netscan doctor: tabla de diagnóstico en terminal">
+  <img src="docs/screenshots/doctor-cli.png" width="760" alt="netscan doctor: diagnostic table in the terminal">
 </p>
 
 ```
@@ -38,11 +46,11 @@ El dashboard (`http://localhost:8600`) reúne seis vistas:
 │  backend/   Python 3.11+ · FastAPI · SQLite · scapy            │
 │  frontend/  React 19 · TypeScript · Vite · Tailwind · shadcn   │
 │  CI/CD      GitHub Actions (lint · mypy · pytest · build)      │
-│  Licencia   GPL-2.0-or-later                                   │
+│  Licence    GPL-2.0-or-later                                   │
 └────────────────────────────────────────────────────────────────┘
 ```
 
-## Instalación en un comando
+## One-command install
 
 **Windows:**
 
@@ -56,77 +64,79 @@ install.bat --run
 chmod +x install.sh netscan.sh && ./install.sh --run
 ```
 
-Cada uno hace TODO: comprueba/instala Python y Node si faltan, crea el
-entorno virtual, instala el backend, las herramientas externas que puede
-(`nmap`, `RustScan`, `nuclei`…), compila el dashboard y lo arranca —
-`http://localhost:8600` se abre solo. No hay un segundo paso manual. Detalle
-completo, opciones (`--minimal`, `--system`, instalador de Windows,
-Docker, WSL con las 6 herramientas) en [Arranque rápido](#arranque-rápido-un-solo-comando).
+Each one does EVERYTHING: checks for (and installs) Python and Node if missing,
+creates the virtual environment, installs the backend and the external tools it
+can (`nmap`, `RustScan`, `nuclei`…), builds the dashboard and starts it —
+`http://localhost:8600` opens by itself. There is no second manual step. Full
+details and options (`--minimal`, `--system`, Windows installer, Docker, WSL
+with all 6 tools) in [Quick start](#quick-start--a-single-command).
 
-## Qué hace
+## What it does
 
-**Descubrimiento y fingerprinting**
-- ARP scan (scapy) con lookup de vendor por OUI
-- mDNS/Bonjour (zeroconf) para nombrar IoT que no responden a DNS inverso
-- Escaneo de puertos multihilo + heurística de OS
-- Fingerprint HTTP/TLS de las web UIs: título, `Server`, emisor del
-  certificado, caducidad y autofirmados
-- Integración opcional de herramientas externas con **detección automática y
-  degradación elegante**: `nmap -sV` para versiones reales de servicio,
-  RustScan, nuclei, whatweb, testssl.sh (ver [Licencias](#licencias))
+**Discovery and fingerprinting**
+- ARP scan (scapy) with vendor lookup by OUI
+- mDNS/Bonjour (zeroconf) to name IoT devices that do not answer reverse DNS
+- Multithreaded port scan + OS heuristics
+- HTTP/TLS fingerprint of web UIs: title, `Server`, certificate issuer, expiry
+  and self-signed certificates
+- Optional external tools with **automatic detection and graceful
+  degradation**: `nmap -sV` for real service versions, RustScan, nuclei,
+  whatweb, testssl.sh (see [Licences](#licences))
 
-**Inventario vivo (SQLite)**
-- Cada escaneo se compara con el inventario persistido
-- Alertas de **dispositivo nuevo** (detección de intrusos casera), cambio de
-  IP↔MAC y dispositivo caído
-- Marca dispositivos como "de confianza" desde el dashboard
-- Notificaciones vía Apprise: ntfy, Telegram, Discord y +80 servicios
+**Live inventory (SQLite)**
+- Every scan is compared with the stored inventory
+- Alerts for a **new device** (home-made intrusion detection), IP↔MAC changes
+  and devices going down
+- Mark devices as "trusted" from the dashboard
+- Notifications through Apprise: ntfy, Telegram, Discord and 80+ services
 
-**Integraciones homelab**
-- **Proxmox VE** (múltiples nodos/clusters): estado de nodos, VMs y CTs
-- **TrueNAS** CORE/SCALE: pools, discos, SMART, alertas del sistema
-- **AdGuard Home** y **Pi-hole** (API v6): consultas DNS, bloqueos, clientes
-  (cruzable con el inventario de red)
-- Marcadores personalizados para cualquier otro servicio: nombre, URL y
-  logo propio, con comprobación de arriba/abajo
-- Todo se añade, edita y borra **desde la propia web** — sin tocar
-  `netscan.yaml` a mano (las instancias definidas ahí siguen funcionando,
-  de solo lectura en el panel)
+**Homelab integrations**
+- **Proxmox VE** (several nodes/clusters): node, VM and CT status
+- **TrueNAS** CORE/SCALE: pools, disks, SMART, system alerts
+- **AdGuard Home** and **Pi-hole** (API v6): DNS queries, blocks, clients
+  (cross-referenced with the network inventory)
+- Custom bookmarks for any other service: name, URL and your own logo, with an
+  up/down check
+- Everything is added, edited and deleted **from the web itself** — no need to
+  edit `netscan.yaml` by hand (instances defined there keep working, read-only
+  in the panel)
 
-**Speed test y métricas de calidad (nuevo)**
-- Test de velocidad por dispositivo: **latencia** media/mín/máx, **jitter**,
-  **pérdida de paquetes**, **tiempo de handshake TCP por puerto** y, opcional,
-  **throughput real (Mbps)** por HTTP
-- Puntuación de **calidad 0–100** por dispositivo e histórico de muestras
-- Botón de speed test bajo demanda en cada fila del dashboard
+**Speed test and quality metrics**
+- Per-device speed test: mean/min/max **latency**, **jitter**, **packet loss**,
+  **TCP handshake time per port** and, optionally, **real throughput (Mbps)**
+  over HTTP
+- A **0–100 quality score** per device and sample history
+- On-demand speed test button on every row of the dashboard
 
-**Estado del sistema (nuevo)**
-- Panel con el estado del **terminal server (backend)** y del **frontend**:
-  uptime, peticiones servidas, escaneos, clientes WebSocket, auth, scheduler
-- Métricas del host vía `psutil`: CPU (por núcleo), RAM/swap, discos, y
-  **tráfico en vivo por interfaz** (↓/↑), con **link speed** del adaptador
-- Medidores y contadores **animados** (sin parpadeos; respeta `prefers-reduced-motion`)
+**System status**
+- Panel with the status of the **server (backend)** and the **frontend**:
+  uptime, requests served, scans, WebSocket clients, auth, scheduler
+- Host metrics through `psutil`: CPU (per core), RAM/swap, disks, and **live
+  traffic per interface** (↓/↑), with the adapter's **link speed**
+- **Animated** gauges and counters (no flicker; respects `prefers-reduced-motion`)
 
 **Dashboard**
-- Tabla densa de dispositivos con puertos, latencia/jitter/pérdida/calidad,
-  tooltips de versión y filtrado
-- **Columnas ordenables** (host/IP/latencia/jitter/pérdida/calidad; los valores
-  sin dato caen siempre al final) y, en móvil, tarjetas apiladas que conservan
-  todas las métricas en vez de ocultar columnas
-- **Microinteracciones** en clave terminal: IP/MAC copiables al clic con
-  confirmación, respuesta física en botones, tick de columna activa y entrada
-  escalonada de filas — todo respeta `prefers-reduced-motion`
-- Paneles de Proxmox/TrueNAS/AdGuard/Pi-hole con salud de pools y guests, más
-  gestor de integraciones (alta/edición/borrado) y marcadores personalizados
-- Progreso de escaneo en vivo por WebSocket, con aviso visible si cae a sondeo HTTP
-- Feed de alertas con acknowledge
-- Avisos (toasts) con el mensaje real de la API en cada acción (trust, speed
-  test, Wake-on-LAN, copiar)
+- Dense device table with ports, latency/jitter/loss/quality, version tooltips
+  and filtering
+- **Sortable columns** (host/IP/latency/jitter/loss/quality; values with no data
+  always go last) and, on mobile, stacked cards that keep every metric instead
+  of hiding columns
+- Terminal-style **micro-interactions**: IP/MAC copied on click with a
+  confirmation, tactile buttons, a tick on the active column and staggered row
+  entry — all respecting `prefers-reduced-motion`
+- Proxmox/TrueNAS/AdGuard/Pi-hole panels with pool and guest health, plus an
+  integrations manager (add/edit/delete) and custom bookmarks
+- Live scan progress over WebSocket, with a visible notice if it falls back to
+  HTTP polling
+- Alert feed with acknowledge
+- Toasts with the API's real message on every action (trust, speed test,
+  Wake-on-LAN, copy)
 
-## Arranque rápido — un solo comando
+## Quick start — a single command
 
-Tras instalar, **`netscan up`** arranca la API **y** el dashboard integrado en
-un único proceso y puerto (`http://localhost:8600`) y abre el navegador.
+After installing, **`netscan up`** starts the API **and** the built-in
+dashboard in a single process and port (`http://localhost:8600`) and opens the
+browser.
 
 **Windows:**
 
@@ -134,189 +144,186 @@ un único proceso y puerto (`http://localhost:8600`) y abre el navegador.
 install.bat --run
 ```
 
-Instala Python/Node (vía winget si faltan), crea el venv, instala el backend,
-las herramientas externas (nmap, RustScan, nuclei, Npcap), **compila el
-dashboard** y con `--run` lo lanza. Luego basta con:
+It installs Python/Node (through winget if missing), creates the venv, installs
+the backend and the external tools (nmap, RustScan, nuclei, Npcap), **builds
+the dashboard** and, with `--run`, launches it. After that you only need:
 
 ```bat
-netscan.bat up            REM  API + dashboard + navegador (auto-elevado)
+netscan.bat up            REM  API + dashboard + browser (self-elevating)
 ```
 
-`install.bat --minimal` omite las herramientas externas. Sin argumentos,
-`netscan.bat` ya ejecuta `up`.
+`install.bat --minimal` skips the external tools. With no arguments,
+`netscan.bat` already runs `up`.
 
 **Linux / macOS:**
 
 ```bash
 chmod +x install.sh netscan.sh
-./install.sh --run        # instala todo y lanza (o ./install.sh a secas)
-./netscan.sh up           # API + dashboard + navegador (se auto-eleva con sudo)
+./install.sh --run        # install everything and launch (or just ./install.sh)
+./netscan.sh up           # API + dashboard + browser (elevates itself with sudo)
 ```
 
-`./install.sh` detecta apt/dnf/pacman/brew para las dependencias del sistema y
-degrada con elegancia lo que no pueda instalar.
+`./install.sh` detects apt/dnf/pacman/brew for the system dependencies and
+degrades gracefully for whatever it cannot install.
 
-**Instalador de Windows (programa normal):**
+**Windows installer (a regular program):**
 
 ```bat
 winget install JRSoftware.InnoSetup
 iscc packaging\windows\netscan.iss        REM  -> packaging\windows\Output\NetScan-Setup.exe
 ```
 
-`NetScan-Setup.exe` aparece en "Agregar o quitar programas", crea accesos en
-el menú Inicio y deja todo listo. En CI lo compila `installer.yml`
-(`workflow_dispatch` o reutilizado por `release.yml`), que también genera el
-paquete Linux (`.tar.gz` con backend + `frontend/dist` + `install.sh`) y
-adjunta ambos, junto al paquete Python, a cada release de un tag `v*`.
+`NetScan-Setup.exe` shows up in "Add or remove programs", creates Start menu
+shortcuts and leaves everything ready. In CI it is built by `installer.yml`
+(`workflow_dispatch`, or reused by `release.yml`), which also builds the Linux
+package (`.tar.gz` with the backend + `frontend/dist` + `install.sh`) and
+attaches both, together with the Python package, to every release of a `v*`
+tag.
 
-> **¿Una herramienta no aparece como disponible en `netscan doctor` /
-> `netscan caps` justo después de instalarla?** En Windows, escribir el PATH
-> de usuario no actualiza por sí solo las ventanas ya abiertas ni los accesos
-> directos existentes — cierra y reabre la terminal (o el dashboard) antes de
-> reportarlo como bug. `install.bat` ya lo hace por ti en la misma ejecución;
-> solo afecta a una `netscan.bat`/consola abierta *antes* de instalar.
+> **A tool does not show up as available in `netscan doctor` / `netscan caps`
+> right after installing it?** On Windows, writing the user PATH does not update
+> windows that are already open or existing shortcuts — close and reopen the
+> terminal (or the dashboard) before reporting it as a bug. `install.bat`
+> already does this for you in the same run; it only affects a
+> `netscan.bat`/console opened *before* installing.
 
-### Windows con las 6 herramientas — todo lo que ves aquí, funciona
+### Windows with all 6 tools
 
-Hay **6 herramientas externas** que NetScan sabe usar: `nmap`, `RustScan`,
-`nuclei`, `whatweb`, `testssl.sh` y `masscan` (esta última detectada pero
-sin usar todavía). Todas están **conectadas de verdad al motor de escaneo**
-— no es solo un indicador visual, cada una hace algo real cuando la lanzas
-desde el menú "acciones" del dashboard o desde `netscan scan --full`.
+NetScan can use **6 external tools**: `nmap`, `RustScan`, `nuclei`, `whatweb`,
+`testssl.sh` and `masscan` (the last one is detected but not used yet). They are
+**really wired into the scan engine** — not just an indicator: each one does
+something real when you launch it from the dashboard's "actions" menu or with
+`netscan scan --full`.
 
-El problema es que **`install.bat` (Windows nativo) solo puede instalar 3
-de las 6**: `nmap`, `RustScan` y `nuclei` tienen forma de instalarse en
-Windows (winget, o descarga verificada por SHA256). `whatweb` y
-`testssl.sh` **no la tienen** — son herramientas Linux (una gema de Ruby,
-un script bash sobre OpenSSL) sin equivalente nativo de Windows. Y
-`masscan`, aunque compila en Windows, no tiene paquete winget mantenido, así
-que tampoco se instala solo.
+The catch is that **`install.bat` (native Windows) can only install 3 of the
+6**: `nmap`, `RustScan` and `nuclei` can be installed on Windows (winget, or a
+SHA256-verified download). `whatweb` and `testssl.sh` **cannot** — they are
+Linux tools (a Ruby gem, a bash script on top of OpenSSL) with no native Windows
+equivalent. And `masscan`, although it compiles on Windows, has no maintained
+winget package, so it is not installed either.
 
-**¿Cuál es la solución?** Ejecutar NetScan dentro de **WSL** (Linux dentro
-de Windows) en vez del NetScan nativo de Windows. Ahí sí puede instalar las
-6. Esto es dos pasos separados — primero WSL, luego NetScan dentro:
+**The solution:** run NetScan inside **WSL** (Linux inside Windows) instead of
+the native Windows NetScan. There all 6 can be installed. It takes two separate
+steps — first WSL, then NetScan inside it:
 
-**1. Instala WSL (una vez, si no lo tienes ya):**
+**1. Install WSL (once, if you do not have it yet):**
 
-Abre PowerShell **como administrador** (clic derecho → "Ejecutar como
-administrador") y escribe:
+Open PowerShell **as administrator** (right click → "Run as administrator") and
+type:
 
 ```powershell
 wsl --install
 ```
 
-Esto instala Ubuntu por defecto. Si te pide reiniciar el PC, reinicia.
-Después de reiniciar (o si no hacía falta), busca **"Ubuntu"** en el menú
-de inicio y ábrelo — la primera vez te pedirá crear un usuario y contraseña
-de Linux (puedes poner lo que quieras, no tiene que coincidir con tu cuenta
-de Windows). Eso ya es tu terminal de Linux, integrada en Windows.
+This installs Ubuntu by default. If it asks you to restart the PC, do so. After
+restarting (or if it was not needed), look for **"Ubuntu"** in the Start menu
+and open it — the first time it asks you to create a Linux user and password
+(anything you like; it does not have to match your Windows account). That is
+your Linux terminal, built into Windows.
 
-**2. Dentro de esa ventana de Ubuntu, instala las herramientas:**
+**2. In that Ubuntu window, install the tools:**
 
-Copia y pega esto (una línea, luego Enter; te pedirá la contraseña que
-acabas de crear):
+Copy and paste this (one line, then Enter; it asks for the password you just
+created):
 
 ```bash
 sudo apt update && sudo apt install -y whatweb testssl.sh nmap masscan
 ```
 
-Si `testssl.sh` no aparece disponible en tu versión de Ubuntu (algunas
-versiones no lo traen empaquetado), instálalo así en su lugar:
+If `testssl.sh` is not available in your Ubuntu version (some versions do not
+package it), install it this way instead:
 
 ```bash
 git clone --depth 1 https://github.com/drwetter/testssl.sh.git ~/testssl.sh
 sudo ln -s ~/testssl.sh/testssl.sh /usr/local/bin/testssl.sh
 ```
 
-**3. Arranca NetScan desde dentro de WSL** (no desde `netscan.bat` — ese es
-solo para el NetScan nativo de Windows). Tu disco `C:\` se ve desde WSL en
-`/mnt/c/`, así que entras al mismo repo que ya tienes:
+**3. Start NetScan from inside WSL** (not with `netscan.bat` — that one is only
+for the native Windows NetScan). Your `C:\` drive is visible from WSL under
+`/mnt/c/`, so you go into the same repository you already have:
 
 ```bash
-cd /mnt/c/COSAS/PROYECTOS/NETSCAN
+cd /mnt/c/path/to/netscan
 ./install.sh
 ./netscan.sh up
 ```
 
-`./install.sh` instala RustScan y nuclei igual que hace `install.bat` en
-Windows (y detecta que `whatweb`/`testssl.sh` ya están, del paso 2), y crea
-su propio entorno virtual en `backend/.venv-linux` — **separado** del
-`backend/.venv` que usa Windows, aunque sea el mismo checkout de repo visto
-desde `/mnt/c/`. Un venv de Windows (`Scripts/python.exe`) y uno de Linux
-(`bin/python`) no pueden compartir carpeta sin corromperse mutuamente; por
-eso van cada uno en la suya. `./netscan.sh up` arranca la API + el
-dashboard. El navegador se abre solo; si no, entra tú a
-`http://localhost:8600` — WSL2 comparte red con Windows, así que funciona
-igual que si NetScan corriera nativo.
+`./install.sh` installs RustScan and nuclei just like `install.bat` does on
+Windows (and detects that `whatweb`/`testssl.sh` are already there from step 2),
+and creates its own virtual environment in `backend/.venv-linux` — **separate**
+from the `backend/.venv` used by Windows, even though it is the same checkout
+seen from `/mnt/c/`. A Windows venv (`Scripts/python.exe`) and a Linux one
+(`bin/python`) cannot share a folder without corrupting each other, so each
+gets its own. `./netscan.sh up` starts the API + the dashboard. The browser opens
+by itself; if not, go to `http://localhost:8600` — WSL2 shares the network with
+Windows, so it works as if NetScan ran natively.
 
-Si `python3 -m venv` falla con `ensurepip is not available` (Ubuntu separa
-el módulo `venv` en un paquete aparte), `install.sh` ya lo detecta e
-instala automáticamente el paquete que falta (`python3.XX-venv`) y
-reintenta — no hace falta nada manual.
+If `python3 -m venv` fails with `ensurepip is not available` (Ubuntu ships the
+`venv` module as a separate package), `install.sh` detects it, installs the
+missing package (`python3.XX-venv`) and retries — nothing to do by hand.
 
-**4. Comprueba que las ves todas:**
+**4. Check that you see them all:**
 
 ```bash
 ./netscan.sh doctor
 ```
 
-Deberías ver las 6 en verde (o "OK") salvo `masscan`, que aparece detectada
-pero el motor todavía no la usa (ver tabla más abajo).
+You should see all 6 in green (or "OK") except `masscan`, which shows as
+detected but is not used by the engine yet (see the table below).
 
-> **Nota importante**: esto son dos NetScan *separados* — el nativo de
-> Windows (`netscan.bat`, con 3 herramientas) y el de WSL
-> (`netscan.sh`, con las 6). No hace falta desinstalar el de Windows; usa
-> el que necesites en cada momento. Si quieres que WSL arranque solo al
-> encender el PC, puedes crear una tarea programada de Windows que lance
-> `wsl ./netscan.sh up --no-browser`, pero eso ya es opcional.
+> **Important:** these are two *separate* NetScans — the native Windows one
+> (`netscan.bat`, with 3 tools) and the WSL one (`netscan.sh`, with all 6). You
+> do not need to uninstall the Windows one; use whichever you need. If you want
+> WSL to start on its own when the PC boots, you can create a Windows scheduled
+> task that runs `wsl ./netscan.sh up --no-browser`, but that is optional.
 
-| Herramienta | Windows nativo (`install.bat`) | WSL (`install.sh`) | ¿El motor la usa? |
+| Tool | Native Windows (`install.bat`) | WSL (`install.sh`) | Used by the engine? |
 |---|---|---|---|
-| nmap | ✅ | ✅ | Sí |
-| RustScan | ✅ | ✅ | Sí |
-| nuclei | ✅ | ✅ | Sí |
-| whatweb | ❌ | ✅ | Sí |
-| testssl.sh | ❌ | ✅ | Sí |
-| masscan | ❌ | ✅ (vía apt) | No — detectada, sin cablear al motor todavía |
+| nmap | ✅ | ✅ | Yes |
+| RustScan | ✅ | ✅ | Yes |
+| nuclei | ✅ | ✅ | Yes |
+| whatweb | ❌ | ✅ | Yes |
+| testssl.sh | ❌ | ✅ | Yes |
+| masscan | ❌ | ✅ (via apt) | No — detected, not wired into the engine yet |
 
-### Servicio web en Linux (systemd)
+### Web service on Linux (systemd)
 
-Para dejar NetScan como **servicio web** accesible en la LAN:
+To run NetScan as a **web service** reachable on the LAN:
 
 ```bash
 ./install.sh --system
 ```
 
-Esto crea `/etc/netscan/netscan.env` (bind a `0.0.0.0:8600` + **token de API
-generado**), instala la unidad `netscan.service` con las capacidades de red
-necesarias (`CAP_NET_RAW`) y la arranca. El dashboard queda en
-`http://<ip-del-servidor>:8600/`.
+This creates `/etc/netscan/netscan.env` (bound to `0.0.0.0:8600` + a
+**generated API token**), installs the `netscan.service` unit with the network
+capabilities it needs (`CAP_NET_RAW`) and starts it. The dashboard is at
+`http://<server-ip>:8600/`.
 
 ```bash
-systemctl status netscan        # estado del servicio
-journalctl -u netscan -f        # logs en vivo
-cat /etc/netscan/netscan.env    # recuperar el token si ya no lo tienes a mano
+systemctl status netscan        # service status
+journalctl -u netscan -f        # live logs
+cat /etc/netscan/netscan.env    # get the token back if you no longer have it
 ```
 
-La primera vez que el dashboard hace una petición sin token válido, se abre
-solo un diálogo pidiéndolo (guardado luego en el navegador); también puedes
-abrirlo cuando quieras con el icono de llave 🔑 del header, por ejemplo para
-cambiarlo tras rotar el token.
+The first time the dashboard makes a request without a valid token, a dialog
+asking for it opens by itself (it is then saved in the browser); you can also
+open it any time with the key icon 🔑 in the header, for example to change it
+after rotating the token.
 
-Manual (sin systemd), como servicio en primer plano:
+Manually (without systemd), as a foreground service:
 
 ```bash
-NETSCAN_API_HOST=0.0.0.0 NETSCAN_API_TOKEN=mi-token \
+NETSCAN_API_HOST=0.0.0.0 NETSCAN_API_TOKEN=my-token \
   ./netscan.sh up --no-browser --port 8600
 ```
 
-Otros comandos útiles: `netscan speedtest` (test de velocidad de la red),
-`netscan doctor` (diagnóstico completo), `netscan scan --full`.
+Other useful commands: `netscan speedtest` (network speed test),
+`netscan doctor` (full diagnosis), `netscan scan --full`.
 
-### Proxmox LXC (un comando desde el host)
+### Proxmox LXC (one command from the host)
 
-Para correr NetScan en su propio contenedor, visible desde toda la LAN,
-desde la **shell del host Proxmox** (no dentro de un contenedor):
+To run NetScan in its own container, visible from the whole LAN, from the
+**Proxmox host shell** (not inside a container):
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/create-lxc.sh
@@ -325,228 +332,221 @@ chmod +x create-lxc.sh
 ./create-lxc.sh
 ```
 
-(`bootstrap-lxc.sh` tiene que quedar junto a `create-lxc.sh` — el segundo
-lo copia dentro del contenedor nuevo automáticamente; no hace falta
-ejecutarlo tú.) Si prefieres no dejar ni esos dos ficheros en el host, hay
-un one-liner que no descarga nada permanente — al no encontrar
-`bootstrap-lxc.sh` junto a sí mismo, lo baja solo a un temporal en `/tmp`:
+(`bootstrap-lxc.sh` has to sit next to `create-lxc.sh` — the latter copies it
+into the new container automatically; you do not run it yourself.) If you would
+rather not leave even those two files on the host, there is a one-liner that
+downloads nothing permanent — when it does not find `bootstrap-lxc.sh` next to
+itself, it fetches it into a temporary file in `/tmp`:
 
 ```bash
 VMID=201 OS_TEMPLATE=ubuntu-26.04-standard bash -c "$(curl -fsSL https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/create-lxc.sh)"
 ```
 
-Y si ya descargaste los dos ficheros y quieres limpiar después,
-sea cual sea la forma en que lo ejecutaste:
+And if you downloaded the two files and want to clean up afterwards, however
+you ran it:
 
 ```bash
 rm -f create-lxc.sh bootstrap-lxc.sh
 ```
 
-Si lo lanzas a mano en una terminal, te pregunta VMID, nombre, plantilla,
-bridge e IP uno a uno (Enter para aceptar el valor por defecto que
-propone). Cualquiera de esos que ya venga fijado por variable de entorno
-no se pregunta; y si no hay una terminal real de por medio (lo lanzas
-desde un pipe o algo automatizado), tampoco pregunta nada — usa los
-valores por defecto sin más, para no quedarse colgado. Crea un CT sin
-privilegiar (**Ubuntu 26.04 LTS** por defecto — cualquier plantilla
-Debian/Ubuntu vale, ver `OS_TEMPLATE`; 2 vCPU / **2GB de RAM** — 1GB se
-queda corto y el `oom-kill` se lleva por delante al servicio a mitad de
-instalación, sobre todo durante el build del dashboard), lo arranca,
-clona el repo dentro y ejecuta `install.sh --system` — al terminar
-imprime la URL del dashboard y dónde está el token. Todo se puede
-ajustar también por variable de entorno (`VMID`, `CT_NAME`, `BRIDGE`,
-`IP`, `CORES`, `MEMORY_MB`, `OS_TEMPLATE`, ...); ver los comentarios de
-cabecera de `packaging/proxmox/create-lxc.sh` para el detalle completo.
-Por ejemplo, para usar Debian 12 en vez de Ubuntu sin que te pregunte
-nada:
+When you run it by hand in a terminal, it asks for the VMID, name, template,
+bridge and IP one by one (Enter accepts the proposed default). Anything already
+set through an environment variable is not asked; and with no real terminal
+involved (run from a pipe or something automated) it asks nothing at all and
+uses the defaults, so it never hangs. It creates an unprivileged CT (**Ubuntu
+26.04 LTS** by default — any Debian/Ubuntu template works, see `OS_TEMPLATE`;
+2 vCPU / **2 GB of RAM** — 1 GB falls short and `oom-kill` takes the service
+down halfway through the install, especially while building the dashboard),
+starts it, clones the repository inside and runs `install.sh --system` — at the
+end it prints the dashboard URL and where the token is. Everything can also be
+set through environment variables (`VMID`, `CT_NAME`, `BRIDGE`, `IP`, `CORES`,
+`MEMORY_MB`, `OS_TEMPLATE`, ...); see the header comments of
+`packaging/proxmox/create-lxc.sh` for the full list. For example, to use
+Debian 12 instead of Ubuntu without being asked anything:
 
 ```bash
 OS_TEMPLATE=debian-12-standard ./create-lxc.sh
 ```
 
-Todo el proceso es desatendido de verdad: `install.sh`/`bootstrap-lxc.sh`
-ya silencian el diálogo interactivo de `needrestart` que trae Debian/Ubuntu
-(sin eso, un `apt-get install` de en medio se queda colgado para siempre
-sin dar ningún error, esperando una tecla que nunca llega por `pct exec`),
-e instalan Node.js 20+ solos si el contenedor no lo trae (una plantilla
-LXC pelada nunca lo trae) para poder compilar el dashboard.
+The whole process is truly unattended: `install.sh`/`bootstrap-lxc.sh` silence
+the interactive `needrestart` dialog that Debian/Ubuntu ship (without that, an
+`apt-get install` halfway through hangs forever with no error, waiting for a key
+that never arrives through `pct exec`), and they install Node.js 20+ themselves
+if the container does not have it (a bare LXC template never does) so the
+dashboard can be built.
 
-**El único ajuste que de verdad importa:** `BRIDGE` (por defecto `vmbr0`)
-tiene que ser un bridge conectado a tu LAN física, no NAT ni una zona SDN
-aislada — el escaneo ARP solo descubre lo que está en su mismo segmento
-L2. Eso se decide al crear el contenedor; no hay forma de arreglarlo desde
-dentro después.
+**The only setting that really matters:** `BRIDGE` (default `vmbr0`) must be a
+bridge connected to your physical LAN, not NAT or an isolated SDN zone — the ARP
+scan only discovers what is on its own L2 segment. That is decided when the
+container is created; it cannot be fixed from inside afterwards.
 
-Si ya tienes un CT/VM Linux creado (con red bien conectada) y solo quieres
-la parte de instalación, basta con `bootstrap-lxc.sh` a solas, ejecutado
-como root dentro del contenedor:
+If you already have a Linux CT/VM (with a properly connected network) and only
+want the install part, `bootstrap-lxc.sh` on its own is enough, run as root
+inside the container:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/bootstrap-lxc.sh | bash
 ```
 
-### Docker
+### Docker (experimental)
 
 ```bash
 cp netscan.example.yaml netscan.yaml
 docker compose up --build
-# API en :8600, dashboard en :8601
+# API on :8600, dashboard on :8601
 ```
 
-## Configuración
+The backend uses host networking (`network_mode: host`) so that ARP discovery
+sees your LAN, which needs a **Linux** Docker host. The dashboard container
+reaches the API through `host.docker.internal`, while the backend listens on
+`127.0.0.1` by default, so the dashboard on `:8601` cannot reach the API unless
+the backend listens on the network (`NETSCAN_API_HOST=0.0.0.0` together with a
+`NETSCAN_API_TOKEN`). On Docker Desktop (Windows/macOS) the dashboard gets a
+`502`. For now, prefer the native install, WSL or the Proxmox LXC.
 
-Toda la configuración vive en `netscan.yaml` (ver `netscan.example.yaml`) y
-puede sobreescribirse con variables de entorno `NETSCAN_*`:
+## Configuration
+
+All configuration lives in `netscan.yaml` (see `netscan.example.yaml`) and can
+be overridden with `NETSCAN_*` environment variables:
 
 ```bash
-NETSCAN_PROXMOX__0__TOKEN_SECRET=xxxx   # secreto del token de pve1
+NETSCAN_PROXMOX__0__TOKEN_SECRET=xxxx   # token secret for pve1
 NETSCAN_TRUENAS__0__API_KEY=xxxx
-NETSCAN_NOTIFY_URLS__0=ntfy://ntfy.sh/mi-topic
+NETSCAN_NOTIFY_URLS__0=ntfy://ntfy.sh/my-topic
 ```
 
-**Nunca** subas secretos al repo: el YAML está git-ignored solo si lo nombras
-`config.local.yaml`; los secretos deben ir siempre en variables de entorno.
+`netscan.yaml` and `config.local.yaml` are git-ignored, but secrets should still
+**always** go in environment variables, never in the YAML file.
 
-### Credenciales necesarias
+### Credentials you need
 
-| Servicio | Qué crear | Dónde |
+| Service | What to create | Where |
 |---|---|---|
-| Proxmox VE | API Token (`PVEAPIToken`) | Datacenter → Permissions → API Tokens |
-| TrueNAS | API Key | UI → Credentials → API Keys |
-| AdGuard Home | usuario/contraseña de la web UI | — |
-| Pi-hole | contraseña de administrador | — (API v6) |
+| Proxmox VE | API token (`PVEAPIToken`) | Datacenter → Permissions → API Tokens |
+| TrueNAS | API key | UI → Credentials → API Keys |
+| AdGuard Home | web UI user/password | — |
+| Pi-hole | admin password | — (API v6) |
 
-## API REST (extracto)
+## REST API (excerpt)
 
-| Endpoint | Descripción |
+| Endpoint | Description |
 |---|---|
-| `POST /api/scans` | Lanza un escaneo (`{"full": true}`) |
-| `GET /api/scans/latest` | Último resultado completo |
-| `GET /api/scans/progress` · `WS /ws/progress` | Progreso en vivo |
-| `GET /api/devices` · `PATCH /api/devices/{mac}` | Inventario y trust |
-| `GET /api/alerts` · `POST /api/alerts/{id}/ack` | Alertas |
-| `GET /api/integrations/proxmox|truenas|adguard` | Salud de integraciones |
-| `GET /api/overview` · `GET /api/capabilities` | Resumen y toolchain |
-| `GET /api/system` · `GET /api/status` | Estado del server/host/frontend (todo en uno) |
-| `GET /api/metrics/summary` | Métricas de calidad agregadas |
-| `GET /api/devices/{mac}/metrics` | Histórico de latencia/jitter/calidad |
-| `POST /api/devices/{mac}/speedtest` | Speed test bajo demanda de un dispositivo |
+| `POST /api/scans` | Start a scan (`{"full": true}`) |
+| `GET /api/scans/latest` | Latest full result |
+| `GET /api/scans/progress` · `WS /ws/progress` | Live progress |
+| `GET /api/devices` · `PATCH /api/devices/{mac}` | Inventory and trust |
+| `GET /api/alerts` · `POST /api/alerts/{id}/ack` | Alerts |
+| `GET /api/integrations/proxmox|truenas|adguard` | Integration health |
+| `GET /api/overview` · `GET /api/capabilities` | Summary and toolchain |
+| `GET /api/system` · `GET /api/status` | Server/host/frontend status (all in one) |
+| `GET /api/metrics/summary` | Aggregated quality metrics |
+| `GET /api/devices/{mac}/metrics` | Latency/jitter/quality history |
+| `POST /api/devices/{mac}/speedtest` | On-demand speed test for a device |
 | `POST /api/devices/{mac}/wake` | Wake-on-LAN |
 
-Con el dashboard compilado, la API **y** la web se sirven en el mismo puerto
-(`/` = dashboard, `/api/...` = API). Docs interactivas en
+With the dashboard built, the API **and** the web UI are served on the same port
+(`/` = dashboard, `/api/...` = API). Interactive docs at
 `http://localhost:8600/docs` (OpenAPI).
 
-### Mensajes de error
+### Error messages
 
-Toda respuesta de error de la API llega como JSON `{"detail": "..."}` (con
-mensaje en español), y el dashboard muestra ese texto directamente en un aviso
-(toast) — nunca un código pelado. Un error inesperado del servidor se captura
-de forma global y se convierte en un `500` con `detail` legible; el detalle
-técnico (traza) queda en el log de NetScan, no en el cliente.
+Every API error response arrives as JSON `{"detail": "..."}` with a readable
+message (currently in Spanish), and the dashboard shows that text directly in a
+toast — never a bare code. An unexpected server error is caught globally and
+turned into a `500` with a readable `detail`; the technical detail (traceback)
+stays in the NetScan log, not in the client.
 
-| Código | Significado | Qué mirar |
+| Code | Meaning | What to check |
 |---|---|---|
-| `400` | Petición mal formada (ej. rango de red inválido) | Revisa el cuerpo/parámetros de la petición |
-| `401` | Falta el token o es incorrecto | Configura el token en el dashboard (icono de llave) o `NETSCAN_API_TOKEN` |
-| `403` | Origen no permitido (CORS) | Añade el origen a `NETSCAN_API_CORS_ORIGINS` |
-| `404` | Recurso inexistente (ej. aún no hay ningún scan) | Lanza un scan; comprueba la MAC/ruta |
-| `409` | Conflicto (ej. ya hay un scan en curso) | Espera a que termine el scan activo |
-| `413` | Fichero demasiado grande (ej. logo de integración) | El logo no puede superar 2 MB |
-| `415` | Tipo de contenido no soportado | Sube PNG/JPG/SVG para el logo |
-| `422` | Validación de campos fallida | El `detail` lista qué campo falla |
-| `429` | Demasiadas peticiones | Baja la frecuencia de sondeo o espera |
-| `500` | Error interno no controlado | Revisa los logs de NetScan (ver abajo) |
+| `400` | Malformed request (e.g. invalid network range) | Check the request body/parameters |
+| `401` | Missing or wrong token | Set the token in the dashboard (key icon) or `NETSCAN_API_TOKEN` |
+| `403` | Origin not allowed (CORS) | Add the origin to `NETSCAN_API_CORS_ORIGINS` |
+| `404` | Resource does not exist (e.g. no scan yet) | Run a scan; check the MAC/path |
+| `409` | Conflict (e.g. a scan is already running) | Wait for the running scan to finish |
+| `413` | File too large (e.g. integration logo) | The logo cannot exceed 2 MB |
+| `415` | Unsupported content type | Upload PNG/JPG/SVG for the logo |
+| `422` | Field validation failed | The `detail` lists which field fails |
+| `429` | Too many requests | Poll less often or wait |
+| `500` | Unhandled internal error | Check the NetScan logs (see below) |
 
-## Resolución de problemas
+## Troubleshooting
 
-- **El dashboard carga en blanco / no aparecen datos.** Comprueba que la API
-  responde: `curl http://localhost:8600/api/health` debe devolver
-  `{"status":"ok"}`. Si no, el servicio no está arrancado (ver systemd abajo).
-- **`401` al abrir el dashboard.** Hay un token configurado en el servidor pero
-  el navegador no lo tiene. Pulsa el icono de llave en la cabecera e introdúcelo;
-  se guarda en el navegador. El token es `NETSCAN_API_TOKEN`.
-- **El puerto ya está en uso.** Cambia `NETSCAN_API_PORT` (y `NETSCAN_API_HOST`
-  si solo quieres escuchar en localhost). En Linux: `ss -tlnp | grep 8600` para
-  ver qué lo ocupa.
-- **El escaneo ARP no encuentra dispositivos.** Suele ser permisos o red. El
-  escaneo de capa 2 necesita privilegios (en Linux, `cap_net_raw` o root; el
-  servicio systemd ya lo concede). En LXC, el contenedor debe estar en modo
-  bridge sobre la misma VLAN que quieres escanear.
-- **`403` / errores de CORS desde otro equipo.** Añade el origen del navegador
-  (ej. `http://192.168.1.50:8601`) a `NETSCAN_API_CORS_ORIGINS` (lista separada
-  por comas).
-- **Una integración (Proxmox/TrueNAS/AdGuard) sale en rojo.** Verifica URL,
-  credenciales y que el destino sea alcanzable desde el host de NetScan. El
-  `detail` del error de la integración dice qué falló (DNS, TLS, auth…).
-- **¿Dónde están los logs?** En `NETSCAN_DATA_DIR/netscan.log` (además de la
-  salida estándar). Con systemd: `journalctl -u netscan -f`.
+- **The dashboard loads blank / no data appears.** Check that the API answers:
+  `curl http://localhost:8600/api/health` must return `{"status":"ok"}`. If not,
+  the service is not running (see systemd above).
+- **`401` when opening the dashboard.** A token is set on the server but the
+  browser does not have it. Press the key icon in the header and enter it; it is
+  saved in the browser. The token is `NETSCAN_API_TOKEN`.
+- **The port is already in use.** Change `NETSCAN_API_PORT` (and
+  `NETSCAN_API_HOST` if you only want to listen on localhost). On Linux:
+  `ss -tlnp | grep 8600` shows what is using it.
+- **The ARP scan finds no devices.** Usually permissions or network. Layer-2
+  scanning needs privileges (on Linux, `cap_net_raw` or root; the systemd
+  service already grants it). In LXC, the container must be bridged onto the
+  same VLAN you want to scan.
+- **`403` / CORS errors from another machine.** Add the browser's origin (e.g.
+  `http://192.168.1.50:8601`) to `NETSCAN_API_CORS_ORIGINS` (comma-separated
+  list).
+- **An integration (Proxmox/TrueNAS/AdGuard) shows red.** Check the URL,
+  credentials and that the target is reachable from the NetScan host. The
+  integration error's `detail` says what failed (DNS, TLS, auth…).
+- **Where are the logs?** In `NETSCAN_DATA_DIR/netscan.log` (as well as standard
+  output). With systemd: `journalctl -u netscan -f`.
 
-## Desarrollo
+## Development
 
 ```bash
 cd backend
-pytest                    # suite completa
+pytest                    # full suite
 ruff check .              # lint
-ruff format --check .     # formato
-mypy src/netscan          # tipos
+ruff format --check .     # formatting
+mypy src/netscan          # types
 
 cd ../frontend
 pnpm lint && pnpm typecheck && pnpm build
 ```
 
-CI en `.github/workflows/ci.yml`: matriz Ubuntu/Windows × Python 3.11/3.12,
-lint+build del frontend, chequeo de licencias de dependencias, auditoría de
-vulnerabilidades (`pip-audit` + `pnpm audit`) y releases automáticos al
-pushear tags `v*` (backend + instalador Windows + bundle Linux, ver
-`release.yml`).
+CI in `.github/workflows/ci.yml`: Ubuntu/Windows × Python 3.11/3.12 matrix,
+frontend lint+build, dependency licence check, vulnerability audit
+(`pip-audit` + `pnpm audit`) and automatic releases when `v*` tags are pushed
+(backend + Windows installer + Linux bundle, see `release.yml`).
 
-## Estructura
+## Layout
 
 ```
 ├── backend/src/netscan/
 │   ├── scanner/        # discovery (ARP), enrich, mDNS, fingerprint, tools, speed, engine
-│   ├── db/             # SQLModel: inventario, escaneos, alertas, muestras de métricas
+│   ├── db/             # SQLModel: inventory, scans, alerts, metric samples
 │   ├── integrations/   # proxmox · truenas · adguard
-│   ├── api/            # FastAPI + WebSocket + scheduler + estático del dashboard
+│   ├── api/            # FastAPI + WebSocket + scheduler + static dashboard
 │   ├── alerts/         # Apprise
-│   ├── system.py       # estado del host/proceso/frontend (psutil)
+│   ├── system.py       # host/process/frontend status (psutil)
 │   ├── config.py       # YAML + env (pydantic-settings)
 │   └── cli.py          # typer: up · scan · speedtest · doctor · caps · serve · wake
 ├── frontend/src/
 │   ├── sections/       # Header, StatCards, SystemStatus, DevicesTable, Integrations…
-│   ├── components/     # metrics.tsx (número animado, medidor, badge de calidad)
-│   ├── hooks/          # polling + WebSocket + animaciones
-│   └── lib/api.ts      # cliente REST/WS
+│   ├── components/     # metrics.tsx (animated number, gauge, quality badge)
+│   ├── hooks/          # polling + WebSocket + animations
+│   └── lib/api.ts      # REST/WS client
 ├── packaging/
 │   ├── windows/        # netscan.iss (Inno Setup → NetScan-Setup.exe)
 │   └── linux/          # netscan.service (systemd) · netscan.desktop
-├── install.sh · netscan.sh   # instalador y lanzador Linux/macOS
-├── install.bat · netscan.bat # instalador y lanzador Windows
+├── install.sh · netscan.sh   # Linux/macOS installer and launcher
+├── install.bat · netscan.bat # Windows installer and launcher
 ├── docker/             # Dockerfile.backend
-├── legacy/             # netscan.py original (referencia histórica)
+├── legacy/             # the original netscan.py (historical reference)
 └── .github/workflows/  # CI + release + installer + dependabot
 ```
 
-## Licencias
+## Licences
 
-NetScan se distribuye bajo **GPL-2.0-or-later** (requerido por scapy,
-GPL-2.0-only). Las dependencias importadas son compatibles (MIT/BSD/Apache/
-LGPL). Las herramientas GPL/AGPL/NPSL (nmap, RustScan, masscan, nuclei,
-whatweb, testssl.sh) **no se distribuyen**: se invocan como procesos externos
-cuando están instaladas ("mere aggregation"), y cada función degrada con
-elegancia si la herramienta no está presente. Atribución completa en
-[NOTICE](NOTICE).
+NetScan is released under **GPL-2.0-or-later** (required by scapy,
+GPL-2.0-only). The imported dependencies are compatible (MIT/BSD/Apache/LGPL).
+The GPL/AGPL/NPSL tools (nmap, RustScan, masscan, nuclei, whatweb, testssl.sh)
+**are not distributed**: they are invoked as external processes when installed
+("mere aggregation"), and each feature degrades gracefully if the tool is
+missing. Full attribution in [NOTICE](NOTICE).
 
-## Contribuir
+## Contributing
 
-Ver [CONTRIBUTING.md](docs/CONTRIBUTING.md). Issues y PRs bienvenidos.
-
----
-
-*English summary: NetScan is a GPL-2.0 homelab network scanner + live
-inventory + monitoring dashboard (React/FastAPI) with configurable-from-the-web
-Proxmox VE, TrueNAS, AdGuard Home and Pi-hole integrations (plus custom
-bookmarks with your own logo), new-device intrusion alerts, mDNS IoT
-discovery, TLS fingerprinting and optional nmap/RustScan/nuclei superpowers.
-Clone it, `pip install -e backend`, `netscan serve`, and open the dashboard.*
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md). Issues and PRs welcome.
