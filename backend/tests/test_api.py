@@ -122,3 +122,37 @@ def test_ws_progress_requires_token(tmp_path):
     with client.websocket_connect("/ws/progress?token=t0ken") as ws:
         data = ws.receive_json()
         assert "stage" in data
+
+
+def test_unhandled_exception_returns_json_500(tmp_path, monkeypatch):
+    """An unexpected error must become a clean JSON 500 with a `detail` message
+    the dashboard can display, not a bodyless crash."""
+    deps.init_state(Settings(data_dir=tmp_path))
+    app = create_app()
+
+    # Force an unexpected error deep inside a real endpoint.
+    from netscan import system as system_mod
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("algo explotó por dentro")
+
+    monkeypatch.setattr(system_mod, "collect", _boom)
+
+    # raise_server_exceptions=False so the client returns the handler's response
+    # instead of re-raising the error into the test.
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.get("/api/system")
+    assert resp.status_code == 500
+    body = resp.json()
+    assert "detail" in body
+    # The internal message must NOT leak to the client.
+    assert "explotó" not in body["detail"]
+
+
+def test_http_exception_detail_is_preserved(tmp_path):
+    """A raised HTTPException keeps its own status and detail (the global handler
+    only catches truly unhandled errors)."""
+    client = _client(tmp_path)
+    resp = client.get("/api/scans/latest")  # 404 with a Spanish detail
+    assert resp.status_code == 404
+    assert "detail" in resp.json()

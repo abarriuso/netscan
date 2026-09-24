@@ -211,7 +211,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
         <button
           onClick={requestTokenDialog}
           title="Token de API"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-none border border-border text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
+          className="press flex h-9 w-9 shrink-0 items-center justify-center rounded-none border border-border text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
         >
           <KeyRound className="h-4 w-4" />
         </button>
