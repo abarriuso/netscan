@@ -33,7 +33,7 @@ class PiholeClient:
         resp.raise_for_status()
         session = resp.json().get("session", {})
         if not session.get("valid"):
-            raise RuntimeError("Pi-hole: autenticación rechazada (contraseña incorrecta)")
+            raise RuntimeError("Pi-hole: authentication rejected (wrong password)")
         self._sid = session.get("sid")
 
     def _get(self, path: str) -> Any:

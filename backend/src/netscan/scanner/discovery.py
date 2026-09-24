@@ -43,9 +43,9 @@ def check_prereqs() -> None:
     """Fail fast with an actionable message instead of hanging in scapy."""
     if not is_elevated():
         raise ScanPrereqError(
-            "El escaneo ARP necesita privilegios de administrador. "
-            "En Windows lanza el servidor con netscan.bat serve (se auto-eleva) "
-            "o desde un terminal de Administrador; en Linux usa sudo."
+            "The ARP scan needs administrator privileges. "
+            "On Windows start the server with netscan.bat serve (it elevates itself) "
+            "or from an Administrator terminal; on Linux use sudo."
         )
     if platform.system() == "Windows":
         # scapy needs the Npcap driver; without it srp() can block forever
@@ -61,8 +61,8 @@ def check_prereqs() -> None:
             )
             if "RUNNING" not in out.stdout:
                 raise ScanPrereqError(
-                    "Npcap está instalado pero el driver no está en ejecución. "
-                    "Reinicia el equipo o ejecuta: sc start npcap"
+                    "Npcap is installed but its driver is not running. "
+                    "Restart the machine or run: sc start npcap"
                 )
         except FileNotFoundError:
             pass  # 'sc' missing is not a blocker by itself
@@ -139,11 +139,11 @@ def _srp_with_watchdog(packet, timeout: int, iface: str | None):
     thread.join(timeout=timeout * 4 + 20)
     if thread.is_alive():
         raise ScanPrereqError(
-            "El escaneo ARP no respondió a tiempo. Comprueba que el servidor "
-            "corre como administrador y que Npcap funciona (sc query npcap)."
+            "The ARP scan did not answer in time. Check that the server runs "
+            "as administrator and that Npcap works (sc query npcap)."
         )
     if error:
-        raise ScanPrereqError(f"Fallo en el escaneo ARP: {error[0]}") from error[0]
+        raise ScanPrereqError(f"ARP scan failed: {error[0]}") from error[0]
     return result
 
 

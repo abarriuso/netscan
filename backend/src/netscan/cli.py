@@ -24,7 +24,7 @@ from netscan.scanner import engine, tools
 
 app = typer.Typer(
     name="netscan",
-    help="NetScan — escáner de red, inventario y monitorización de homelab.",
+    help="NetScan — network scanner, inventory and monitoring for homelabs.",
     no_args_is_help=True,
 )
 console = Console()
@@ -44,17 +44,17 @@ def _print_banner() -> None:
 
 @app.command()
 def scan(
-    network: str | None = typer.Option(None, "-n", "--network", help="Red CIDR (ej: 192.168.1.0/24)"),
-    full: bool = typer.Option(False, "--full", help="Escaneo completo con puertos extendidos"),
-    quick: bool = typer.Option(False, "--quick", help="Solo ARP + hostname"),
+    network: str | None = typer.Option(None, "-n", "--network", help="CIDR network (e.g. 192.168.1.0/24)"),
+    full: bool = typer.Option(False, "--full", help="Full scan with extended ports"),
+    quick: bool = typer.Option(False, "--quick", help="ARP + hostname only"),
     export: str | None = typer.Option(None, "--export", help="json | csv | both"),
-    output: str | None = typer.Option(None, "-o", "--output", help="Nombre base de salida"),
-    save: bool = typer.Option(False, "--save", help="Guardar en el inventario SQLite"),
+    output: str | None = typer.Option(None, "-o", "--output", help="Output base name"),
+    save: bool = typer.Option(False, "--save", help="Save to the SQLite inventory"),
 ) -> None:
-    """Escanea la red y muestra los dispositivos encontrados."""
+    """Scan the network and show the devices found."""
     console.print(
         Panel.fit(
-            f"[bold cyan]NetScan v{__version__}[/bold cyan]\n[dim]Escáner de red y monitor de homelab[/dim]",
+            f"[bold cyan]NetScan v{__version__}[/bold cyan]\n[dim]Network scanner and homelab monitor[/dim]",
             border_style="blue",
         )
     )
@@ -72,7 +72,7 @@ def scan(
         TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
         console=console,
     ) as progress:
-        task = progress.add_task("Iniciando...", total=1)
+        task = progress.add_task("Starting...", total=1)
 
         def on_progress(stage: str, done: int, total: int) -> None:
             progress.update(task, description=f"[cyan]{stage}[/cyan]", total=max(total, 1))
@@ -89,8 +89,8 @@ def scan(
 
 def _persist(result: ScanResult, save: bool) -> None:
     if result.total_devices == 0:
-        console.print("[red]No se encontraron dispositivos.[/red]")
-        console.print("[yellow]¿Ejecutas con privilegios de administrador?[/yellow]")
+        console.print("[red]No devices found.[/red]")
+        console.print("[yellow]Are you running with administrator privileges?[/yellow]")
         raise typer.Exit(1)
     if save:
         from netscan.db.store import InventoryStore
@@ -99,19 +99,19 @@ def _persist(result: ScanResult, save: bool) -> None:
         store = InventoryStore(settings.db_url, str(settings.data_dir))
         alerts = store.record_scan(result)
         for alert in alerts:
-            console.print(f"[bold yellow]ALERTA:[/bold yellow] {alert.detail}")
+            console.print(f"[bold yellow]ALERT:[/bold yellow] {alert.detail}")
 
 
 def _display(result: ScanResult) -> None:
     console.print()
     header = Text()
-    header.append("Red: ", style="bold")
+    header.append("Network: ", style="bold")
     header.append(f"{result.network}", style="cyan")
-    header.append("  |  Dispositivos: ", style="bold")
+    header.append("  |  Devices: ", style="bold")
     header.append(f"{result.total_devices}", style="yellow")
-    header.append("  |  Duración: ", style="bold")
+    header.append("  |  Duration: ", style="bold")
     header.append(f"{result.duration_s}s", style="magenta")
-    console.print(Panel(header, title="[bold]NetScan — Resultados[/bold]", border_style="blue"))
+    console.print(Panel(header, title="[bold]NetScan — Results[/bold]", border_style="blue"))
 
     table = Table(show_header=True, header_style="bold cyan", border_style="dim", expand=True)
     for col, style in (
@@ -119,10 +119,10 @@ def _display(result: ScanResult) -> None:
         ("MAC", "dim"),
         ("Hostname", "green"),
         ("Vendor", "yellow"),
-        ("Latencia", ""),
+        ("Latency", ""),
         ("OS", "magenta"),
-        ("Puertos", "red"),
-        ("Servicios", "blue"),
+        ("Ports", "red"),
+        ("Services", "blue"),
     ):
         table.add_column(col, style=style, min_width=8)
 
@@ -143,7 +143,7 @@ def _display(result: ScanResult) -> None:
     console.print(table)
     if result.vulnerabilities:
         console.print()
-        console.print("[bold red]Hallazgos nuclei:[/bold red]")
+        console.print("[bold red]nuclei findings:[/bold red]")
         for finding in result.vulnerabilities:
             console.print(
                 f"  [red]{finding.get('severity', '?')}[/red] "
@@ -158,11 +158,11 @@ def _export(result: ScanResult, export: str, output: str | None) -> None:
     base = output or f"netscan_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     if export in ("json", "both"):
         Path(f"{base}.json").write_text(result.model_dump_json(indent=2), encoding="utf-8")
-        console.print(f"[green]Exportado a {base}.json[/green]")
+        console.print(f"[green]Exported to {base}.json[/green]")
     if export in ("csv", "both"):
         with open(f"{base}.csv", "w", newline="", encoding="utf-8") as fh:
             writer = csv.writer(fh)
-            writer.writerow(["IP", "MAC", "Hostname", "Vendor", "Latencia (ms)", "OS", "Puertos"])
+            writer.writerow(["IP", "MAC", "Hostname", "Vendor", "Latency (ms)", "OS", "Ports"])
             for dev in result.devices:
                 writer.writerow(
                     [
@@ -175,41 +175,41 @@ def _export(result: ScanResult, export: str, output: str | None) -> None:
                         ", ".join(f"{p.port}({p.service})" for p in dev.open_ports),
                     ]
                 )
-        console.print(f"[green]Exportado a {base}.csv[/green]")
+        console.print(f"[green]Exported to {base}.csv[/green]")
 
 
 @app.command()
 def caps() -> None:
-    """Muestra las herramientas externas disponibles en este equipo."""
+    """Show the external tools available on this machine."""
     capabilities = tools.Capabilities.detect()
-    table = Table(title="Capacidades detectadas", header_style="bold cyan")
-    table.add_column("Herramienta", style="bold")
-    table.add_column("Licencia", style="dim")
-    table.add_column("Disponible")
-    table.add_column("Propósito", style="dim")
+    table = Table(title="Detected capabilities", header_style="bold cyan")
+    table.add_column("Tool", style="bold")
+    table.add_column("Licence", style="dim")
+    table.add_column("Available")
+    table.add_column("Purpose", style="dim")
     for key, spec in tools.TOOLS.items():
         available = capabilities.tools.get(key, False)
         table.add_row(
             spec.name,
             spec.license,
-            "[green]sí[/green]" if available else "[dim]no[/dim]",
+            "[green]yes[/green]" if available else "[dim]no[/dim]",
             spec.purpose,
         )
     table.add_row(
         "zeroconf (mDNS)",
         "LGPL-2.1",
-        "[green]sí[/green]" if capabilities.mdns else "[dim]no[/dim]",
-        "Descubrimiento de IoT vía mDNS/Bonjour",
+        "[green]yes[/green]" if capabilities.mdns else "[dim]no[/dim]",
+        "IoT discovery through mDNS/Bonjour",
     )
     console.print(table)
 
 
 @app.command()
 def wake(
-    mac: str = typer.Argument(..., help="MAC del equipo a despertar (aa:bb:cc:dd:ee:ff)"),
-    broadcast: str = typer.Option("255.255.255.255", help="Dirección de broadcast"),
+    mac: str = typer.Argument(..., help="MAC of the machine to wake (aa:bb:cc:dd:ee:ff)"),
+    broadcast: str = typer.Option("255.255.255.255", help="Broadcast address"),
 ) -> None:
-    """Envía un magic packet Wake-on-LAN."""
+    """Send a Wake-on-LAN magic packet."""
     from netscan import wol
 
     try:
@@ -217,15 +217,15 @@ def wake(
     except ValueError as exc:
         console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1) from exc
-    console.print(f"[green]Magic packet enviado a {mac}[/green]")
+    console.print(f"[green]Magic packet sent to {mac}[/green]")
 
 
 @app.command()
 def serve(
-    host: str | None = typer.Option(None, help="Host de escucha de la API"),
-    port: int | None = typer.Option(None, help="Puerto de la API"),
+    host: str | None = typer.Option(None, help="API listen host"),
+    port: int | None = typer.Option(None, help="API port"),
 ) -> None:
-    """Lanza solo el servidor API + scheduler de monitorización (sin abrir navegador)."""
+    """Start only the API server + monitoring scheduler (no browser)."""
     import uvicorn
 
     settings = load_settings()
@@ -269,26 +269,26 @@ def _ensure_frontend_built(build: bool) -> bool:
         pm = None
     if pm is None:
         console.print(
-            "[yellow]pnpm/corepack no encontrado: sirvo la API sin el dashboard integrado.[/yellow]"
+            "[yellow]pnpm/corepack not found: serving the API without the built-in dashboard.[/yellow]"
         )
         return (dist / "index.html").is_file()
     env = {**os.environ, "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"}
     if not (frontend / "node_modules").is_dir():
-        console.print("[cyan]Instalando dependencias del dashboard (pnpm install)...[/cyan]")
+        console.print("[cyan]Installing the dashboard dependencies (pnpm install)...[/cyan]")
         subprocess.run([*pm, "install"], cwd=frontend, check=False, env=env)
-    console.print("[cyan]Compilando el dashboard (pnpm run build)...[/cyan]")
+    console.print("[cyan]Building the dashboard (pnpm run build)...[/cyan]")
     proc = subprocess.run([*pm, "run", "build"], cwd=frontend, check=False, env=env)
     return proc.returncode == 0 and (dist / "index.html").is_file()
 
 
 @app.command()
 def up(
-    host: str | None = typer.Option(None, help="Host de escucha"),
-    port: int | None = typer.Option(None, help="Puerto"),
-    build: bool = typer.Option(False, "--build", help="Forzar recompilar el dashboard"),
-    no_browser: bool = typer.Option(False, "--no-browser", help="No abrir el navegador"),
+    host: str | None = typer.Option(None, help="Listen host"),
+    port: int | None = typer.Option(None, help="Port"),
+    build: bool = typer.Option(False, "--build", help="Force a dashboard rebuild"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Do not open the browser"),
 ) -> None:
-    """Arranca TODO en un solo comando: API + dashboard integrado + navegador."""
+    """Start EVERYTHING in one command: API + built-in dashboard + browser."""
     import threading
     import time as _time
     import webbrowser
@@ -309,9 +309,9 @@ def up(
             f"[green]Dashboard:[/green] {url}\n"
             f"[green]API:[/green] {url}api/\n"
             + (
-                "[dim]dashboard integrado servido por el backend[/dim]"
+                "[dim]built-in dashboard served by the backend[/dim]"
                 if built
-                else "[yellow]dashboard no compilado — solo API disponible[/yellow]"
+                else "[yellow]dashboard not built — API only[/yellow]"
             ),
             title="[bold]NetScan up[/bold]",
             border_style="blue",
@@ -337,17 +337,17 @@ def up(
 
 @app.command()
 def speedtest(
-    target: str | None = typer.Argument(None, help="IP concreta (por defecto: toda la red)"),
-    network: str | None = typer.Option(None, "-n", "--network", help="Red CIDR"),
-    pings: int = typer.Option(5, help="Número de pings por dispositivo"),
-    throughput: bool = typer.Option(False, "--throughput", help="Medir ancho de banda real (más lento)"),
+    target: str | None = typer.Argument(None, help="A specific IP (default: the whole network)"),
+    network: str | None = typer.Option(None, "-n", "--network", help="CIDR network"),
+    pings: int = typer.Option(5, help="Number of pings per device"),
+    throughput: bool = typer.Option(False, "--throughput", help="Measure real bandwidth (slower)"),
 ) -> None:
-    """Mide latencia, jitter, pérdida, handshake TCP y throughput por dispositivo."""
+    """Measure latency, jitter, loss, TCP handshake and throughput per device."""
     from netscan.scanner import enrich, speed
 
     console.print(
         Panel.fit(
-            "[bold cyan]NetScan speed test[/bold cyan]\n[dim]latencia · jitter · pérdida · TCP · throughput[/dim]",
+            "[bold cyan]NetScan speed test[/bold cyan]\n[dim]latency · jitter · loss · TCP · throughput[/dim]",
             border_style="blue",
         )
     )
@@ -360,18 +360,18 @@ def speedtest(
         result = engine.run_scan(cfg=cfg, network=network)
         targets = [d.ip for d in result.devices]
         if not targets:
-            console.print("[red]No se encontraron dispositivos.[/red]")
+            console.print("[red]No devices found.[/red]")
             raise typer.Exit(1)
 
     ports = {**enrich.COMMON_PORTS, **enrich.EXTENDED_PORTS}
     table = Table(show_header=True, header_style="bold cyan", border_style="dim", expand=True)
-    for col in ("IP", "Latencia", "Jitter", "Pérdida", "TCP medio", "Throughput", "Calidad"):
+    for col in ("IP", "Latency", "Jitter", "Loss", "Mean TCP", "Throughput", "Quality"):
         table.add_column(col)
 
     with Progress(
         SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
     ) as progress:
-        task = progress.add_task("Midiendo...", total=len(targets))
+        task = progress.add_task("Measuring...", total=len(targets))
         for ip in targets:
             open_ports = enrich.scan_ports(ip, ports, max_workers=32, timeout=0.4)
             m = speed.measure_device(ip, open_ports, count=pings, throughput=throughput)
@@ -392,7 +392,7 @@ def speedtest(
 
 @app.command()
 def doctor() -> None:
-    """Diagnóstico completo: Python, herramientas, dashboard, privilegios y red."""
+    """Full diagnosis: Python, tools, dashboard, privileges and network."""
     import shutil
 
     from netscan import system
@@ -400,13 +400,17 @@ def doctor() -> None:
 
     settings = load_settings()
 
-    table = Table(title="NetScan — diagnóstico", header_style="bold cyan")
-    table.add_column("Comprobación", style="bold")
-    table.add_column("Estado")
-    table.add_column("Detalle", style="dim")
+    table = Table(title="NetScan — diagnosis", header_style="bold cyan")
+    table.add_column("Check", style="bold")
+    table.add_column("Status")
+    table.add_column("Detail", style="dim")
 
     def row(name: str, ok: bool | None, detail: str) -> None:
-        mark = "[green]OK[/green]" if ok else ("[yellow]aviso[/yellow]" if ok is None else "[red]falta[/red]")
+        mark = (
+            "[green]OK[/green]"
+            if ok
+            else ("[yellow]warning[/yellow]" if ok is None else "[red]missing[/red]")
+        )
         table.add_row(name, mark, detail)
 
     import sys
@@ -414,31 +418,31 @@ def doctor() -> None:
     py_ok = sys.version_info >= (3, 11)
     row("Python", py_ok, sys.version.split()[0])
     row(
-        "Privilegios (ARP)",
+        "Privileges (ARP)",
         discovery.is_elevated() or None,
-        "elevado" if discovery.is_elevated() else "sin privilegios — el ARP scan requiere admin/sudo",
+        "elevated" if discovery.is_elevated() else "not elevated — the ARP scan needs admin/sudo",
     )
 
     caps = tools.Capabilities.detect()
     for key, spec in tools.TOOLS.items():
         available = caps.tools.get(key, False)
         row(f"tool: {spec.name}", available or None, spec.purpose)
-    row("mDNS (zeroconf)", caps.mdns or None, "descubrimiento IoT")
+    row("mDNS (zeroconf)", caps.mdns or None, "IoT discovery")
 
     row(
         "Node/pnpm",
         (shutil.which("pnpm") or shutil.which("corepack")) is not None or None,
-        shutil.which("pnpm") or shutil.which("corepack") or "necesario solo para compilar el dashboard",
+        shutil.which("pnpm") or shutil.which("corepack") or "only needed to build the dashboard",
     )
 
     fe = system.frontend_status()
     row(
-        "Dashboard compilado",
+        "Dashboard built",
         bool(fe.get("built")) or None,
-        str(fe.get("path")) if fe.get("built") else "ejecuta: netscan up --build",
+        str(fe.get("path")) if fe.get("built") else "run: netscan up --build",
     )
 
-    row("Base de datos", True, settings.db_url)
+    row("Database", True, settings.db_url)
 
     net = system.network_info()
     ifaces = net.get("interfaces")
@@ -446,9 +450,9 @@ def doctor() -> None:
         ifaces = []
     up_ifaces = [i for i in ifaces if isinstance(i, dict) and i.get("is_up")]
     row(
-        "Interfaces activas",
+        "Active interfaces",
         bool(up_ifaces) or None,
-        ", ".join(f"{i['name']} ({i.get('speed_mbps') or '?'}Mbps)" for i in up_ifaces[:4]) or "ninguna",
+        ", ".join(f"{i['name']} ({i.get('speed_mbps') or '?'}Mbps)" for i in up_ifaces[:4]) or "none",
     )
 
     console.print(table)

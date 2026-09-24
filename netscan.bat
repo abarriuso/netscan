@@ -21,7 +21,7 @@ if /i "%CMD1%"=="-h" set "NEEDS_ADMIN=0"
 if "%NEEDS_ADMIN%"=="1" (
     net session >nul 2>&1
     if !errorlevel! neq 0 (
-        echo Solicitando permisos de Administrador...
+        echo Requesting Administrator permissions...
         powershell -Command "Start-Process -FilePath '%~f0' -ArgumentList '%*' -Verb RunAs"
         exit /b
     )
@@ -31,7 +31,7 @@ cd /d "%~dp0"
 set "PY=%~dp0backend\.venv\Scripts\python.exe"
 
 if not exist "%PY%" (
-    echo ERROR: no existe el entorno virtual. Ejecuta primero:
+    echo ERROR: the virtual environment does not exist. Run first:
     echo   python -m venv backend\.venv
     echo   backend\.venv\Scripts\pip install -e backend
     pause

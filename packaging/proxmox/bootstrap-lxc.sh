@@ -32,11 +32,11 @@ c_yellow() { printf '\033[33m%s\033[0m\n' "$1"; }
 c_red()    { printf '\033[31m%s\033[0m\n' "$1"; }
 
 if [ "$(id -u)" != "0" ]; then
-  c_red "Ejecuta esto como root dentro del contenedor (es lo normal nada más crearlo)."
+  c_red "Run this as root inside the container (the default right after creating it)."
   exit 1
 fi
 if ! command -v apt-get >/dev/null 2>&1; then
-  c_red "Este script asume Debian/Ubuntu (apt-get). Para otras distros, sigue el README a mano."
+  c_red "This script assumes Debian/Ubuntu (apt-get). For other distros, follow the README by hand."
   exit 1
 fi
 
@@ -44,7 +44,7 @@ echo "============================================================"
 echo "  NetScan — bootstrap LXC"
 echo "============================================================"
 
-c_cyan "[1/3] Paquetes base (git, sudo, curl)..."
+c_cyan "[1/3] Base packages (git, sudo, curl)..."
 export DEBIAN_FRONTEND=noninteractive
 # needrestart (viene en la plantilla debian-*-standard) muestra un diálogo
 # interactivo "¿qué servicios reiniciar?" en CUALQUIER apt-get install,
@@ -57,27 +57,27 @@ apt-get update -qq
 apt-get install -y -qq git sudo curl ca-certificates >/dev/null
 c_green "      OK."
 
-c_cyan "[2/3] Clonando NetScan en $INSTALL_DIR (rama $BRANCH)..."
+c_cyan "[2/3] Cloning NetScan into $INSTALL_DIR (branch $BRANCH)..."
 if [ -d "$INSTALL_DIR/.git" ]; then
   git -C "$INSTALL_DIR" fetch --quiet origin "$BRANCH"
   git -C "$INSTALL_DIR" checkout --quiet "$BRANCH"
   git -C "$INSTALL_DIR" pull --quiet origin "$BRANCH"
-  c_green "      Ya existía; actualizado a lo último de $BRANCH."
+  c_green "      Already there; updated to the latest $BRANCH."
 else
   git clone --quiet --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
-  c_green "      Clonado."
+  c_green "      Cloned."
 fi
 
 cd "$INSTALL_DIR"
 chmod +x install.sh netscan.sh 2>/dev/null || true
 
-c_cyan "[3/3] Instalando como servicio systemd (./install.sh --system)..."
+c_cyan "[3/3] Installing as a systemd service (./install.sh --system)..."
 ./install.sh --system
 
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 echo
 echo "============================================================"
-c_green "  Bootstrap completo."
-echo "  Dashboard:  http://${IP:-<ip-del-contenedor>}:8600/"
-echo "  Token API:  cat /etc/netscan/netscan.env"
+c_green "  Bootstrap complete."
+echo "  Dashboard:  http://${IP:-<container-ip>}:8600/"
+echo "  API token:  cat /etc/netscan/netscan.env"
 echo "============================================================"

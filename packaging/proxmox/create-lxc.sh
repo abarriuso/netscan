@@ -50,8 +50,8 @@ c_yellow() { printf '\033[33m%s\033[0m\n' "$1"; }
 c_red()    { printf '\033[31m%s\033[0m\n' "$1"; }
 
 if [ "$(id -u)" != "0" ] || ! command -v pct >/dev/null 2>&1; then
-  c_red "Esto se ejecuta en la shell del HOST Proxmox (como root), no dentro de un contenedor."
-  c_red "¿Buscabas bootstrap-lxc.sh? Ese va DENTRO del contenedor."
+  c_red "Run this in the Proxmox HOST shell (as root), not inside a container."
+  c_red "Looking for bootstrap-lxc.sh? That one runs INSIDE the container."
   exit 1
 fi
 
@@ -71,10 +71,10 @@ prompt_var() {
   fi
 }
 
-prompt_var VMID        "VMID del contenedor"                       "$(pvesh get /cluster/nextid)"
-prompt_var CT_NAME     "Nombre del contenedor"                     "netscan"
-prompt_var OS_TEMPLATE "Plantilla (Debian/Ubuntu)"                 "ubuntu-26.04-standard"
-prompt_var BRIDGE      "Bridge de red (LAN real, no NAT)"          "vmbr0"
+prompt_var VMID        "Container VMID"                            "$(pvesh get /cluster/nextid)"
+prompt_var CT_NAME     "Container name"                            "netscan"
+prompt_var OS_TEMPLATE "Template (Debian/Ubuntu)"                  "ubuntu-26.04-standard"
+prompt_var BRIDGE      "Network bridge (real LAN, not NAT)"        "vmbr0"
 
 # IP se pregunta en dos pasos simples (IP/CIDR y gateway por separado) en
 # vez de un único campo con la sintaxis "cidr,gw=..." de Proxmox — así no
@@ -82,7 +82,7 @@ prompt_var BRIDGE      "Bridge de red (LAN real, no NAT)"          "vmbr0"
 # sin "gw=" incluido) se respeta tal cual, sin preguntar nada.
 if [ -z "${IP:-}" ]; then
   if [ -t 0 ]; then
-    read -r -p "IP estática, formato 192.168.1.21/24 (vacío = dhcp): " __ip_cidr </dev/tty || __ip_cidr=""
+    read -r -p "Static IP, e.g. 192.168.1.21/24 (empty = dhcp): " __ip_cidr </dev/tty || __ip_cidr=""
   else
     __ip_cidr=""
   fi
@@ -91,7 +91,7 @@ if [ -z "${IP:-}" ]; then
   else
     __gw=""
     if [ -t 0 ]; then
-      read -r -p "Gateway, ej. 192.168.1.1: " __gw </dev/tty || __gw=""
+      read -r -p "Gateway, e.g. 192.168.1.1: " __gw </dev/tty || __gw=""
     fi
     IP="$__ip_cidr${__gw:+,gw=$__gw}"
   fi
@@ -114,7 +114,7 @@ fi
 GENERATED_PASSWORD=0
 if [ -z "${CT_PASSWORD:-}" ]; then
   if [ -t 0 ]; then
-    read -rs -p "Contraseña de root del contenedor (vacío = generar una aleatoria): " CT_PASSWORD </dev/tty || CT_PASSWORD=""
+    read -rs -p "Container root password (empty = generate a random one): " CT_PASSWORD </dev/tty || CT_PASSWORD=""
     echo
   fi
   if [ -z "${CT_PASSWORD:-}" ]; then
@@ -137,32 +137,32 @@ REPO_URL="${REPO_URL:-https://github.com/abarriuso/netscan.git}"
 BRANCH="${BRANCH:-main}"
 
 if pct status "$VMID" >/dev/null 2>&1; then
-  c_red "Ya existe un contenedor con VMID $VMID. Elige otro: VMID=<n> ./create-lxc.sh"
+  c_red "A container with VMID $VMID already exists. Pick another: VMID=<n> ./create-lxc.sh"
   exit 1
 fi
 
 echo "============================================================"
-echo "  NetScan — aprovisionando LXC $VMID ($CT_NAME) en $BRIDGE"
+echo "  NetScan — provisioning LXC $VMID ($CT_NAME) on $BRIDGE"
 echo "============================================================"
 
-c_cyan "[1/5] Buscando plantilla $OS_TEMPLATE..."
+c_cyan "[1/5] Looking for template $OS_TEMPLATE..."
 TEMPLATE="$(pveam list "$TEMPLATE_STORAGE" 2>/dev/null | awk -v p="$OS_TEMPLATE" '$1 ~ p {print $1}' | tail -1)"
 if [ -z "$TEMPLATE" ]; then
-  c_yellow "      No está descargada; buscando $OS_TEMPLATE para descargar..."
+  c_yellow "      Not downloaded yet; looking for $OS_TEMPLATE to download..."
   pveam update >/dev/null
   LATEST="$(pveam available 2>/dev/null | grep -i "$OS_TEMPLATE" | sort -V | tail -1 | awk '{print $2}')"
   if [ -z "$LATEST" ]; then
-    c_red "      No se encontró ninguna plantilla que case con '$OS_TEMPLATE'."
-    c_red "      Mira los nombres exactos con: pveam available | grep -i <distro>"
-    c_red "      y pásalo como OS_TEMPLATE=<nombre-exacto-sin-versión-ni-arch> ./create-lxc.sh"
+    c_red "      No template matches '$OS_TEMPLATE'."
+    c_red "      Check the exact names with: pveam available | grep -i <distro>"
+    c_red "      and pass it as OS_TEMPLATE=<exact-name-without-version-or-arch> ./create-lxc.sh"
     exit 1
   fi
   pveam download "$TEMPLATE_STORAGE" "$LATEST"
   TEMPLATE="${TEMPLATE_STORAGE}:vztmpl/${LATEST}"
 fi
-c_green "      Plantilla: $TEMPLATE"
+c_green "      Template: $TEMPLATE"
 
-c_cyan "[2/5] Creando CT $VMID..."
+c_cyan "[2/5] Creating CT $VMID..."
 NET0="name=eth0,bridge=$BRIDGE,ip=$IP"
 [ -n "$VLAN" ] && NET0="$NET0,tag=$VLAN"
 
@@ -183,16 +183,16 @@ pct create "$VMID" "$TEMPLATE" \
   --password "$CT_PASSWORD" \
   --onboot 1 \
   --start 0
-c_green "      CT $VMID creado (unprivileged, bridge=$BRIDGE${VLAN:+, vlan=$VLAN})."
+c_green "      CT $VMID created (unprivileged, bridge=$BRIDGE${VLAN:+, vlan=$VLAN})."
 
-c_cyan "[3/5] Arrancando..."
+c_cyan "[3/5] Starting..."
 pct start "$VMID"
 for _ in $(seq 1 30); do
   pct exec "$VMID" -- true 2>/dev/null && break
   sleep 1
 done
 
-c_cyan "[4/5] Esperando IP..."
+c_cyan "[4/5] Waiting for an IP..."
 CTIP=""
 for _ in $(seq 1 30); do
   CTIP="$(pct exec "$VMID" -- hostname -I 2>/dev/null | awk '{print $1}')"
@@ -200,12 +200,12 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 if [ -z "$CTIP" ]; then
-  c_yellow "      Sin IP todavía tras 30s — revisa la config de red del bridge/VLAN."
+  c_yellow "      Still no IP after 30 s — check the bridge/VLAN network config."
 else
   c_green "      IP: $CTIP"
 fi
 
-c_cyan "[5/5] Instalando NetScan dentro del contenedor..."
+c_cyan "[5/5] Installing NetScan inside the container..."
 # ${BASH_SOURCE[0]:-} (not bare ${BASH_SOURCE[0]}) matters here: when this
 # script runs as `bash -c "$(curl ...)"` (no real source file, just a
 # string), BASH_SOURCE is unset entirely, and `set -u` turns a bare
@@ -216,7 +216,7 @@ if [ -n "$SELF" ] && [ -f "$(dirname "$SELF")/bootstrap-lxc.sh" ]; then
   BOOTSTRAP="$(cd "$(dirname "$SELF")" && pwd)/bootstrap-lxc.sh"
 fi
 if [ -z "$BOOTSTRAP" ]; then
-  c_yellow "      bootstrap-lxc.sh no está junto a este script; descargándolo..."
+  c_yellow "      bootstrap-lxc.sh is not next to this script; downloading it..."
   BOOTSTRAP="/tmp/bootstrap-lxc.$$.sh"
   curl -fsSL "https://raw.githubusercontent.com/abarriuso/netscan/main/packaging/proxmox/bootstrap-lxc.sh" -o "$BOOTSTRAP"
 fi
@@ -225,13 +225,13 @@ pct exec "$VMID" -- bash -c "chmod +x /root/bootstrap-lxc.sh; REPO_URL='$REPO_UR
 
 echo
 echo "============================================================"
-c_green "  NetScan listo en el CT $VMID."
-echo "  Dashboard:  http://${CTIP:-<ip-del-ct>}:8600/"
-echo "  Token API:  pct exec $VMID -- cat /etc/netscan/netscan.env"
+c_green "  NetScan is ready in CT $VMID."
+echo "  Dashboard:  http://${CTIP:-<ct-ip>}:8600/"
+echo "  API token:  pct exec $VMID -- cat /etc/netscan/netscan.env"
 echo "  Logs:       pct exec $VMID -- journalctl -u netscan -f"
 if [ "$GENERATED_PASSWORD" = "1" ]; then
-  echo "  Root del CT: $CT_PASSWORD   (generada — guárdala, no se puede recuperar después)"
+  echo "  CT root:    $CT_PASSWORD   (generated — keep it, it cannot be recovered later)"
 else
-  echo "  Root del CT: la contraseña que escribiste al principio"
+  echo "  CT root:    the password you typed at the start"
 fi
 echo "============================================================"

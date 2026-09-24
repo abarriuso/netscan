@@ -33,17 +33,17 @@ echo ============================================================
 echo.
 
 REM --- 1. Python ----------------------------------------------
-echo [1/5] Comprobando Python 3.11+...
+echo [1/5] Checking Python 3.11+...
 set "PYBOOT="
 
 REM Si el venv ya existe y es 3.11+, no hace falta tocar el Python del sistema
 if exist "%VENV_PY%" (
     "%VENV_PY%" -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>&1
     if !errorlevel! equ 0 (
-        echo       Entorno virtual existente OK.
+        echo       Existing virtual environment OK.
         goto :backend
     )
-    echo       El entorno virtual usa un Python antiguo; se recrea.
+    echo       The virtual environment uses an old Python; recreating it.
     rmdir /s /q backend\.venv
 )
 
@@ -62,17 +62,17 @@ if not defined PYBOOT (
     )
 )
 if not defined PYBOOT (
-    echo       Python 3.11+ no encontrado ^(o es demasiado viejo^). Instalando Python 3.12 con winget...
+    echo       Python 3.11+ not found ^(or too old^). Installing Python 3.12 with winget...
     where winget >nul 2>&1
     if !errorlevel! neq 0 (
-        echo ERROR: instala Python 3.11+ desde https://python.org y reintenta.
+        echo ERROR: install Python 3.11+ from https://python.org and try again.
         pause
         exit /b 1
     )
     winget install --id Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
     echo.
-    echo Python 3.12 instalado. Cierra esta ventana y vuelve a ejecutar install.bat
-    echo ^(el PATH de esta sesion no se actualiza solo^).
+    echo Python 3.12 installed. Close this window and run install.bat again
+    echo ^(this session's PATH does not update by itself^).
     pause
     exit /b 0
 )
@@ -81,7 +81,7 @@ echo       Python OK: %PYBOOT%
 REM --- 2. Backend ---------------------------------------------
 :backend
 echo.
-echo [2/5] Creando entorno virtual e instalando el backend...
+echo [2/5] Creating the virtual environment and installing the backend...
 if not exist "%VENV_PY%" (
     %PYBOOT% -m venv backend\.venv
     if !errorlevel! neq 0 goto :error
@@ -94,37 +94,37 @@ echo       Backend OK.
 REM --- 3. Herramientas externas -------------------------------
 echo.
 if "%MINIMAL%"=="1" (
-    echo [3/5] Herramientas externas OMITIDAS ^(modo --minimal^).
+    echo [3/5] External tools SKIPPED ^(--minimal^).
     goto :refresh_path
 )
-echo [3/5] Instalando herramientas externas ^(nmap, RustScan, Npcap, nuclei^)...
+echo [3/5] Installing external tools ^(nmap, RustScan, Npcap, nuclei^)...
 where winget >nul 2>&1
 if %errorlevel% neq 0 (
-    echo       winget no esta disponible — se omiten las herramientas externas.
-    echo       NetScan funcionara con degradacion elegante ^(escaneo interno^).
+    echo       winget is not available - skipping the external tools.
+    echo       NetScan will degrade gracefully ^(built-in scanning^).
     goto :refresh_path
 )
 
 where nmap >nul 2>&1
 if %errorlevel% neq 0 (
-    echo       Instalando nmap...
+    echo       Installing nmap...
     winget install --id Insecure.Nmap --silent --accept-package-agreements --accept-source-agreements
 ) else (
-    echo       nmap ya instalado.
+    echo       nmap already installed.
 )
 
 where rustscan >nul 2>&1
 if %errorlevel% neq 0 (
-    echo       Instalando RustScan...
+    echo       Installing RustScan...
     winget install --id bee-san.RustScan --silent --accept-package-agreements --accept-source-agreements
 ) else (
-    echo       RustScan ya instalado.
+    echo       RustScan already installed.
 )
 
 REM Npcap (driver de captura para el ARP scan en Windows)
 sc query npcap | find "RUNNING" >nul 2>&1
 if %errorlevel% neq 0 (
-    echo       Instalando Npcap...
+    echo       Installing Npcap...
     winget install --id Insecure.Npcap --silent --accept-package-agreements --accept-source-agreements
 ) else (
     echo       Npcap OK.
@@ -137,16 +137,16 @@ REM ProjectDiscovery antes de instalarse (scripts\install-nuclei.ps1).
 REM Si Defender lo pone en cuarentena, el resto de NetScan sigue OK.
 where nuclei >nul 2>&1
 if %errorlevel% neq 0 (
-    echo       Instalando nuclei ^(verificado por SHA256^)...
+    echo       Installing nuclei ^(SHA256-verified^)...
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-nuclei.ps1"
     if !errorlevel! neq 0 (
-        echo       AVISO: nuclei no se pudo instalar ^(posible cuarentena del antivirus^).
-        echo       NetScan funciona sin el; la auditoria web quedara desactivada.
+        echo       WARNING: nuclei could not be installed ^(possibly quarantined by the antivirus^).
+        echo       NetScan works without it; the web audit will be disabled.
     ) else (
-        echo       nuclei instalado en %%LOCALAPPDATA%%\NetScan\bin.
+        echo       nuclei installed in %%LOCALAPPDATA%%\NetScan\bin.
     )
 ) else (
-    echo       nuclei ya instalado.
+    echo       nuclei already installed.
 )
 
 REM --- Refrescar PATH con lo que haya instalado winget --------
@@ -157,14 +157,14 @@ if defined SYS_PATH if defined USR_PATH set "PATH=!SYS_PATH!;!USR_PATH!"
 
 REM --- 4. Node.js + frontend ----------------------------------
 echo.
-echo [4/5] Instalando dependencias del dashboard...
+echo [4/5] Installing the dashboard dependencies...
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo       Node.js no encontrado. Instalando Node LTS con winget...
+    echo       Node.js not found. Installing Node LTS with winget...
     where winget >nul 2>&1
     if !errorlevel! neq 0 (
-        echo       winget no disponible: instala Node.js 20+ desde https://nodejs.org
-        echo       y reintenta. El backend y la CLI funcionan sin el.
+        echo       winget not available: install Node.js 20+ from https://nodejs.org
+        echo       and try again. The backend and the CLI work without it.
         goto :verify
     )
     winget install --id OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
@@ -173,8 +173,8 @@ if %errorlevel% neq 0 (
     if defined SYS_PATH if defined USR_PATH set "PATH=!SYS_PATH!;!USR_PATH!"
     where node >nul 2>&1
     if !errorlevel! neq 0 (
-        echo       Node instalado pero el PATH no se refresco.
-        echo       Cierra esta ventana y vuelve a ejecutar install.bat para el dashboard.
+        echo       Node installed but the PATH was not refreshed.
+        echo       Close this window and run install.bat again for the dashboard.
         goto :verify
     )
 )
@@ -185,10 +185,10 @@ if !errorlevel! neq 0 (
     cd ..
     goto :error
 )
-echo       Compilando el dashboard ^(pnpm run build^)...
+echo       Building the dashboard ^(pnpm run build^)...
 call corepack pnpm run build
 if !errorlevel! neq 0 (
-    echo       AVISO: el build del dashboard fallo; la API funcionara sin UI integrada.
+    echo       WARNING: the dashboard build failed; the API will work without the built-in UI.
 )
 cd ..
 echo       Frontend OK.
@@ -196,23 +196,23 @@ echo       Frontend OK.
 REM --- 5. Verificacion ----------------------------------------
 :verify
 echo.
-echo [5/5] Verificando...
+echo [5/5] Verifying...
 "%VENV_PY%" -m netscan.cli doctor
 
 echo.
 echo ============================================================
-echo   Instalacion completa.
+echo   Installation complete.
 echo.
-echo   TODO en un comando:  netscan.bat up      ^(API + dashboard + navegador^)
-echo   Solo API:            netscan.bat serve
-echo   Escaneo:             netscan.bat scan --full
+echo   Everything at once: netscan.bat up      ^(API + dashboard + browser^)
+echo   API only:            netscan.bat serve
+echo   Scan:                netscan.bat scan --full
 echo   Speed test:          netscan.bat speedtest
-echo   Diagnostico:         netscan.bat doctor
+echo   Diagnosis:           netscan.bat doctor
 echo ============================================================
 
 if "%RUNAFTER%"=="1" (
     echo.
-    echo Lanzando NetScan...
+    echo Starting NetScan...
     call "%~dp0netscan.bat" up
     exit /b 0
 )
@@ -222,7 +222,7 @@ exit /b 0
 
 :error
 echo.
-echo ERROR: la instalacion ha fallado. Revisa los mensajes anteriores.
+echo ERROR: the installation failed. Check the messages above.
 if "%NETSCAN_NONINTERACTIVE%"=="1" exit /b 1
 pause
 exit /b 1

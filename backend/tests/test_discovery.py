@@ -11,7 +11,7 @@ from netscan.scanner import discovery
 
 def test_arp_scan_requires_elevation(monkeypatch):
     monkeypatch.setattr(discovery, "is_elevated", lambda: False)
-    with pytest.raises(discovery.ScanPrereqError, match="administrador"):
+    with pytest.raises(discovery.ScanPrereqError, match="administrator"):
         discovery.arp_scan("192.168.1.0/24")
 
 
