@@ -17,7 +17,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PY="$ROOT/backend/.venv-linux/bin/python"
 
 if [ ! -x "$PY" ]; then
-  echo "ERROR: no existe el entorno virtual. Ejecuta primero: ./install.sh"
+  echo "ERROR: the virtual environment does not exist. Run ./install.sh first"
   exit 1
 fi
 

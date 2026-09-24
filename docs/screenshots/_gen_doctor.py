@@ -1,8 +1,8 @@
-"""Genera docs/screenshots/doctor-cli.svg reproduciendo la salida real de
-`netscan doctor` con Rich (record=True → save_svg). Datos de ejemplo realistas
-para que la captura sea representativa aunque no haya herramientas instaladas.
+"""Generates docs/screenshots/doctor-cli.svg (and .png) by reproducing the real
+`netscan doctor` output with Rich (record=True -> save_svg). Realistic sample
+data, so the screenshot is representative even without the tools installed.
 
-Uso:  backend/.venv-linux/bin/python docs/screenshots/_gen_doctor.py
+Usage:  backend/.venv-linux/bin/python docs/screenshots/_gen_doctor.py
 """
 
 from __future__ import annotations
@@ -14,28 +14,28 @@ console = Console(record=True, width=84)
 
 
 def build() -> Table:
-    table = Table(title="NetScan — diagnóstico", header_style="bold cyan")
-    table.add_column("Comprobación", style="bold")
-    table.add_column("Estado")
-    table.add_column("Detalle", style="dim")
+    table = Table(title="NetScan — diagnosis", header_style="bold cyan")
+    table.add_column("Check", style="bold")
+    table.add_column("Status")
+    table.add_column("Detail", style="dim")
 
     OK = "[green]OK[/green]"
-    WARN = "[yellow]aviso[/yellow]"
+    WARN = "[yellow]warning[/yellow]"
 
     rows = [
         ("Python", OK, "3.12.3"),
-        ("Privilegios (ARP)", OK, "elevado"),
+        ("Privileges (ARP)", OK, "elevated"),
         ("tool: nmap", OK, "Service/version detection, OS fingerprinting"),
         ("tool: rustscan", OK, "Ultra-fast port scanning (feeds nmap)"),
         ("tool: masscan", WARN, "Large-scale port scanning"),
         ("tool: nuclei", OK, "Template-based vulnerability scanning"),
         ("tool: whatweb", OK, "Web technology fingerprinting"),
         ("tool: testssl.sh", WARN, "TLS configuration auditing"),
-        ("mDNS (zeroconf)", OK, "descubrimiento IoT"),
+        ("mDNS (zeroconf)", OK, "IoT discovery"),
         ("Node/pnpm", OK, "pnpm 9.12.0"),
-        ("Dashboard compilado", OK, "frontend/dist"),
-        ("Base de datos", OK, "sqlite:///data/netscan.db"),
-        ("Interfaces activas", OK, "eth0 (10000Mbps)"),
+        ("Dashboard built", OK, "frontend/dist"),
+        ("Database", OK, "sqlite:///data/netscan.db"),
+        ("Active interfaces", OK, "eth0 (10000Mbps)"),
     ]
     for name, mark, detail in rows:
         table.add_row(name, mark, detail)
@@ -50,7 +50,7 @@ console.save_svg(
     title="netscan doctor",
 )
 
-# SVG → PNG (resvg; usa DejaVu Sans Mono, presente en la mayoría de distros).
+# SVG -> PNG (resvg; uses DejaVu Sans Mono, present on most distros).
 try:
     import resvg_py
 
@@ -62,7 +62,7 @@ try:
         monospace_family="DejaVu Sans Mono",
     )
     __import__("pathlib").Path("docs/screenshots/doctor-cli.png").write_bytes(bytes(_png))
-    print("PNG escrito en docs/screenshots/doctor-cli.png")
+    print("PNG written to docs/screenshots/doctor-cli.png")
 except ImportError:
-    print("resvg-py no instalado: solo se generó el SVG. pip install resvg-py para el PNG.")
-print("SVG escrito en docs/screenshots/doctor-cli.svg")
+    print("resvg-py not installed: only the SVG was generated. pip install resvg-py for the PNG.")
+print("SVG written to docs/screenshots/doctor-cli.svg")

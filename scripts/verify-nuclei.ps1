@@ -15,10 +15,10 @@ $chk = Invoke-RestMethod -Uri $chkAsset.browser_download_url
 $official = ($chk -split "`n" | Where-Object { $_ -match $zipAsset.name } | Select-Object -First 1) -split '\s+' | Select-Object -First 1
 
 Write-Host "SHA256 local:    $local"
-Write-Host "SHA256 oficial:  $($official.ToLower())"
+Write-Host "SHA256 official: $($official.ToLower())"
 if ($local -eq $official.ToLower()) {
-    Write-Host "RESULTADO: COINCIDE — el binario es el oficial de ProjectDiscovery"
+    Write-Host "RESULT: MATCH — the binary is the official ProjectDiscovery build"
 } else {
-    Write-Host "RESULTADO: NO COINCIDE — algo va mal, no instalar"
+    Write-Host "RESULT: NO MATCH — something is wrong, do not install"
 }
 Remove-Item $zip -ErrorAction SilentlyContinue

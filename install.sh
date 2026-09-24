@@ -24,8 +24,8 @@ VENV="$ROOT/backend/.venv-linux"
 PY="$VENV/bin/python"
 if [ -f "$ROOT/backend/.venv/Scripts/python.exe" ] && [ ! -e "$VENV" ]; then
   c_yellow() { printf '\033[33m%s\033[0m\n' "$1"; }
-  c_yellow "Aviso: backend/.venv ya existe y parece un venv de Windows (tiene Scripts/python.exe)."
-  c_yellow "Este instalador usa backend/.venv-linux en su lugar, así que no lo toca. Ignora este aviso si es la primera vez que ves esto."
+  c_yellow "Note: backend/.venv already exists and looks like a Windows venv (it has Scripts/python.exe)."
+  c_yellow "This installer uses backend/.venv-linux instead and leaves it alone. You can ignore this note."
 fi
 
 MINIMAL=0
@@ -36,7 +36,7 @@ for arg in "$@"; do
     --minimal) MINIMAL=1 ;;
     --run)     RUN=1 ;;
     --system)  SYSTEM=1 ;;
-    *) echo "Opción desconocida: $arg"; exit 1 ;;
+    *) echo "Unknown option: $arg"; exit 1 ;;
   esac
 done
 
@@ -63,7 +63,7 @@ if command -v apt-get >/dev/null 2>&1; then
 fi
 
 # --- 1. Python -----------------------------------------------
-echo; c_cyan "[1/5] Comprobando Python 3.11+..."
+echo; c_cyan "[1/5] Checking Python 3.11+..."
 PYBOOT=""
 for cand in python3.12 python3.11 python3; do
   if command -v "$cand" >/dev/null 2>&1; then
@@ -73,7 +73,7 @@ for cand in python3.12 python3.11 python3; do
   fi
 done
 if [ -z "$PYBOOT" ]; then
-  c_yellow "Python 3.11+ no encontrado. Intentando instalarlo..."
+  c_yellow "Python 3.11+ not found. Trying to install it..."
   if command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update -y && sudo apt-get install -y python3 python3-venv python3-pip
     PYBOOT=python3
@@ -84,13 +84,13 @@ if [ -z "$PYBOOT" ]; then
   elif command -v brew >/dev/null 2>&1; then
     brew install python@3.12 && PYBOOT=python3.12
   else
-    echo "ERROR: instala Python 3.11+ manualmente y reintenta."; exit 1
+    echo "ERROR: install Python 3.11+ manually and try again."; exit 1
   fi
 fi
 c_green "      Python OK: $($PYBOOT --version)"
 
 # --- 2. Backend ----------------------------------------------
-echo; c_cyan "[2/5] Creando entorno virtual e instalando el backend..."
+echo; c_cyan "[2/5] Creating the virtual environment and installing the backend..."
 # No basta con comprobar que $PY existe: un intento anterior fallido (p.ej.
 # un venv creado sin pip por un fallo previo de ensurepip, luego interrumpido
 # antes de terminar de instalarlo) deja un venv "válido" pero sin pip, que
@@ -122,7 +122,7 @@ if [ ! -x "$PY" ] || ! "$PY" -m pip --version >/dev/null 2>&1; then
     if grep -qi "ensurepip\|no module named venv" /tmp/netscan-venv-err.$$ 2>/dev/null \
        && command -v apt-get >/dev/null 2>&1; then
       PYVER="$("$PYBOOT" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
-      c_yellow "      Falta el paquete de venv para Python $PYVER; instalando..."
+      c_yellow "      The venv package for Python $PYVER is missing; installing it..."
       sudo apt-get update -y || true
       # Nombre versionado y genérico: en algunas versiones solo existe uno
       # de los dos, o el paquete versionado se llama distinto de lo
@@ -136,7 +136,7 @@ if [ ! -x "$PY" ] || ! "$PY" -m pip --version >/dev/null 2>&1; then
         # venv module itself now works (creates the dir/activate scripts)
         # but bundling pip via ensurepip still fails — sidestep ensurepip
         # entirely instead of chasing the exact missing OS package further.
-        c_yellow "      Seguía sin poder instalar pip vía ensurepip; creando el venv sin pip y arrancándolo a mano..."
+        c_yellow "      pip still could not be installed through ensurepip; creating the venv without pip and bootstrapping it by hand..."
         rm -f /tmp/netscan-venv-err.$$
         "$PYBOOT" -m venv --without-pip "$VENV"
         if ! "$PY" -m ensurepip --upgrade 2>/dev/null; then
@@ -168,16 +168,16 @@ c_green "      Backend OK."
 # --- 3. Herramientas externas --------------------------------
 echo
 if [ "$MINIMAL" = "1" ]; then
-  c_yellow "[3/5] Herramientas externas OMITIDAS (--minimal)."
+  c_yellow "[3/5] External tools SKIPPED (--minimal)."
 else
-  c_cyan "[3/5] Instalando herramientas externas (nmap, masscan, whatweb, testssl.sh, RustScan, nuclei)..."
+  c_cyan "[3/5] Installing external tools (nmap, masscan, whatweb, testssl.sh, RustScan, nuclei)..."
   install_tool() {
-    command -v "$1" >/dev/null 2>&1 && { echo "      $1 ya instalado."; return; }
+    command -v "$1" >/dev/null 2>&1 && { echo "      $1 already installed."; return; }
     if   command -v apt-get >/dev/null 2>&1; then sudo apt-get install -y "$2" || true
     elif command -v dnf     >/dev/null 2>&1; then sudo dnf install -y "$2" || true
     elif command -v pacman  >/dev/null 2>&1; then sudo pacman -Sy --noconfirm "$2" || true
     elif command -v brew    >/dev/null 2>&1; then brew install "$2" || true
-    else c_yellow "      No sé instalar $1 en este sistema; se omite (degradación elegante)."; fi
+    else c_yellow "      Cannot install $1 on this system; skipping it (graceful degradation)."; fi
   }
 
   # Package-manager tools: same as install.bat's winget set, plus the two
@@ -189,10 +189,10 @@ else
   if ! command -v testssl.sh >/dev/null 2>&1; then
     # Not every distro's repo ships it (package name/version varies) — the
     # upstream repo always works and is what the README's manual steps use.
-    c_cyan "      testssl.sh no estaba en los repos; clonando desde GitHub..."
+    c_cyan "      testssl.sh is not in the repositories; cloning it from GitHub..."
     git clone --depth 1 -q https://github.com/drwetter/testssl.sh.git /tmp/testssl.sh.$$ 2>/dev/null \
       && sudo ln -sf /tmp/testssl.sh.$$/testssl.sh /usr/local/bin/testssl.sh \
-      || c_yellow "      No se pudo instalar testssl.sh; se omite (degradación elegante)."
+      || c_yellow "      Could not install testssl.sh; skipping it (graceful degradation)."
   fi
 
   # RustScan and nuclei: no apt/dnf/pacman package exists anywhere. Same
@@ -202,7 +202,7 @@ else
   ARCH="$(uname -m)"
   if [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "amd64" ]; then
     if ! command -v rustscan >/dev/null 2>&1; then
-      c_cyan "      Instalando RustScan..."
+      c_cyan "      Installing RustScan..."
       # bee-san/RustScan (the RustScan/RustScan API path 301-redirects here).
       # Only Linux release asset is rustscan.deb.zip — a zip CONTAINING a
       # .deb, not a .deb itself (verified against a real release, not
@@ -216,18 +216,18 @@ else
           && rm -rf /tmp/rustscan.$$.zip /tmp/rustscan.$$ ) || true
       fi
       if ! command -v rustscan >/dev/null 2>&1 && command -v cargo >/dev/null 2>&1; then
-        c_cyan "      dpkg no disponible; instalando RustScan vía cargo..."
+        c_cyan "      dpkg not available; installing RustScan through cargo..."
         cargo install rustscan || true
       fi
       command -v rustscan >/dev/null 2>&1 \
         && c_green "      RustScan OK." \
-        || c_yellow "      No se pudo instalar RustScan; se omite (degradación elegante)."
+        || c_yellow "      Could not install RustScan; skipping it (graceful degradation)."
     else
-      echo "      RustScan ya instalado."
+      echo "      RustScan already installed."
     fi
 
     if ! command -v nuclei >/dev/null 2>&1; then
-      c_cyan "      Instalando nuclei..."
+      c_cyan "      Installing nuclei..."
       ZIP_URL="$( (curl -s https://api.github.com/repos/projectdiscovery/nuclei/releases/latest \
         | grep -o '"browser_download_url": *"[^"]*linux_amd64\.zip"' | cut -d'"' -f4 | head -1) || true )"
       if [ -n "$ZIP_URL" ] && command -v unzip >/dev/null 2>&1; then
@@ -238,17 +238,17 @@ else
       fi
       command -v nuclei >/dev/null 2>&1 \
         && c_green "      nuclei OK." \
-        || c_yellow "      No se pudo instalar nuclei; se omite (degradación elegante)."
+        || c_yellow "      Could not install nuclei; skipping it (graceful degradation)."
     else
-      echo "      nuclei ya instalado."
+      echo "      nuclei already installed."
     fi
   else
-    c_yellow "      RustScan/nuclei: solo hay binario amd64 en GitHub; arquitectura $ARCH no soportada, se omiten."
+    c_yellow "      RustScan/nuclei: GitHub only ships amd64 binaries; architecture $ARCH is not supported, skipping them."
   fi
 fi
 
 # --- 4. Node.js + dashboard ----------------------------------
-echo; c_cyan "[4/5] Instalando y compilando el dashboard..."
+echo; c_cyan "[4/5] Installing and building the dashboard..."
 if ! command -v node >/dev/null 2>&1 && ! command -v corepack >/dev/null 2>&1; then
   # Una plantilla LXC/VM pelada (Proxmox, WSL mínimo, ...) nunca trae
   # Node preinstalado — sin esto, el dashboard se saltaba en silencio y la
@@ -256,7 +256,7 @@ if ! command -v node >/dev/null 2>&1 && ! command -v corepack >/dev/null 2>&1; t
   # con Ubuntu 26.04). Se requiere Node 20+; el paquete "nodejs" de los
   # repos de Debian/Ubuntu suele ir muy por detrás o no existir en la
   # plantilla base, así que se usa el script oficial de NodeSource.
-  c_yellow "      Node no encontrado. Intentando instalarlo (se requiere Node 20+)..."
+  c_yellow "      Node not found. Trying to install it (Node 20+ is required)..."
   if command -v apt-get >/dev/null 2>&1; then
     if curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - >/tmp/netscan-node-setup.$$ 2>&1; then
       sudo apt-get install -y nodejs || true
@@ -280,25 +280,25 @@ if command -v corepack >/dev/null 2>&1 || command -v node >/dev/null 2>&1; then
   # elegante: la API sigue funcionando sin UI integrada), así que se
   # comprueba fuera de una cadena '&&' para no disparar 'set -e'.
   if ! ( cd "$ROOT/frontend" && corepack pnpm install ); then
-    echo "ERROR: fallo instalando dependencias del dashboard (pnpm install)." >&2
+    echo "ERROR: installing the dashboard dependencies failed (pnpm install)." >&2
     exit 1
   fi
   if ( cd "$ROOT/frontend" && corepack pnpm run build ); then
-    c_green "      Dashboard compilado (frontend/dist)."
+    c_green "      Dashboard built (frontend/dist)."
   else
-    c_yellow "      AVISO: el build del dashboard falló; la API funcionará sin UI integrada."
+    c_yellow "      WARNING: the dashboard build failed; the API will work without the built-in UI."
   fi
 else
-  c_yellow "      Node no disponible (y no se pudo instalar automáticamente). El backend y la CLI funcionan sin el dashboard."
-  c_yellow "      Instala Node 20+ (https://nodejs.org) y ejecuta: ./netscan.sh up --build"
+  c_yellow "      Node is not available (and could not be installed automatically). The backend and the CLI work without the dashboard."
+  c_yellow "      Install Node 20+ (https://nodejs.org) and run: ./netscan.sh up --build"
 fi
 
 # --- 5. Servicio del sistema (opcional) ----------------------
-echo; c_cyan "[5/5] Verificando..."
+echo; c_cyan "[5/5] Verifying..."
 "$PY" -m netscan.cli doctor || true
 
 if [ "$SYSTEM" = "1" ]; then
-  echo; c_cyan "Instalando comando global y servicio web (systemd)..."
+  echo; c_cyan "Installing the global command and the web service (systemd)..."
   sudo ln -sf "$VENV/bin/netscan" /usr/local/bin/netscan
 
   # Fichero de entorno del servicio web: bind a toda la LAN + token generado.
@@ -314,18 +314,18 @@ NETSCAN_API_PORT=8600
 NETSCAN_API_TOKEN=$TOKEN
 EOF
     sudo chmod 640 /etc/netscan/netscan.env
-    c_green "      Config del servicio: /etc/netscan/netscan.env"
-    c_yellow "      Token de la API: $TOKEN"
-    c_yellow "      (guárdalo: lo necesita el dashboard al exponerlo en la LAN)"
+    c_green "      Service config: /etc/netscan/netscan.env"
+    c_yellow "      API token: $TOKEN"
+    c_yellow "      (keep it: the dashboard needs it when exposed on the LAN)"
   else
     # Re-ejecutar install.sh --system (p.ej. tras un `git pull`) no debe
     # obligar a ir a buscar el token a mano — confirmado en vivo: sin esto,
     # el único rastro del token es la salida de la primera instalación,
     # fácil de perder de vista en medio de varios reintentos.
     EXISTING_TOKEN="$(sudo sed -n 's/^NETSCAN_API_TOKEN=//p' /etc/netscan/netscan.env 2>/dev/null || true)"
-    c_cyan "      Config del servicio ya existía: /etc/netscan/netscan.env"
+    c_cyan "      Service config already existed: /etc/netscan/netscan.env"
     if [ -n "$EXISTING_TOKEN" ]; then
-      c_yellow "      Token de la API: $EXISTING_TOKEN"
+      c_yellow "      API token: $EXISTING_TOKEN"
     fi
   fi
 
@@ -343,8 +343,8 @@ EOF
     # before the build finished. `restart` covers both cases.
     sudo systemctl restart netscan.service || true
     IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
-    c_green "      Servicio netscan.service activo (systemctl status netscan)."
-    c_green "      Dashboard web:  http://${IP:-<ip-del-servidor>}:8600/"
+    c_green "      netscan.service is running (systemctl status netscan)."
+    c_green "      Web dashboard:  http://${IP:-<server-ip>}:8600/"
   fi
   # Lanzador de escritorio
   if [ -d "$HOME/.local/share/applications" ] || mkdir -p "$HOME/.local/share/applications" 2>/dev/null; then
@@ -355,15 +355,15 @@ fi
 
 echo
 echo "============================================================"
-c_green "  Instalación completa."
+c_green "  Installation complete."
 echo
-echo "   Un comando para todo:   ./netscan.sh up"
-echo "   Solo API:               ./netscan.sh serve"
-echo "   Speed test:             ./netscan.sh speedtest"
-echo "   Diagnóstico:            ./netscan.sh doctor"
+echo "   Everything, one command: ./netscan.sh up"
+echo "   API only:                ./netscan.sh serve"
+echo "   Speed test:              ./netscan.sh speedtest"
+echo "   Diagnosis:               ./netscan.sh doctor"
 echo "============================================================"
 
 if [ "$RUN" = "1" ]; then
-  echo; c_cyan "Lanzando NetScan..."
+  echo; c_cyan "Starting NetScan..."
   exec "$ROOT/netscan.sh" up
 fi

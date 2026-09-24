@@ -8,9 +8,9 @@ New-Item -ItemType Directory -Force -Path $d | Out-Null
 $rel = Invoke-RestMethod https://api.github.com/repos/projectdiscovery/nuclei/releases/latest
 $zipAsset = $rel.assets | Where-Object { $_.name -match 'windows_amd64.zip$' } | Select-Object -First 1
 $chkAsset = $rel.assets | Where-Object { $_.name -match 'checksums' } | Select-Object -First 1
-if (-not $zipAsset -or -not $chkAsset) { Write-Error "No se encontraron los assets de la release"; exit 1 }
+if (-not $zipAsset -or -not $chkAsset) { Write-Error "The release assets were not found"; exit 1 }
 
-Write-Host "Descargando $($zipAsset.name) ($($rel.tag_name))"
+Write-Host "Downloading $($zipAsset.name) ($($rel.tag_name))"
 $zip = "$env:TEMP\nuclei.zip"
 Invoke-WebRequest -Uri $zipAsset.browser_download_url -OutFile $zip
 
@@ -20,10 +20,10 @@ $chk = Invoke-RestMethod -Uri $chkAsset.browser_download_url
 $official = (($chk -split "`n" | Where-Object { $_ -match $zipAsset.name } | Select-Object -First 1) -split '\s+')[0].ToLower()
 if (-not $official -or $local -ne $official) {
     Remove-Item $zip -ErrorAction SilentlyContinue
-    Write-Error "SHA256 NO COINCIDE (local: $local, oficial: $official). Abortando."
+    Write-Error "SHA256 MISMATCH (local: $local, official: $official). Aborting."
     exit 1
 }
-Write-Host "SHA256 verificado: $local"
+Write-Host "SHA256 verified: $local"
 
 Expand-Archive -Force $zip $d
 Remove-Item $zip

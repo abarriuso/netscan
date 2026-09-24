@@ -42,12 +42,30 @@ UninstallDisplayName=NetScan
 SetupLogging=yes
 
 [Languages]
-Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
+
+[CustomMessages]
+english.MinimalInstall=Minimal install (no nmap/RustScan/nuclei)
+spanish.MinimalInstall=Instalación mínima (sin nmap/RustScan/nuclei)
+english.Options=Options:
+spanish.Options=Opciones:
+english.DashboardComment=Starts the API + dashboard and opens the browser
+spanish.DashboardComment=Arranca API + dashboard y abre el navegador
+english.ConsoleName=Console
+spanish.ConsoleName=Consola
+english.ConsoleComment=NetScan terminal
+spanish.ConsoleComment=Terminal de NetScan
+english.UninstallName=Uninstall NetScan
+spanish.UninstallName=Desinstalar NetScan
+english.Building=Installing dependencies and building the dashboard (this can take several minutes)...
+spanish.Building=Instalando dependencias y compilando el dashboard (puede tardar varios minutos)...
+english.LaunchNow=Launch NetScan now
+spanish.LaunchNow=Lanzar NetScan ahora
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "minimal"; Description: "Instalación mínima (sin nmap/RustScan/nuclei)"; GroupDescription: "Opciones:"; Flags: unchecked
+Name: "minimal"; Description: "{cm:MinimalInstall}"; GroupDescription: "{cm:Options}"; Flags: unchecked
 
 [Files]
 ; Copia todo el árbol del proyecto EXCEPTO artefactos de build/entornos.
@@ -57,18 +75,18 @@ Source: "..\..\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs; \
 
 [Icons]
 ; Lanzador principal: "netscan up" (todo en uno).
-Name: "{group}\NetScan (Dashboard)"; Filename: "{app}\netscan.bat"; Parameters: "up"; WorkingDir: "{app}"; Comment: "Arranca API + dashboard y abre el navegador"
-Name: "{group}\NetScan — Consola"; Filename: "{cmd}"; Parameters: "/k cd /d ""{app}"" && netscan.bat doctor"; WorkingDir: "{app}"; Comment: "Terminal de NetScan"
-Name: "{group}\Desinstalar NetScan"; Filename: "{uninstallexe}"
+Name: "{group}\NetScan (Dashboard)"; Filename: "{app}\netscan.bat"; Parameters: "up"; WorkingDir: "{app}"; Comment: "{cm:DashboardComment}"
+Name: "{group}\NetScan — {cm:ConsoleName}"; Filename: "{cmd}"; Parameters: "/k cd /d ""{app}"" && netscan.bat doctor"; WorkingDir: "{app}"; Comment: "{cm:ConsoleComment}"
+Name: "{group}\{cm:UninstallName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\NetScan"; Filename: "{app}\netscan.bat"; Parameters: "up"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 ; Preparación silenciosa (venv + deps + build). NETSCAN_NONINTERACTIVE evita el 'pause'.
 Filename: "{cmd}"; Parameters: "/c set NETSCAN_NONINTERACTIVE=1&& ""{app}\install.bat"" {code:GetMinimalFlag}"; \
-  WorkingDir: "{app}"; StatusMsg: "Instalando dependencias y compilando el dashboard (puede tardar varios minutos)..."; \
+  WorkingDir: "{app}"; StatusMsg: "{cm:Building}"; \
   Flags: waituntilterminated runhidden
 ; Ofrecer lanzar al terminar.
-Filename: "{app}\netscan.bat"; Parameters: "up"; Description: "Lanzar NetScan ahora"; \
+Filename: "{app}\netscan.bat"; Parameters: "up"; Description: "{cm:LaunchNow}"; \
   WorkingDir: "{app}"; Flags: postinstall nowait skipifsilent
 
 [UninstallDelete]
