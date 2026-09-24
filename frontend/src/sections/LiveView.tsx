@@ -49,7 +49,7 @@ export default function LiveView() {
       <GlassPanel
         title="Latencia de red en vivo"
         right={
-          <span className="flex items-center gap-2 font-mono text-[11.5px] text-muted-foreground">
+          <span className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
             <span
               className="h-1.5 w-1.5 animate-pulse rounded-full bg-[color:var(--teal)]"
               style={{ boxShadow: '0 0 8px var(--teal)' }}

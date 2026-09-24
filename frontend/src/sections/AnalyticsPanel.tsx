@@ -13,7 +13,7 @@ function MiniBars({ rows, max, gradient }: { rows: [string, number][]; max: numb
             <span className="truncate text-muted-foreground" title={label}>
               {label}
             </span>
-            <span className="text-[11.5px] font-semibold text-muted-foreground/90">{value}</span>
+            <span className="text-xs font-semibold text-muted-foreground/90">{value}</span>
           </div>
           <div className="h-[7px] overflow-hidden rounded-full bg-white/[0.07]">
             <div

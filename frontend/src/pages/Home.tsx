@@ -68,10 +68,9 @@ export default function Home() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
       <TokenDialog />
-      {/* Sober, STATIC background: a faint technical grid plus a single soft
-          cyan glow at the top. No blur filters, no animation — the compositor
-          paints these once and never touches them again (the old theme's four
-          animated blur(110px) blobs were by far its heaviest render cost). */}
+      {/* Sober, STATIC background: a flat ink plate plus a single soft cyan
+          glow at the top. No grid, no scanlines, no blur filters, no animation —
+          the compositor paints these once and never touches them again. */}
       <div className="app-bg" aria-hidden="true" />
       <div className="app-glow" aria-hidden="true" />
 
@@ -85,7 +84,7 @@ export default function Home() {
               <TabsTrigger
                 key={value}
                 value={value}
-                className="group relative flex items-center justify-center gap-2 rounded-none border-r border-border/70 px-2 py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors last:border-r-0 data-[state=active]:bg-primary/[0.07] data-[state=active]:text-primary sm:justify-start sm:text-[11.5px]"
+                className="group relative flex items-center justify-center gap-2 rounded-none border-r border-border/70 px-2 py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors last:border-r-0 data-[state=active]:bg-primary/[0.07] data-[state=active]:text-primary sm:justify-start sm:text-xs"
               >
                 {/* active top ticker */}
                 <span className="pointer-events-none absolute inset-x-0 top-0 h-[2px] scale-x-0 bg-primary transition-transform duration-150 group-data-[state=active]:scale-x-100" />

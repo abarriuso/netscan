@@ -65,7 +65,7 @@ export function Meter({
   return (
     <div className={cn('space-y-1.5', className)}>
       {(label || value) && (
-        <div className="flex items-center justify-between text-[11.5px] text-muted-foreground">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span className="truncate">{label}</span>
           <span className="font-mono tabular-nums text-foreground/90">{value}</span>
         </div>

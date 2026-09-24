@@ -59,7 +59,7 @@ function IntegrationManager({ onChanged }: { onChanged: () => void }) {
       right={
         <button
           onClick={openCreate}
-          className="flex items-center gap-1.5 rounded-none bg-primary px-3 py-1.5 font-mono text-[11.5px] font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform,box-shadow] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:brightness-110"
+          className="flex items-center gap-1.5 rounded-none bg-primary px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform,box-shadow] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:brightness-110"
         >
           <Plus className="h-3.5 w-3.5" />
           Añadir
@@ -159,7 +159,7 @@ export default function Integrations() {
                     </span>
                   </div>
                 ))}
-                <p className="pt-1 text-[11.5px] text-muted-foreground">
+                <p className="pt-1 text-xs text-muted-foreground">
                   {inst.guests_running}/{inst.guests_total} guests activos · v{inst.version}
                 </p>
               </div>

@@ -52,6 +52,10 @@ export function useScanProgress() {
   const [progress, setProgress] = useState<ScanProgress>({ stage: 'idle', done: 0, total: 0 })
   const [scanning, setScanning] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  // Whether the progress WebSocket is currently open. When false during a scan
+  // the UI is running on the HTTP fallback poll — surface that as a degraded
+  // state instead of letting it look identical to a healthy live connection.
+  const [wsConnected, setWsConnected] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
   const startRef = useRef<number>(0)
 
@@ -67,8 +71,13 @@ export function useScanProgress() {
     const connect = () => {
       if (dead) return
       const ws = progressSocket((p) => apply(p as ScanProgress))
+      ws.onopen = () => {
+        if (!dead) setWsConnected(true)
+      }
       ws.onclose = () => {
-        if (!dead) retry = setTimeout(connect, 3000)
+        if (dead) return
+        setWsConnected(false)
+        retry = setTimeout(connect, 3000)
       }
       wsRef.current = ws
     }
@@ -122,7 +131,7 @@ export function useScanProgress() {
     }
   }, [])
 
-  return { progress, scanning, elapsed, startScan }
+  return { progress, scanning, elapsed, wsConnected, startScan }
 }
 
 /** Smoothly animate a numeric value toward its target with requestAnimationFrame

@@ -34,7 +34,7 @@
     --secondary: 20 23 30;
     --secondary-foreground: 233 236 241;
     --muted: 20 23 30;
-    --muted-foreground: 130 140 156;
+    --muted-foreground: 150 160 175;   /* lifted for WCAG contrast on ink */
     --accent: 24 28 36;
     --accent-foreground: 233 236 241;
     --destructive: 255 74 94;      /* hot alarm red */
@@ -78,8 +78,6 @@
     /* Named tokens the new brutalist utilities read. */
     --hard-shadow: 4px 4px 0 0 rgb(0 0 0 / 0.55);
     --hard-shadow-cyan: 4px 4px 0 0 rgb(45 226 230 / 0.22);
-    --grid-line: rgba(120, 200, 210, 0.055);
-    --scanline: rgba(45, 226, 230, 0.045);
   }
 }
 
@@ -90,14 +88,9 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: 'cv11', 'ss01', 'zero';
-    /* Faint global scanlines — the CRT/terminal texture, painted once. */
-    background-image: repeating-linear-gradient(
-      0deg,
-      var(--scanline) 0px,
-      var(--scanline) 1px,
-      transparent 1px,
-      transparent 3px
-    );
+    /* No CRT scanlines, no blueprint grid — a flat ink base keeps the data as
+       the only thing on screen. The single top glow (.app-glow) is the sole
+       ambient texture. */
   }
   /* Display face for section headings; mono for everything data. */
   h1, h2, h3 {
@@ -118,36 +111,33 @@
 }
 
 @layer utilities {
-  /* Fixed technical grid behind everything — visible, blueprint-style, faded
-     at the edges. Static, no blur, compositor-cheap (single painted layer). */
+  /* Flat background plate. No blueprint grid — just the ink base color, painted
+     once behind everything. Kept as an element (not just body bg) so the glow
+     below can layer cleanly over it. */
   .app-bg {
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
     background-color: rgb(var(--background));
-    background-image:
-      linear-gradient(var(--grid-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-    background-size: 40px 40px;
-    -webkit-mask-image: radial-gradient(ellipse 100% 75% at 50% 0%, #000 45%, transparent 100%);
-    mask-image: radial-gradient(ellipse 100% 75% at 50% 0%, #000 45%, transparent 100%);
   }
 
-  /* A single wide cyan wash at the top + a faint magenta counter-glow — the
-     "neon spill." Plain radial gradients, no filter, no animation. */
+  /* A single soft cyan wash at the top — the only ambient light. No magenta
+     counter-glow, no animation, no filter: one plain radial gradient. */
   .app-glow {
     position: fixed;
-    top: -26%;
+    top: -24%;
     left: 50%;
     transform: translateX(-50%);
-    width: min(1300px, 130vw);
-    height: 640px;
+    width: min(1200px, 120vw);
+    height: 560px;
     z-index: 0;
     pointer-events: none;
-    background:
-      radial-gradient(ellipse 60% 100% at 42% 0%, rgba(45, 226, 230, 0.12), transparent 60%),
-      radial-gradient(ellipse 45% 90% at 72% 8%, rgba(255, 47, 185, 0.05), transparent 62%);
+    background: radial-gradient(
+      ellipse 55% 100% at 50% 0%,
+      rgba(45, 226, 230, 0.08),
+      transparent 65%
+    );
   }
 
   /* THE panel shell. Brutalist card: hard corners, a bright 1px border, a
