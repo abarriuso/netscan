@@ -757,12 +757,16 @@ def create_app() -> FastAPI:
         def _spa_root() -> FileResponse:
             return FileResponse(str(dist / "index.html"))
 
+        dist_root = dist.resolve()
+
         @app.get("/{full_path:path}", include_in_schema=False)
         def _spa_catchall(full_path: str) -> FileResponse:
-            candidate = dist / full_path
-            if candidate.is_file():
+            # Resolve and confine to dist: an absolute path ("//etc/passwd") or
+            # "../" segments would otherwise escape the bundle directory.
+            candidate = (dist_root / full_path.lstrip("/\\")).resolve()
+            if candidate.is_relative_to(dist_root) and candidate.is_file():
                 return FileResponse(str(candidate))
-            return FileResponse(str(dist / "index.html"))
+            return FileResponse(str(dist_root / "index.html"))
 
     return app
 

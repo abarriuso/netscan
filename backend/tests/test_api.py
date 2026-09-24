@@ -122,3 +122,33 @@ def test_ws_progress_requires_token(tmp_path):
     with client.websocket_connect("/ws/progress?token=t0ken") as ws:
         data = ws.receive_json()
         assert "stage" in data
+
+
+def _spa_client(tmp_path, monkeypatch) -> TestClient:
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("SPA-INDEX")
+    (dist / "robots.txt").write_text("ROBOTS")
+    (tmp_path / "secret.env").write_text("NETSCAN_API_TOKEN=leak")
+    monkeypatch.setattr(deps, "_find_frontend_dist", lambda: dist)
+    return _client(tmp_path / "data")
+
+
+def test_spa_serves_bundle_files(tmp_path, monkeypatch):
+    client = _spa_client(tmp_path, monkeypatch)
+    assert client.get("/robots.txt").text == "ROBOTS"
+    assert client.get("/devices/some-mac").text == "SPA-INDEX"
+
+
+def test_spa_catchall_rejects_path_traversal(tmp_path, monkeypatch):
+    client = _spa_client(tmp_path, monkeypatch)
+    secret = (tmp_path / "secret.env").as_posix()
+    for path in (
+        "/" + secret,
+        "/..%2Fsecret.env",
+        "/%2e%2e/secret.env",
+        "/..%5Csecret.env",
+    ):
+        resp = client.get(path)
+        assert "leak" not in resp.text, path
+        assert resp.text == "SPA-INDEX", path
