@@ -52,7 +52,7 @@ export default function AlertsFeed({ refreshKey }: { refreshKey: number }) {
                     </span>
                   )}
                 </p>
-                <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {new Date(alert.created_at).toLocaleString()}
                 </p>
               </div>

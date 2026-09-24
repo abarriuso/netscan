@@ -102,10 +102,13 @@ const TOOLS: ToolAction[] = [
 const fmtElapsed = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 export default function Header({ onScanDone }: { onScanDone: () => void }) {
-  const { progress, scanning, elapsed, startScan } = useScanProgress()
+  const { progress, scanning, elapsed, wsConnected, startScan } = useScanProgress()
   const { data: caps, error: capsError } = usePoll(api.capabilities, 60000)
   const connected = !capsError
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
+  // A scan is running but the live socket is down: we're on the HTTP fallback
+  // poll (slower updates). Tell the user instead of looking frozen/healthy.
+  const degraded = scanning && !wsConnected && !progress.stage.startsWith('error')
 
   useEffect(() => {
     if (progress.stage === 'done') {
@@ -179,8 +182,16 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
                 )}
               </span>
               {!progress.stage.startsWith('error') && (
-                <span className="shrink-0 tabular-nums">
-                  <span className="mr-1.5 text-muted-foreground/60">{fmtElapsed(elapsed)}</span>
+                <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
+                  {degraded && (
+                    <span
+                      title="Sin WebSocket — actualizando por sondeo HTTP (más lento)"
+                      className="rounded-none border border-warn/50 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-warn"
+                    >
+                      fallback
+                    </span>
+                  )}
+                  <span className="text-muted-foreground/60">{fmtElapsed(elapsed)}</span>
                   {pct}%
                 </span>
               )}
@@ -189,7 +200,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
           </div>
         )}
 
-        <span className={`flex items-center gap-2 font-mono text-[11.5px] font-semibold uppercase tracking-wider ${connected ? 'text-ok' : 'text-destructive'}`}>
+        <span className={`flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider ${connected ? 'text-ok' : 'text-destructive'}`}>
           <span
             className={`h-[7px] w-[7px] bg-current ${connected ? 'animate-pulse' : ''}`}
             style={{ boxShadow: '0 0 8px currentColor' }}

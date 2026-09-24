@@ -7,7 +7,7 @@ import type { SystemStatus as Sys } from '@/types'
 import PanelError from './PanelError'
 
 function Sub({ children }: { children: React.ReactNode }) {
-  return <span className="block text-[11.5px] text-muted-foreground/80">{children}</span>
+  return <span className="block text-xs text-muted-foreground/80">{children}</span>
 }
 
 export default function SystemStatus() {
@@ -29,7 +29,7 @@ export default function SystemStatus() {
       right={
         <div className="flex items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1.5 text-[11.5px] font-semibold ${online ? 'text-ok' : 'text-destructive'}`}
+            className={`inline-flex items-center gap-1.5 text-xs font-semibold ${online ? 'text-ok' : 'text-destructive'}`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-ok' : 'bg-destructive'}`} />
             {online ? 'conectado' : 'sin conexión'}
@@ -146,7 +146,7 @@ export default function SystemStatus() {
       {s?.network?.interfaces && s.network.interfaces.length > 1 && (
         <div className="mt-5 space-y-1.5 border-t border-white/10 pt-4">
           {s.network.interfaces.slice(1, 5).map((n) => (
-            <div key={n.name} className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px]">
+            <div key={n.name} className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
               <span className="flex w-32 items-center gap-1.5 font-mono">
                 <Wifi className={`h-3.5 w-3.5 ${n.is_up ? 'text-ok' : 'text-muted-foreground/40'}`} strokeWidth={1.6} />
                 {n.name}

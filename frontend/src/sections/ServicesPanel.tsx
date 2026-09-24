@@ -4,11 +4,11 @@ import { fetchLatestScan } from '@/lib/api'
 import PanelError from './PanelError'
 
 function CertBadge({ days, selfSigned, tls }: { days: number | null; selfSigned: boolean; tls: boolean }) {
-  if (!tls) return <span className="text-[11.5px] font-semibold text-warn">sin TLS · HTTP plano</span>
+  if (!tls) return <span className="text-xs font-semibold text-warn">sin TLS · HTTP plano</span>
   if (days == null) return null
   const cls = days < 0 ? 'text-destructive' : days < 30 ? 'text-warn' : 'text-ok'
   return (
-    <span className={`text-[11.5px] font-semibold ${cls}`}>
+    <span className={`text-xs font-semibold ${cls}`}>
       {days < 0 ? `caducado hace ${-days}d` : `cert válido · ${days}d restantes`}
       {selfSigned ? ' · autofirmado' : ''}
     </span>
@@ -48,7 +48,7 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
               <CertBadge days={svc.tls?.days_remaining ?? null} selfSigned={!!svc.tls?.self_signed} tls={!!svc.tls} />
               <span className="text-[11px] text-muted-foreground">{svc.status_code}</span>
             </div>
-            <p className="truncate text-[11.5px] text-muted-foreground">
+            <p className="truncate text-xs text-muted-foreground">
               {svc.title || svc.server || svc.name}
               {svc.title && svc.server ? ` · ${svc.server}` : ''}
             </p>
