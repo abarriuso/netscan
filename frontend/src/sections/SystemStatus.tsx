@@ -5,12 +5,14 @@ import { formatBps, formatBytes, formatUptime, usePoll } from '@/hooks/useNetsca
 import { api } from '@/lib/api'
 import type { SystemStatus as Sys } from '@/types'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 function Sub({ children }: { children: React.ReactNode }) {
   return <span className="block text-xs text-muted-foreground/80">{children}</span>
 }
 
 export default function SystemStatus() {
+  const { t } = useI18n()
   // 3 s cadence keeps CPU / network rates lively without hammering the box.
   const { data, error } = usePoll<Sys>(api.system, 3000)
   const online = !error && !!data
@@ -25,14 +27,14 @@ export default function SystemStatus() {
 
   return (
     <GlassPanel
-      title="Estado del sistema"
+      title={t('sysTitle')}
       right={
         <div className="flex items-center gap-2">
           <span
             className={`inline-flex items-center gap-1.5 text-xs font-semibold ${online ? 'text-ok' : 'text-destructive'}`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-ok' : 'bg-destructive'}`} />
-            {online ? 'conectado' : 'sin conexión'}
+            {online ? t('connected') : t('disconnected')}
           </span>
           {s?.host && (
             <Badge variant="outline" className="border-white/15 font-mono text-[10px]">
@@ -63,7 +65,7 @@ export default function SystemStatus() {
             </div>
           )}
           <Sub>
-            {s?.cpu?.logical ?? '—'} núcleos
+            {t('cores', s?.cpu?.logical ?? '—')}
             {s?.cpu?.freq_mhz ? ` · ${Math.round(s.cpu.freq_mhz)} MHz` : ''}
           </Sub>
           {s?.cpu?.load_avg?.length ? <Sub>load {s.cpu.load_avg.map((n) => n.toFixed(1)).join(' ')}</Sub> : null}
@@ -72,7 +74,7 @@ export default function SystemStatus() {
         {/* Memory & disk */}
         <div className="flex flex-col gap-3">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">memoria</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('memory')}</span>
             <div className="text-xl font-extrabold leading-tight">
               {formatBytes(s?.memory?.used)}{' '}
               <span className="text-[13px] font-semibold text-muted-foreground">/ {formatBytes(s?.memory?.total)}</span>
@@ -82,7 +84,7 @@ export default function SystemStatus() {
           {s?.disks?.slice(0, 2).map((d) => (
             <div key={d.mount}>
               <Sub>
-                disco {d.mount} — {d.percent.toFixed(0)}% usado
+                {t('diskUsed', d.mount, d.percent.toFixed(0))}
               </Sub>
               <Meter percent={d.percent} gradient="sky" />
             </div>
@@ -92,34 +94,35 @@ export default function SystemStatus() {
         {/* Network I/O */}
         <div className="flex flex-col gap-2.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            red{mainIface ? ` — ${mainIface.name}` : ''}
+            {t('network')}
+            {mainIface ? ` — ${mainIface.name}` : ''}
           </span>
           {mainIface ? (
             <div className="flex gap-5">
               <div className="flex flex-col gap-0.5">
                 <span className="text-[11px] font-bold" style={{ color: 'var(--accent-cyan)' }}>
-                  ↓ BAJADA
+                  ↓ {t('down')}
                 </span>
                 <span className="text-lg font-extrabold leading-none">{formatBps(mainIface.down_bps)}</span>
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="text-[11px] font-bold" style={{ color: 'var(--accent-slate)' }}>
-                  ↑ SUBIDA
+                  ↑ {t('up')}
                 </span>
                 <span className="text-lg font-extrabold leading-none">{formatBps(mainIface.up_bps)}</span>
               </div>
             </div>
           ) : (
-            <Sub>sin interfaz activa</Sub>
+            <Sub>{t('noIface')}</Sub>
           )}
           <Sub>backend uptime: {formatUptime(server?.uptime_seconds)}</Sub>
           <Sub>
-            <AnimatedNumber value={server?.requests_served ?? 0} /> peticiones ·{' '}
+            <AnimatedNumber value={server?.requests_served ?? 0} /> {t('requests')} ·{' '}
             <AnimatedNumber value={server?.scans_completed ?? 0} /> scans
           </Sub>
           <Sub>
-            {server?.ws_clients ?? 0} clientes ws ·{' '}
-            {server?.auth_enabled ? <span className="text-ok">token</span> : <span className="text-warn">sin auth</span>}
+            {server?.ws_clients ?? 0} {t('wsClients')} ·{' '}
+            {server?.auth_enabled ? <span className="text-ok">token</span> : <span className="text-warn">{t('noAuth')}</span>}
           </Sub>
         </div>
 
@@ -127,7 +130,7 @@ export default function SystemStatus() {
         <div className="flex flex-col gap-2.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">build / host</span>
           <Sub>
-            frontend <span className="font-mono text-foreground/80">{fe?.built ? 'compilado' : 'sin build'}</span>
+            frontend <span className="font-mono text-foreground/80">{fe?.built ? t('built') : t('notBuilt')}</span>
             {fe?.built_at ? ` · ${new Date(fe.built_at).toLocaleDateString()}` : ''}
           </Sub>
           <Sub>
@@ -138,7 +141,7 @@ export default function SystemStatus() {
           </Sub>
           <Sub>
             python {proc?.python ?? '—'} · psutil{' '}
-            {s?.psutil ? <span className="text-ok">sí</span> : <span className="text-warn">no</span>}
+            {s?.psutil ? <span className="text-ok">{t('yes')}</span> : <span className="text-warn">{t('no')}</span>}
           </Sub>
         </div>
       </div>

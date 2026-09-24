@@ -3,15 +3,17 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 export default function CapabilitiesBar() {
+  const { t } = useI18n()
   const { data, error } = usePoll(api.capabilities, 60000)
   const tools = data?.tools ?? {}
   const available = Object.values(tools).filter((t) => t.available).length
   const total = Object.keys(tools).length
 
   return (
-    <GlassPanel title="Toolchain & Capacidades" meta={total ? `${available} de ${total} disponibles` : undefined}>
+    <GlassPanel title={t('capsTitle')} meta={total ? t('capsMeta', available, total) : undefined}>
       <PanelError error={error} />
       <div className="flex flex-wrap gap-2.5">
         {Object.entries(tools).map(([key, tool]) => (
@@ -33,13 +35,13 @@ export default function CapabilitiesBar() {
                 </span>
               </TooltipTrigger>
               <TooltipContent className="max-w-64 text-xs">
-                <p>{tool.purpose}</p>
-                <p className="mt-1 text-muted-foreground">licencia: {tool.license}</p>
+                <p>{t('toolPurpose', key, tool.purpose)}</p>
+                <p className="mt-1 text-muted-foreground">{t('licence', tool.license)}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ))}
-        {total === 0 && <p className="text-sm text-muted-foreground">backend no accesible</p>}
+        {total === 0 && <p className="text-sm text-muted-foreground">{t('backendUnreachable')}</p>}
       </div>
     </GlassPanel>
   )

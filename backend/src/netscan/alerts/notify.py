@@ -9,10 +9,10 @@ from __future__ import annotations
 from netscan.db.models import AlertRecord
 
 _TITLES = {
-    "new_device": "NetScan — nuevo dispositivo",
-    "mac_changed": "NetScan — IP/MAC cambiada",
-    "device_down": "NetScan — dispositivo caído",
-    "device_back": "NetScan — dispositivo de vuelta",
+    "new_device": "NetScan — new device",
+    "mac_changed": "NetScan — IP/MAC changed",
+    "device_down": "NetScan — device down",
+    "device_back": "NetScan — device back",
 }
 
 

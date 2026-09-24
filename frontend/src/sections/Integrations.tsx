@@ -6,13 +6,13 @@ import { formatBytes, formatUptime, usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { IntegrationSetting } from '@/types'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 const KIND_LABELS: Record<string, string> = {
   proxmox: 'Proxmox VE',
   truenas: 'TrueNAS',
   adguard: 'AdGuard Home',
   pihole: 'Pi-hole',
-  custom: 'Personalizada',
 }
 
 function StatLine({ label, value, valueClass }: { label: string; value: React.ReactNode; valueClass?: string }) {
@@ -29,6 +29,8 @@ function StatLine({ label, value, valueClass }: { label: string; value: React.Re
  *  whatever's currently configured (matching by name across the two would
  *  be fragile; this is the one clear place CRUD happens). */
 function IntegrationManager({ onChanged }: { onChanged: () => void }) {
+  const { t } = useI18n()
+  const kindLabel = (kind: string) => (kind === 'custom' ? t('kindCustom') : (KIND_LABELS[kind] ?? kind))
   const { data: settings, error, refresh } = usePoll(api.listIntegrationSettings, 30000)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<IntegrationSetting | null>(null)
@@ -43,7 +45,7 @@ function IntegrationManager({ onChanged }: { onChanged: () => void }) {
   }
   const remove = async (item: IntegrationSetting) => {
     if (!item.id) return
-    if (!window.confirm(`¿Borrar "${item.name}"?`)) return
+    if (!window.confirm(t('confirmDelete', item.name))) return
     await api.deleteIntegration(item.id)
     refresh()
     onChanged()
@@ -55,21 +57,21 @@ function IntegrationManager({ onChanged }: { onChanged: () => void }) {
 
   return (
     <GlassPanel
-      title="Integraciones"
+      title={t('integrationsTitle')}
       right={
         <button
           onClick={openCreate}
           className="flex items-center gap-1.5 rounded-none bg-primary px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform,box-shadow] hover:-translate-x-[1px] hover:-translate-y-[1px] hover:brightness-110"
         >
           <Plus className="h-3.5 w-3.5" />
-          Añadir
+          {t('add')}
         </button>
       }
     >
       <PanelError error={error} />
       {(settings ?? []).length === 0 && !error && (
         <p className="text-sm text-muted-foreground">
-          Sin integraciones configuradas — pulsa "Añadir" o edita netscan.yaml.
+          {t('noIntegrations')}
         </p>
       )}
       <div className="space-y-1">
@@ -84,22 +86,26 @@ function IntegrationManager({ onChanged }: { onChanged: () => void }) {
               />
               <span className="truncate font-medium">{item.name}</span>
               <span className="shrink-0 rounded border border-white/10 px-1.5 py-0.5 font-mono text-[9.5px] text-muted-foreground">
-                {KIND_LABELS[item.kind] ?? item.kind}
+                {kindLabel(item.kind)}
               </span>
               {!item.editable && (
-                <span className="shrink-0 font-mono text-[9.5px] text-muted-foreground">definido en config</span>
+                <span className="shrink-0 font-mono text-[9.5px] text-muted-foreground">{t('definedInConfig')}</span>
               )}
             </div>
             {item.editable && (
               <div className="flex shrink-0 items-center gap-1">
                 <button
                   onClick={() => openEdit(item)}
+                  aria-label={t('edit')}
+                  title={t('edit')}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={() => remove(item)}
+                  aria-label={t('remove')}
+                  title={t('remove')}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/20 hover:text-destructive"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -116,6 +122,7 @@ function IntegrationManager({ onChanged }: { onChanged: () => void }) {
 }
 
 export default function Integrations() {
+  const { t } = useI18n()
   const { data: pve, error: pveError } = usePoll(api.proxmox, 30000)
   const { data: tnas, error: tnasError } = usePoll(api.truenas, 30000)
   const { data: ag, error: agError } = usePoll(api.adguard, 30000)
@@ -135,7 +142,7 @@ export default function Integrations() {
         {/* Proxmox */}
         <GlassPanel title="Proxmox VE" meta={pve?.[0]?.name}>
           <PanelError error={pveError} />
-          {(pve ?? []).length === 0 && !pveError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
+          {(pve ?? []).length === 0 && !pveError && <p className="text-sm text-muted-foreground">{t('noInstances')}</p>}
           {(pve ?? []).map((inst) =>
             inst.error ? (
               <div key={inst.name} className="rounded-none border border-destructive/40 p-3 text-xs">
@@ -160,7 +167,7 @@ export default function Integrations() {
                   </div>
                 ))}
                 <p className="pt-1 text-xs text-muted-foreground">
-                  {inst.guests_running}/{inst.guests_total} guests activos · v{inst.version}
+                  {t('guestsActive', inst.guests_running ?? 0, inst.guests_total ?? 0, String(inst.version ?? '?'))}
                 </p>
               </div>
             ),
@@ -170,7 +177,7 @@ export default function Integrations() {
         {/* TrueNAS */}
         <GlassPanel title="TrueNAS" meta={tnas?.[0]?.name}>
           <PanelError error={tnasError} />
-          {(tnas ?? []).length === 0 && !tnasError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
+          {(tnas ?? []).length === 0 && !tnasError && <p className="text-sm text-muted-foreground">{t('noInstances')}</p>}
           {(tnas ?? []).map((inst) =>
             inst.error ? (
               <div key={inst.name} className="rounded-none border border-destructive/40 p-3 text-xs">
@@ -191,7 +198,7 @@ export default function Integrations() {
                       />
                       {pool.size ? (
                         <div className="pb-1">
-                          <StatLine label="Capacidad usada" value={`${formatBytes(pool.allocated)} / ${formatBytes(pool.size)}`} />
+                          <StatLine label={t('usedCapacity')} value={`${formatBytes(pool.allocated)} / ${formatBytes(pool.size)}`} />
                           <Meter percent={used} gradient="sky" />
                         </div>
                       ) : null}
@@ -206,7 +213,7 @@ export default function Integrations() {
                   valueClass={inst.pools_healthy === inst.pools_total ? 'text-ok' : 'text-destructive'}
                 />
                 {(inst.alerts ?? []).length > 0 && (
-                  <StatLine label="Alertas del sistema" value={inst.alerts!.length} valueClass="text-destructive" />
+                  <StatLine label={t('systemAlerts')} value={inst.alerts!.length} valueClass="text-destructive" />
                 )}
               </div>
             ),
@@ -216,7 +223,7 @@ export default function Integrations() {
         {/* AdGuard */}
         <GlassPanel title="AdGuard Home" meta={ag?.[0]?.name}>
           <PanelError error={agError} />
-          {(ag ?? []).length === 0 && !agError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
+          {(ag ?? []).length === 0 && !agError && <p className="text-sm text-muted-foreground">{t('noInstances')}</p>}
           {(ag ?? []).map((inst) =>
             inst.error ? (
               <div key={inst.name} className="rounded-none border border-destructive/40 p-3 text-xs">
@@ -226,9 +233,9 @@ export default function Integrations() {
               </div>
             ) : (
               <div key={inst.name}>
-                <StatLine label="Consultas hoy" value={(inst.num_dns_queries ?? 0).toLocaleString()} />
+                <StatLine label={t('queriesToday')} value={(inst.num_dns_queries ?? 0).toLocaleString()} />
                 <StatLine
-                  label="Bloqueadas"
+                  label={t('blocked')}
                   value={(inst.num_blocked_filtering ?? 0).toLocaleString()}
                   valueClass="text-[color:var(--pink)]"
                 />
@@ -241,11 +248,11 @@ export default function Integrations() {
                   />
                 </div>
                 <StatLine
-                  label="Tasa de bloqueo"
+                  label={t('blockRate')}
                   value={`${inst.num_dns_queries ? (((inst.num_blocked_filtering ?? 0) / inst.num_dns_queries) * 100).toFixed(1) : '0.0'}%`}
                 />
-                <StatLine label="Tiempo medio" value={`${(inst.avg_processing_time ?? 0).toFixed(1)} ms`} />
-                <StatLine label="Clientes" value={(inst.clients ?? []).length} />
+                <StatLine label={t('avgTime')} value={`${(inst.avg_processing_time ?? 0).toFixed(1)} ms`} />
+                <StatLine label={t('clients')} value={(inst.clients ?? []).length} />
               </div>
             ),
           )}
@@ -254,7 +261,7 @@ export default function Integrations() {
         {/* Pi-hole */}
         <GlassPanel title="Pi-hole" meta={ph?.[0]?.name}>
           <PanelError error={phError} />
-          {(ph ?? []).length === 0 && !phError && <p className="text-sm text-muted-foreground">sin instancias configuradas</p>}
+          {(ph ?? []).length === 0 && !phError && <p className="text-sm text-muted-foreground">{t('noInstances')}</p>}
           {(ph ?? []).map((inst) =>
             inst.error ? (
               <div key={inst.name} className="rounded-none border border-destructive/40 p-3 text-xs">
@@ -264,18 +271,18 @@ export default function Integrations() {
               </div>
             ) : (
               <div key={inst.name}>
-                <StatLine label="Consultas hoy" value={(inst.num_dns_queries ?? 0).toLocaleString()} />
+                <StatLine label={t('queriesToday')} value={(inst.num_dns_queries ?? 0).toLocaleString()} />
                 <StatLine
-                  label="Bloqueadas"
+                  label={t('blocked')}
                   value={(inst.num_blocked_filtering ?? 0).toLocaleString()}
                   valueClass="text-[color:var(--pink)]"
                 />
                 <div className="py-1">
                   <Meter percent={inst.percent_blocked ?? 0} gradient="teal" />
                 </div>
-                <StatLine label="Tasa de bloqueo" value={`${(inst.percent_blocked ?? 0).toFixed(1)}%`} />
-                <StatLine label="Dominios en lista" value={(inst.domains_being_blocked ?? 0).toLocaleString()} />
-                <StatLine label="Clientes" value={inst.unique_clients ?? 0} />
+                <StatLine label={t('blockRate')} value={`${(inst.percent_blocked ?? 0).toFixed(1)}%`} />
+                <StatLine label={t('domainsListed')} value={(inst.domains_being_blocked ?? 0).toLocaleString()} />
+                <StatLine label={t('clients')} value={inst.unique_clients ?? 0} />
               </div>
             ),
           )}
@@ -284,7 +291,7 @@ export default function Integrations() {
 
       {/* Custom bookmarks */}
       {((bookmarks ?? []).length > 0 || bookmarksError) && (
-        <GlassPanel title="Enlaces" meta={`${(bookmarks ?? []).length} marcadores`}>
+        <GlassPanel title={t('linksTitle')} meta={t('bookmarks', (bookmarks ?? []).length)}>
           <PanelError error={bookmarksError} />
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {(bookmarks ?? []).map((b) => (

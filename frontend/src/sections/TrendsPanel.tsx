@@ -3,6 +3,7 @@ import { GlassPanel } from '@/components/metrics'
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import PanelError from './PanelError'
+import { useI18n } from '@/i18n/context'
 
 function fmtTime(iso: string): string {
   const d = new Date(iso)
@@ -33,6 +34,7 @@ function TrendChart({
   dataKey: string
   decimals?: number
 }) {
+  const { t } = useI18n()
   const present = data.filter((d) => d[dataKey] != null)
   const last = present.length ? (present[present.length - 1][dataKey] as number) : null
 
@@ -40,7 +42,7 @@ function TrendChart({
     <GlassPanel title={title} meta={last != null ? `${last.toFixed(decimals)}${unit}` : '—'}>
       {present.length < 2 ? (
         <p className="py-8 text-center text-xs text-muted-foreground">
-          datos insuficientes — hacen falta ≥2 escaneos
+          {t('notEnoughData')}
         </p>
       ) : (
         <ResponsiveContainer width="100%" height={148}>
@@ -102,6 +104,7 @@ function TrendChart({
 /** Time-series trends for the whole network: latency, quality, throughput
  *  (averaged per scan) and devices discovered per scan. */
 export default function TrendsPanel({ refreshKey }: { refreshKey: number }) {
+  const { t } = useI18n()
   const { data: hist, error } = usePoll(() => api.metricsHistory(200), 30000, refreshKey)
   const { data: scans, error: scanErr } = usePoll(() => api.scanHistory(100), 30000, refreshKey)
 
@@ -110,9 +113,9 @@ export default function TrendsPanel({ refreshKey }: { refreshKey: number }) {
 
   if (points.length === 0 && scanRows.length === 0) {
     return (
-      <GlassPanel title="Tendencias en el tiempo">
+      <GlassPanel title={t('trendsTitle')}>
         <PanelError error={error || scanErr} />
-        <p className="text-sm text-muted-foreground">sin histórico todavía — lanza algún scan</p>
+        <p className="text-sm text-muted-foreground">{t('noHistoryYet')}</p>
       </GlassPanel>
     )
   }
@@ -121,12 +124,12 @@ export default function TrendsPanel({ refreshKey }: { refreshKey: number }) {
     <div className="space-y-2">
       <PanelError error={error || scanErr} />
       <div className="grid gap-[18px] md:grid-cols-2 xl:grid-cols-3">
-        <TrendChart title="Latencia media" unit=" ms" color="#22d3ee" gradientId="tr-lat" data={points} dataKey="avg_latency_ms" decimals={1} />
-        <TrendChart title="Calidad media" unit="/100" color="#38bdf8" gradientId="tr-q" data={points} dataKey="avg_quality" />
-        <TrendChart title="Throughput medio" unit=" Mbps" color="#2de2e6" gradientId="tr-tp" data={points} dataKey="avg_throughput_mbps" />
-        <TrendChart title="Dispositivos por scan" unit="" color="#94a3b8" gradientId="tr-dev" data={scanRows} dataKey="total_devices" />
-        <TrendChart title="Dispositivos online" unit="" color="#34d399" gradientId="tr-on" data={points} dataKey="devices" />
-        <TrendChart title="Pérdida de paquetes" unit="%" color="#fbbf24" gradientId="tr-loss" data={points} dataKey="avg_packet_loss_pct" decimals={1} />
+        <TrendChart title={t('trAvgLatency')} unit=" ms" color="#22d3ee" gradientId="tr-lat" data={points} dataKey="avg_latency_ms" decimals={1} />
+        <TrendChart title={t('trAvgQuality')} unit="/100" color="#38bdf8" gradientId="tr-q" data={points} dataKey="avg_quality" />
+        <TrendChart title={t('trAvgThroughput')} unit=" Mbps" color="#2de2e6" gradientId="tr-tp" data={points} dataKey="avg_throughput_mbps" />
+        <TrendChart title={t('trDevicesPerScan')} unit="" color="#94a3b8" gradientId="tr-dev" data={scanRows} dataKey="total_devices" />
+        <TrendChart title={t('trDevicesOnline')} unit="" color="#34d399" gradientId="tr-on" data={points} dataKey="devices" />
+        <TrendChart title={t('trPacketLoss')} unit="%" color="#fbbf24" gradientId="tr-loss" data={points} dataKey="avg_packet_loss_pct" decimals={1} />
       </div>
     </div>
   )

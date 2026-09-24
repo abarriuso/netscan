@@ -92,7 +92,7 @@ def _db_instances(state: AppState, kind: str, model_cls: type) -> list:
         try:
             out.append(model_cls(name=row.name, **json.loads(row.config_json)))
         except Exception:
-            logger.warning("Integración %s (id=%s) tiene config inválida, se omite", kind, row.id)
+            logger.warning("Integration %s (id=%s) has an invalid config, skipping it", kind, row.id)
     return out
 
 
@@ -175,9 +175,9 @@ def _validate_network(network: str | None) -> None:
     try:
         net = ipaddress.IPv4Network(network, strict=False)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Red inválida: {network}") from exc
+        raise HTTPException(status_code=400, detail=f"Invalid network: {network}") from exc
     if not net.is_private:
-        raise HTTPException(status_code=400, detail="Solo se permiten redes privadas (RFC1918)")
+        raise HTTPException(status_code=400, detail="Only private networks are allowed (RFC 1918)")
 
 
 class ScanRequest(BaseModel):
@@ -227,7 +227,7 @@ def _run_scan_task(state: AppState, req: ScanRequest) -> None:
         state.scan_progress = {"stage": "done", "done": 1, "total": 1}
     except Exception:
         logger.exception("Scan failed")
-        state.scan_progress = {"stage": "error: fallo en el escaneo (ver netscan.log)", "done": 0, "total": 0}
+        state.scan_progress = {"stage": "error: scan failed (see netscan.log)", "done": 0, "total": 0}
     finally:
         state.scan_lock.release()
 
@@ -260,7 +260,7 @@ async def lifespan(app: FastAPI):
             max_devices=state.settings.scan.live_max_devices,
         )
         state.live.start()
-    logger.info("NetScan API v%s lista", __version__)
+    logger.info("NetScan API v%s ready", __version__)
     yield
 
 
@@ -287,10 +287,10 @@ def create_app() -> FastAPI:
         The real traceback goes to the server log, never to the client."""
         from fastapi.responses import JSONResponse
 
-        logger.exception("Error no controlado en %s %s", request.method, request.url.path)
+        logger.exception("Unhandled error in %s %s", request.method, request.url.path)
         return JSONResponse(
             status_code=500,
-            content={"detail": "Error interno del servidor. Revisa los logs de NetScan."},
+            content={"detail": "Internal server error. Check the NetScan logs."},
         )
 
     @app.middleware("http")
@@ -351,7 +351,7 @@ def create_app() -> FastAPI:
         if req.only is not None and req.only not in engine.ONLY_STAGES:
             raise HTTPException(
                 status_code=400,
-                detail=f"only debe ser uno de: {', '.join(sorted(engine.ONLY_STAGES))}",
+                detail=f"only must be one of: {', '.join(sorted(engine.ONLY_STAGES))}",
             )
         state = get_state()
         if state.scan_lock.locked():
@@ -531,11 +531,11 @@ def create_app() -> FastAPI:
     def create_integration_setting(req: IntegrationCreateRequest) -> dict[str, object]:
         model_cls = KIND_MODELS.get(req.kind)
         if model_cls is None:
-            raise HTTPException(status_code=400, detail=f"Tipo de integración desconocido: {req.kind}")
+            raise HTTPException(status_code=400, detail=f"Unknown integration type: {req.kind}")
         try:
             validated = model_cls(name=req.name, **req.config)
         except Exception as exc:
-            raise HTTPException(status_code=422, detail=f"Configuración inválida: {exc}") from exc
+            raise HTTPException(status_code=422, detail=f"Invalid configuration: {exc}") from exc
         config_dict = validated.model_dump(exclude={"name", "enabled"})
         row = get_state().store.create_integration(
             kind=req.kind, name=req.name, config_json=json.dumps(config_dict), enabled=req.enabled
@@ -553,7 +553,7 @@ def create_app() -> FastAPI:
         store = get_state().store
         row = store.get_integration(integration_id)
         if not row:
-            raise HTTPException(status_code=404, detail="Integración no encontrada")
+            raise HTTPException(status_code=404, detail="Integration not found")
         model_cls = KIND_MODELS[row.kind]
         config_json = None
         if req.config is not None:
@@ -561,7 +561,7 @@ def create_app() -> FastAPI:
             try:
                 validated = model_cls(name=req.name or row.name, **merged)
             except Exception as exc:
-                raise HTTPException(status_code=422, detail=f"Configuración inválida: {exc}") from exc
+                raise HTTPException(status_code=422, detail=f"Invalid configuration: {exc}") from exc
             config_json = json.dumps(validated.model_dump(exclude={"name", "enabled"}))
         updated = store.update_integration(
             integration_id, name=req.name, config_json=config_json, enabled=req.enabled
@@ -578,7 +578,7 @@ def create_app() -> FastAPI:
             logo_file.unlink(missing_ok=True)
         ok = store.delete_integration(integration_id)
         if not ok:
-            raise HTTPException(status_code=404, detail="Integración no encontrada")
+            raise HTTPException(status_code=404, detail="Integration not found")
         return {"ok": True}
 
     @app.post("/api/settings/integrations/{integration_id}/logo")
@@ -586,20 +586,18 @@ def create_app() -> FastAPI:
         store = get_state().store
         row = store.get_integration(integration_id)
         if not row:
-            raise HTTPException(status_code=404, detail="Integración no encontrada")
+            raise HTTPException(status_code=404, detail="Integration not found")
         if row.kind != "custom":
-            raise HTTPException(
-                status_code=400, detail="El logo solo se puede subir para integraciones personalizadas"
-            )
+            raise HTTPException(status_code=400, detail="A logo can only be uploaded for custom integrations")
         allowed = {"image/png": ".png", "image/svg+xml": ".svg", "image/jpeg": ".jpg", "image/webp": ".webp"}
         ext = allowed.get(file.content_type or "")
         if not ext:
             raise HTTPException(
-                status_code=415, detail="Formato de imagen no soportado (usa PNG, SVG, JPG o WEBP)"
+                status_code=415, detail="Unsupported image format (use PNG, SVG, JPG or WEBP)"
             )
         data = await file.read()
         if len(data) > 2 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="El logo no puede superar 2MB")
+            raise HTTPException(status_code=413, detail="The logo cannot be larger than 2 MB")
         settings = get_state().settings
         logos_dir = settings.data_dir / "logos"
         logos_dir.mkdir(parents=True, exist_ok=True)
@@ -615,10 +613,10 @@ def create_app() -> FastAPI:
     def get_integration_logo(integration_id: int):
         row = get_state().store.get_integration(integration_id)
         if not row or not row.logo_path:
-            raise HTTPException(status_code=404, detail="Sin logo")
+            raise HTTPException(status_code=404, detail="No logo")
         full_path = get_state().settings.data_dir / row.logo_path
         if not full_path.is_file():
-            raise HTTPException(status_code=404, detail="Archivo de logo no encontrado")
+            raise HTTPException(status_code=404, detail="Logo file not found")
         from fastapi.responses import FileResponse
 
         return FileResponse(str(full_path))

@@ -129,9 +129,9 @@ export async function errorFromResponse(resp: Response, path: string): Promise<E
   if (!detail) {
     detail =
       resp.status >= 500
-        ? 'error interno del servidor'
+        ? 'internal server error'
         : resp.status === 0
-          ? 'sin conexión'
+          ? 'no connection'
           : (resp.statusText || `HTTP ${resp.status}`)
   }
   const err = new Error(detail) as Error & { status?: number; path?: string }

@@ -130,6 +130,8 @@ Docker, WSL con las 6 herramientas) en [Arranque rápido](#arranque-rápido-un-s
 - Feed de alertas con acknowledge
 - Avisos (toasts) con el mensaje real de la API en cada acción (trust, speed
   test, Wake-on-LAN, copiar)
+- Interfaz en inglés y en español, con selector en la cabecera (arranca en el
+  idioma del navegador)
 
 ## Arranque rápido — un solo comando
 
@@ -462,7 +464,7 @@ Con el dashboard compilado, la API **y** la web se sirven en el mismo puerto
 ### Mensajes de error
 
 Toda respuesta de error de la API llega como JSON `{"detail": "..."}` (con
-mensaje en español), y el dashboard muestra ese texto directamente en un aviso
+un mensaje legible, en inglés), y el dashboard muestra ese texto directamente en un aviso
 (toast) — nunca un código pelado. Un error inesperado del servidor se captura
 de forma global y se convierte en un `500` con `detail` legible; el detalle
 técnico (traza) queda en el log de NetScan, no en el cliente.

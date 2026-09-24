@@ -11,6 +11,7 @@ import CapabilitiesBar from '@/sections/CapabilitiesBar'
 import SystemStatus from '@/sections/SystemStatus'
 import LogConsole from '@/sections/LogConsole'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useI18n } from '@/i18n/context'
 
 // Lazy-loaded so the chart-heavy Analytics tab (Recharts) and the large
 // Integrations panel are code-split out of the initial bundle — the shell and
@@ -22,12 +23,12 @@ const ServicesPanel = lazy(() => import('@/sections/ServicesPanel'))
 const Integrations = lazy(() => import('@/sections/Integrations'))
 
 const TABS = [
-  { value: 'live', label: 'En vivo', icon: Radio },
-  { value: 'resumen', label: 'Resumen', icon: LayoutDashboard },
-  { value: 'dispositivos', label: 'Dispositivos', icon: Network },
-  { value: 'analitica', label: 'Analítica', icon: BarChart3 },
-  { value: 'integraciones', label: 'Integraciones', icon: Plug },
-  { value: 'sistema', label: 'Sistema', icon: Activity },
+  { value: 'live', labelKey: 'tabLive', icon: Radio },
+  { value: 'resumen', labelKey: 'tabOverview', icon: LayoutDashboard },
+  { value: 'dispositivos', labelKey: 'tabDevices', icon: Network },
+  { value: 'analitica', labelKey: 'tabAnalytics', icon: BarChart3 },
+  { value: 'integraciones', labelKey: 'tabIntegrations', icon: Plug },
+  { value: 'sistema', labelKey: 'tabSystem', icon: Activity },
 ] as const
 
 // Fade + slide the active tab panel in on mount. Only the active tab's panels
@@ -44,6 +45,7 @@ function PanelFallback() {
 }
 
 export default function Home() {
+  const { t } = useI18n()
   // Bumped when a scan finishes so the mounted panels re-poll.
   const [refreshKey, setRefreshKey] = useState(0)
   const bump = useCallback(() => setRefreshKey((k) => k + 1), [])
@@ -80,7 +82,7 @@ export default function Home() {
 
         <Tabs value={tab} onValueChange={onTab} className="mt-5 gap-4">
           <TabsList className="glass hud relative grid h-auto w-full grid-cols-3 gap-0 rounded-none border border-border bg-card p-0 sm:grid-cols-6">
-            {TABS.map(({ value, label, icon: Icon }, i) => (
+            {TABS.map(({ value, labelKey, icon: Icon }, i) => (
               <TabsTrigger
                 key={value}
                 value={value}
@@ -92,7 +94,7 @@ export default function Home() {
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <Icon className="h-4 w-4 shrink-0" />
-                <span className="hidden sm:inline">{label}</span>
+                <span className="hidden sm:inline">{t(labelKey)}</span>
               </TabsTrigger>
             ))}
           </TabsList>

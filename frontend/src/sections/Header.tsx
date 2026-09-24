@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Activity, ChevronDown, KeyRound, Play } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -16,25 +16,28 @@ import { toast } from 'sonner'
 import { usePoll, useScanProgress } from '@/hooks/useNetscan'
 import { api, requestTokenDialog } from '@/lib/api'
 import type { ScanStage } from '@/types'
+import { useI18n, type TextKey } from '@/i18n/context'
 
-const STAGE_LABELS: Record<string, string> = {
-  idle: 'en espera',
-  arp: 'descubrimiento ARP',
-  mdns: 'mDNS / Bonjour',
-  nmap: 'nmap — puertos y versión',
-  rustscan: 'RustScan — descubrimiento de puertos',
-  nuclei: 'auditoría nuclei',
-  whatweb: 'huella web (whatweb)',
-  testssl: 'auditoría TLS (testssl.sh)',
-  enrich: 'puertos · versiones · fingerprint',
-  done: 'completado',
+const STAGE_KEYS: Record<string, TextKey> = {
+  idle: 'stage_idle',
+  arp: 'stage_arp',
+  mdns: 'stage_mdns',
+  nmap: 'stage_nmap',
+  rustscan: 'stage_rustscan',
+  nuclei: 'stage_nuclei',
+  whatweb: 'stage_whatweb',
+  testssl: 'stage_testssl',
+  enrich: 'stage_enrich',
+  done: 'stage_done',
 }
 
 interface ToolAction {
   stage?: ScanStage
   full?: boolean
-  name: string
-  description: string
+  /** Tool names (nmap, nuclei…) are not translated; the rest use nameKey. */
+  name?: string
+  nameKey?: TextKey
+  descKey: TextKey
   /** Key into capabilities.tools (or "mdns") that gates availability. */
   requires?: string
   shortcut?: string
@@ -43,14 +46,14 @@ interface ToolAction {
 const SCANS: ToolAction[] = [
   {
     full: false,
-    name: 'escaneo rápido',
-    description: 'ARP + resolución de hostname. Unos segundos.',
+    nameKey: 'scanQuickName',
+    descKey: 'scanQuickDesc',
     shortcut: 'R',
   },
   {
     full: true,
-    name: 'escaneo completo',
-    description: 'Puertos, fingerprint, mDNS y nuclei si están instalados. Varios minutos.',
+    nameKey: 'scanFullName',
+    descKey: 'scanFullDesc',
     shortcut: 'F',
   },
 ]
@@ -58,43 +61,43 @@ const SCANS: ToolAction[] = [
 const TOOLS: ToolAction[] = [
   {
     stage: 'arp',
-    name: 'descubrimiento ARP',
-    description: 'Barrido ARP puro de la red local, sin enriquecer.',
+    nameKey: 'toolArpName',
+    descKey: 'toolArpDesc',
   },
   {
     stage: 'mdns',
     name: 'mDNS / Bonjour',
-    description: 'Nombra dispositivos IoT que no responden a DNS inverso.',
+    descKey: 'toolMdnsDesc',
     requires: 'mdns',
   },
   {
     stage: 'nmap',
     name: 'nmap',
-    description: 'Versión real de cada servicio abierto (-sV).',
+    descKey: 'toolNmapDesc',
     requires: 'nmap',
   },
   {
     stage: 'rustscan',
     name: 'rustscan',
-    description: 'Descubrimiento de puertos ultrarrápido; alimenta a nmap.',
+    descKey: 'toolRustscanDesc',
     requires: 'rustscan',
   },
   {
     stage: 'nuclei',
     name: 'nuclei',
-    description: 'Auditoría de vulnerabilidades por plantillas, contra las web UI encontradas.',
+    descKey: 'toolNucleiDesc',
     requires: 'nuclei',
   },
   {
     stage: 'whatweb',
     name: 'whatweb',
-    description: 'Huella de tecnologías web (servidor, framework, CMS) de cada web UI encontrada.',
+    descKey: 'toolWhatwebDesc',
     requires: 'whatweb',
   },
   {
     stage: 'testssl',
     name: 'testssl.sh',
-    description: 'Auditoría de configuración TLS de cada web UI con HTTPS. Lento — solo Linux/WSL.',
+    descKey: 'toolTestsslDesc',
     requires: 'testssl',
   },
 ]
@@ -102,6 +105,7 @@ const TOOLS: ToolAction[] = [
 const fmtElapsed = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 export default function Header({ onScanDone }: { onScanDone: () => void }) {
+  const { t, lang, setLang } = useI18n()
   const { progress, scanning, elapsed, wsConnected, startScan } = useScanProgress()
   const { data: caps, error: capsError } = usePoll(api.capabilities, 60000)
   const connected = !capsError
@@ -110,18 +114,24 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
   // poll (slower updates). Tell the user instead of looking frozen/healthy.
   const degraded = scanning && !wsConnected && !progress.stage.startsWith('error')
 
+  // Toast once per stage change — not again when only the language changes.
+  const toastedStage = useRef<string | null>(null)
   useEffect(() => {
+    if (progress.stage === toastedStage.current) return
+    toastedStage.current = progress.stage
     if (progress.stage === 'done') {
       onScanDone()
-      toast.success('Escaneo completado')
+      toast.success(t('scanDone'))
     } else if (progress.stage.startsWith('error')) {
-      toast.error('Error en el escaneo', { description: progress.stage })
+      toast.error(t('scanError'), { description: progress.stage })
     }
-  }, [progress.stage, onScanDone])
+  }, [progress.stage, onScanDone, t])
 
   const label = progress.stage.startsWith('error')
     ? progress.stage
-    : (STAGE_LABELS[progress.stage] ?? progress.stage)
+    : STAGE_KEYS[progress.stage]
+      ? t(STAGE_KEYS[progress.stage])
+      : progress.stage
 
   const isAvailable = (requires?: string) => {
     if (!requires) return true
@@ -130,6 +140,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
   }
 
   const run = (action: ToolAction) => startScan({ full: action.full, only: action.stage })
+  const nameOf = (action: ToolAction) => (action.nameKey ? t(action.nameKey) : (action.name ?? ''))
 
   return (
     <header className="glass hud flex flex-wrap items-center justify-between gap-4 px-6 py-3.5">
@@ -185,7 +196,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
                 <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
                   {degraded && (
                     <span
-                      title="Sin WebSocket — actualizando por sondeo HTTP (más lento)"
+                      title={t('fallbackTitle')}
                       className="rounded-none border border-warn/50 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-warn"
                     >
                       fallback
@@ -209,8 +220,19 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
         </span>
 
         <button
+          onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
+          title={t('switchToLabel')}
+          aria-label={t('switchToLabel')}
+          lang={lang === 'en' ? 'es' : 'en'}
+          className="press flex h-9 shrink-0 items-center justify-center rounded-none border border-border px-2.5 font-mono text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
+        >
+          {t('switchTo')}
+        </button>
+
+        <button
           onClick={requestTokenDialog}
-          title="Token de API"
+          title={t('apiToken')}
+          aria-label={t('apiToken')}
           className="press flex h-9 w-9 shrink-0 items-center justify-center rounded-none border border-border text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
         >
           <KeyRound className="h-4 w-4" />
@@ -223,7 +245,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
               className="flex items-center gap-2 rounded-none bg-primary px-4 py-2.5 font-mono text-[12.5px] font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform,box-shadow] duration-150 hover:-translate-x-[1px] hover:-translate-y-[1px] hover:brightness-110 hover:shadow-[6px_6px_0_0_rgba(45,226,230,0.28)] active:translate-x-0 active:translate-y-0 disabled:opacity-50 disabled:hover:brightness-100"
             >
               <Play className="h-3.5 w-3.5" />
-              {scanning ? 'Scanning…' : 'Ejecutar scan'}
+              {scanning ? t('scanning') : t('runScan')}
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
@@ -232,19 +254,19 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
             className="w-96 rounded-none border-border bg-popover text-foreground shadow-hard-lg"
           >
             <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              escaneos
+              {t('menuScans')}
             </DropdownMenuLabel>
             {SCANS.map((action) => (
               <DropdownMenuItem
-                key={action.name}
+                key={action.nameKey ?? action.name}
                 onSelect={() => run(action)}
                 className="items-start gap-3 py-2.5"
               >
                 <Play className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <div className="font-mono text-sm font-medium lowercase">{action.name}</div>
+                  <div className="font-mono text-sm font-medium lowercase">{nameOf(action)}</div>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {action.description}
+                    {t(action.descKey)}
                   </p>
                 </div>
                 {action.shortcut && (
@@ -257,27 +279,27 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              herramientas individuales
+              {t('menuTools')}
             </DropdownMenuLabel>
             {TOOLS.map((action) => {
               const available = isAvailable(action.requires)
               return (
                 <DropdownMenuItem
-                  key={action.name}
+                  key={action.stage}
                   disabled={!available}
                   onSelect={() => run(action)}
                   className="items-start gap-3 py-2.5"
                 >
                   <Play className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
-                    <div className="font-mono text-sm font-medium lowercase">{action.name}</div>
+                    <div className="font-mono text-sm font-medium lowercase">{nameOf(action)}</div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {action.description}
+                      {t(action.descKey)}
                     </p>
                   </div>
                   {!available && (
                     <span className="shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">
-                      no instalado
+                      {t('notInstalled')}
                     </span>
                   )}
                 </DropdownMenuItem>

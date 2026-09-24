@@ -64,7 +64,7 @@ class LiveMonitor:
             try:
                 self._tick()
             except Exception:  # a bad tick must never kill the loop
-                logger.exception("Fallo en el tick del monitor en vivo")
+                logger.exception("Live monitor tick failed")
             self._stop.wait(self.interval_s)
 
     def _first_port(self, dev) -> int | None:

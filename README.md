@@ -131,6 +131,8 @@ with all 6 tools) in [Quick start](#quick-start--a-single-command).
 - Alert feed with acknowledge
 - Toasts with the API's real message on every action (trust, speed test,
   Wake-on-LAN, copy)
+- English and Spanish interface, switchable from the header (it starts in the
+  browser's language)
 
 ## Quick start — a single command
 
@@ -457,7 +459,7 @@ With the dashboard built, the API **and** the web UI are served on the same port
 ### Error messages
 
 Every API error response arrives as JSON `{"detail": "..."}` with a readable
-message (currently in Spanish), and the dashboard shows that text directly in a
+message, and the dashboard shows that text directly in a
 toast — never a bare code. An unexpected server error is caught globally and
 turned into a `500` with a readable `detail`; the technical detail (traceback)
 stays in the NetScan log, not in the client.

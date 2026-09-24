@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { DeviceRecord, MetricSamplePoint } from '@/types'
+import { useI18n } from '@/i18n/context'
 
 function fmtT(iso: string): string {
   const d = new Date(iso)
@@ -24,6 +25,7 @@ function Mini({
   title: string
   decimals?: number
 }) {
+  const { t } = useI18n()
   const rows = data as unknown as Record<string, number | null | string>[]
   const present = rows.filter((d) => d[dataKey] != null)
   const last = present.length ? Number(present[present.length - 1][dataKey]) : null
@@ -35,7 +37,7 @@ function Mini({
         <span className="font-mono text-foreground/90">{last != null ? `${last.toFixed(decimals)}${unit}` : '—'}</span>
       </div>
       {present.length < 2 ? (
-        <p className="py-6 text-center text-[11px] text-muted-foreground">sin histórico suficiente</p>
+        <p className="py-6 text-center text-[11px] text-muted-foreground">{t('noHistory')}</p>
       ) : (
         <ResponsiveContainer width="100%" height={110}>
           <AreaChart data={data} margin={{ top: 4, right: 6, bottom: 0, left: -20 }}>
@@ -65,6 +67,7 @@ function Mini({
 /** Per-device history: latency / quality / jitter / packet-loss over time,
  *  from the metric samples persisted on every scan. */
 export default function DeviceDetailDialog({ device, onClose }: { device: DeviceRecord; onClose: () => void }) {
+  const { t } = useI18n()
   const { data } = usePoll(() => api.deviceMetrics(device.mac, 100), 20000)
   const samples = data?.samples ?? []
   return (
@@ -78,10 +81,10 @@ export default function DeviceDetailDialog({ device, onClose }: { device: Device
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Mini data={samples} dataKey="latency_ms" color="#22d3ee" unit=" ms" title="Latencia" decimals={1} />
-          <Mini data={samples} dataKey="quality" color="#38bdf8" unit="/100" title="Calidad" />
+          <Mini data={samples} dataKey="latency_ms" color="#22d3ee" unit=" ms" title={t('chartLatency')} decimals={1} />
+          <Mini data={samples} dataKey="quality" color="#38bdf8" unit="/100" title={t('chartQuality')} />
           <Mini data={samples} dataKey="jitter_ms" color="#2de2e6" unit=" ms" title="Jitter" decimals={1} />
-          <Mini data={samples} dataKey="packet_loss_pct" color="#fbbf24" unit="%" title="Pérdida" decimals={1} />
+          <Mini data={samples} dataKey="packet_loss_pct" color="#fbbf24" unit="%" title={t('chartLoss')} decimals={1} />
         </div>
       </DialogContent>
     </Dialog>
