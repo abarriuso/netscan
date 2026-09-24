@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ChevronsUpDown, Gauge, Power, ShieldCheck, ShieldQuestion } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, ChevronsUpDown, Copy, Gauge, Power, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { toast } from 'sonner'
 import { GlassPanel, QualityBadge } from '@/components/metrics'
 import { Input } from '@/components/ui/input'
@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { usePoll } from '@/hooks/useNetscan'
+import { useCopyToClipboard, usePoll } from '@/hooks/useNetscan'
 import { api } from '@/lib/api'
 import type { DeviceRecord, PortInfo } from '@/types'
 import PanelError from './PanelError'
@@ -58,6 +58,14 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
   const [testing, setTesting] = useState<Set<string>>(new Set())
   const [sortKey, setSortKey] = useState<SortKey>('host')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const { copied, copy } = useCopyToClipboard()
+
+  const copyValue = (text: string, label: string) => {
+    copy(text).then((ok) => {
+      if (ok) toast.success(`${label} copiado`, { description: text })
+      else toast.error('No se pudo copiar al portapapeles')
+    })
+  }
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -154,7 +162,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
         <button
           onClick={() => toggleSort(k)}
           aria-label={`ordenar por ${label}${active ? (sortDir === 'asc' ? ', ascendente' : ', descendente') : ''}`}
-          className={`flex items-center gap-1 transition-colors hover:text-foreground ${align === 'right' ? 'ml-auto flex-row-reverse' : ''} ${active ? 'text-primary' : ''}`}
+          className={`press flex items-center gap-1 transition-colors hover:text-foreground ${align === 'right' ? 'ml-auto flex-row-reverse' : ''} ${active ? 'sort-active text-primary' : ''}`}
         >
           {label}
           <Icon className="h-3 w-3 shrink-0" strokeWidth={active ? 2.4 : 1.6} />
@@ -165,6 +173,27 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
 
   const emptyMsg =
     devices && devices.length > 0 ? 'ningún dispositivo coincide con el filtro' : 'sin dispositivos — lanza un scan'
+
+  // A click-to-copy value (IP / MAC). Shows a cyan flash + check when copied.
+  const CopyChip = ({ value, label, className = '' }: { value: string; label: string; className?: string }) => {
+    const isCopied = copied === value
+    return (
+      <button
+        type="button"
+        onClick={() => copyValue(value, label)}
+        title={`copiar ${label}`}
+        aria-label={`copiar ${label} ${value}`}
+        className={`copyable group/copy inline-flex items-center gap-1 ${isCopied ? 'copied-flash' : ''} ${className}`}
+      >
+        {value}
+        {isCopied ? (
+          <Check className="h-3 w-3 shrink-0 text-primary" strokeWidth={2.4} />
+        ) : (
+          <Copy className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/copy:opacity-60" strokeWidth={1.6} />
+        )}
+      </button>
+    )
+  }
 
   return (
     <>
@@ -214,10 +243,14 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                     </TableCell>
                   </TableRow>
                 ))}
-              {filtered.map((dev) => {
+              {filtered.map((dev, i) => {
                 const ports = portsOf(dev)
                 return (
-                  <TableRow key={dev.mac} className={`border-white/[0.06] transition-colors hover:bg-white/[0.03] ${dev.online ? '' : 'opacity-45'}`}>
+                  <TableRow
+                    key={dev.mac}
+                    style={{ '--row-i': Math.min(i, 12) } as React.CSSProperties}
+                    className={`row-in border-white/[0.06] transition-colors hover:bg-white/[0.03] ${dev.online ? '' : 'opacity-45'}`}
+                  >
                     <TableCell>
                       <button
                         onClick={() => setDetail(dev)}
@@ -235,9 +268,9 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                       </button>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {dev.ip}
+                      <CopyChip value={dev.ip} label="IP" />
                       <br />
-                      <span className="text-muted-foreground/70">{dev.mac}</span>
+                      <CopyChip value={dev.mac} label="MAC" className="text-muted-foreground/70" />
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs">
                       {dev.last_latency_ms != null ? (
@@ -302,7 +335,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                         onClick={() => toggleTrust(dev)}
                         title={dev.trusted ? 'verificado' : 'marcar como de confianza'}
                         aria-label={dev.trusted ? `quitar confianza de ${dev.ip}` : `marcar ${dev.ip} como de confianza`}
-                        className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                        className={`press flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
                           dev.trusted
                             ? 'border-ok/40 bg-ok/[0.16] text-ok'
                             : 'border-destructive/40 bg-destructive/[0.16] text-destructive'
@@ -318,7 +351,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                           disabled={testing.has(dev.mac)}
                           title="Speed test (latencia, jitter, pérdida, TCP)"
                           aria-label={`speed test de ${dev.ip}`}
-                          className="flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground hover:border-primary/60 hover:text-primary disabled:opacity-50"
+                          className="press flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary disabled:opacity-50"
                         >
                           <Gauge className={`h-3.5 w-3.5 ${testing.has(dev.mac) ? 'animate-spin' : ''}`} strokeWidth={1.6} />
                         </button>
@@ -327,7 +360,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                             onClick={() => wake(dev)}
                             title="Wake-on-LAN"
                             aria-label={`despertar ${dev.ip} por Wake-on-LAN`}
-                            className="flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground hover:border-primary/60 hover:text-primary"
+                            className="press flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
                           >
                             <Power className="h-3.5 w-3.5" strokeWidth={1.6} />
                           </button>
@@ -354,26 +387,27 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
           {!loading && filtered.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">{emptyMsg}</p>
           )}
-          {filtered.map((dev) => {
+          {filtered.map((dev, i) => {
             const ports = portsOf(dev)
             return (
               <div
                 key={dev.mac}
-                className={`rounded-none border border-white/[0.08] bg-white/[0.02] p-3 ${dev.online ? '' : 'opacity-50'}`}
+                style={{ '--row-i': Math.min(i, 12) } as React.CSSProperties}
+                className={`row-in rounded-none border border-white/[0.08] bg-white/[0.02] p-3 ${dev.online ? '' : 'opacity-50'}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <button onClick={() => setDetail(dev)} className="flex min-w-0 items-center gap-2 text-left">
                     <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${dev.online ? 'bg-ok' : 'bg-muted-foreground/40'}`} />
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{dev.hostname || dev.mdns_name || dev.ip}</span>
-                      <span className="block font-mono text-xs text-muted-foreground">{dev.ip} · {dev.vendor || '—'}</span>
+                      <span className="block font-mono text-xs text-muted-foreground">{dev.vendor || '—'}</span>
                     </span>
                   </button>
                   <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       onClick={() => toggleTrust(dev)}
                       aria-label={dev.trusted ? `quitar confianza de ${dev.ip}` : `marcar ${dev.ip} como de confianza`}
-                      className={`flex h-6 w-6 items-center justify-center rounded-full border ${dev.trusted ? 'border-ok/40 bg-ok/[0.16] text-ok' : 'border-destructive/40 bg-destructive/[0.16] text-destructive'}`}
+                      className={`press flex h-6 w-6 items-center justify-center rounded-full border ${dev.trusted ? 'border-ok/40 bg-ok/[0.16] text-ok' : 'border-destructive/40 bg-destructive/[0.16] text-destructive'}`}
                     >
                       {dev.trusted ? <ShieldCheck className="h-3 w-3" /> : <ShieldQuestion className="h-3 w-3" />}
                     </button>
@@ -381,7 +415,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                       onClick={() => runSpeedtest(dev)}
                       disabled={testing.has(dev.mac)}
                       aria-label={`speed test de ${dev.ip}`}
-                      className="flex h-6 w-6 items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground disabled:opacity-50"
+                      className="press flex h-6 w-6 items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground disabled:opacity-50"
                     >
                       <Gauge className={`h-3.5 w-3.5 ${testing.has(dev.mac) ? 'animate-spin' : ''}`} strokeWidth={1.6} />
                     </button>
@@ -389,12 +423,15 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
                       <button
                         onClick={() => wake(dev)}
                         aria-label={`despertar ${dev.ip} por Wake-on-LAN`}
-                        className="flex h-6 w-6 items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground"
+                        className="press flex h-6 w-6 items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground"
                       >
                         <Power className="h-3.5 w-3.5" strokeWidth={1.6} />
                       </button>
                     )}
                   </div>
+                </div>
+                <div className="mt-2 font-mono text-xs">
+                  <CopyChip value={dev.ip} label="IP" />
                 </div>
                 <dl className="mt-3 grid grid-cols-4 gap-2 font-mono text-xs">
                   <div>

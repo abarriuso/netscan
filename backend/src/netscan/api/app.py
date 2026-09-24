@@ -278,6 +278,21 @@ def create_app() -> FastAPI:
         allow_headers=["Authorization", "X-API-Key", "Content-Type"],
     )
 
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        """Last-resort handler so an unexpected error is a clean JSON 500 with a
+        message the dashboard can display — not a bare, bodyless 500 the client
+        can only render as 'system: 500'. HTTPException keeps its own status and
+        detail (Starlette handles it before this); this only catches the rest.
+        The real traceback goes to the server log, never to the client."""
+        from fastapi.responses import JSONResponse
+
+        logger.exception("Error no controlado en %s %s", request.method, request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Error interno del servidor. Revisa los logs de NetScan."},
+        )
+
     @app.middleware("http")
     async def auth_middleware(request: Request, call_next):
         """Global auth for HTTP (the WebSocket checks its own ?token=)."""

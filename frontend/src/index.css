@@ -242,6 +242,85 @@
     50.01%, 100% { opacity: 0; }
   }
 
+  /* ── Microinteractions (terminal-brutalist, not decorative fluff) ────────
+     All compositor-only (transform/opacity/color), all killed under
+     prefers-reduced-motion by the global rule above. */
+
+  /* Copy target: a value you can click to copy (IP / MAC). Cursor + a hard
+     cyan underline that snaps in on hover, like selecting text in a console. */
+  .copyable {
+    cursor: pointer;
+    background-image: linear-gradient(rgb(var(--primary) / 0.7), rgb(var(--primary) / 0.7));
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 1px;
+    transition: background-size 0.12s cubic-bezier(0.2, 0, 0, 1), color 0.12s ease;
+  }
+  .copyable:hover {
+    color: rgb(var(--primary));
+    background-size: 100% 1px;
+  }
+  /* Confirmed state: the whole chip flashes cyan once, then settles. */
+  .copied-flash {
+    animation: copied-flash 0.5s ease-out;
+  }
+  @keyframes copied-flash {
+    0% { color: rgb(var(--primary)); text-shadow: 0 0 6px rgb(var(--primary) / 0.6); }
+    100% { color: inherit; text-shadow: none; }
+  }
+
+  /* Physical key-press: element sinks 1px and its offset shadow collapses, as
+     if pushed into the board. Pair with .card-hover for the full lift+press. */
+  .press {
+    transition: transform 0.08s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.08s ease;
+  }
+  .press:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 0 rgb(0 0 0 / 0.5) !important;
+  }
+
+  /* Staggered row entrance — rows fade+rise in sequence when a list mounts.
+     The per-row delay is set inline via the --row-i custom property. */
+  .row-in {
+    animation: row-in 0.32s cubic-bezier(0.2, 0, 0, 1) both;
+    animation-delay: calc(var(--row-i, 0) * 22ms);
+  }
+  @keyframes row-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* Value that just changed: a brief cyan tick to draw the eye to fresh data
+     on a poll update, without a full re-render flash. */
+  .tick-update {
+    animation: tick-update 0.6s ease-out;
+  }
+  @keyframes tick-update {
+    0% { background-color: rgb(var(--primary) / 0.16); }
+    100% { background-color: transparent; }
+  }
+
+  /* Sort indicator: the active column's arrow gets a hard cyan tick underline
+     that wipes in from the left. Applied to the header button when active. */
+  .sort-active {
+    position: relative;
+  }
+  .sort-active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -3px;
+    height: 1px;
+    width: 100%;
+    background: rgb(var(--primary));
+    transform-origin: left;
+    animation: sort-wipe 0.18s cubic-bezier(0.2, 0, 0, 1) both;
+  }
+  @keyframes sort-wipe {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
   /* The big ASCII "NETSCAN" hero wordmark. Cyan→sky→magenta sweep with a slow
      compositor-only sheen and a glow + hard cyber flicker seam. */
   .hero-ascii {

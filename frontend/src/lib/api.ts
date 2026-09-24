@@ -109,6 +109,37 @@ export function invalidateCache(): void {
   _cache.clear()
 }
 
+/** Turn a failed Response into a useful Error. The backend answers errors as
+ *  `{"detail": "..."}` (FastAPI convention); surface that human message instead
+ *  of a bare status code so panels and toasts can show what actually went wrong.
+ *  Falls back to a status-based message when the body isn't the expected shape
+ *  (network layer, proxy error page, empty 500). Exported for unit testing. */
+export async function errorFromResponse(resp: Response, path: string): Promise<Error> {
+  let detail = ''
+  try {
+    const data = await resp.clone().json()
+    if (data && typeof data.detail === 'string') detail = data.detail
+    else if (Array.isArray(data?.detail)) {
+      // FastAPI 422 validation errors: [{loc, msg, ...}, ...]
+      detail = data.detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join('; ')
+    }
+  } catch {
+    /* not JSON — fall through to the status-based message */
+  }
+  if (!detail) {
+    detail =
+      resp.status >= 500
+        ? 'error interno del servidor'
+        : resp.status === 0
+          ? 'sin conexión'
+          : (resp.statusText || `HTTP ${resp.status}`)
+  }
+  const err = new Error(detail) as Error & { status?: number; path?: string }
+  err.status = resp.status
+  err.path = path
+  return err
+}
+
 async function get<T>(path: string): Promise<T> {
   const cached = _cache.get(path)
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value as T
@@ -121,7 +152,7 @@ async function get<T>(path: string): Promise<T> {
       await ensureAuth()
       resp = await fetch(`${BASE}${path}`, { headers: authHeaders() })
     }
-    if (!resp.ok) throw new Error(`${path}: ${resp.status}`)
+    if (!resp.ok) throw await errorFromResponse(resp, path)
     const value = await resp.json()
     _cache.set(path, { at: Date.now(), value })
     return value
@@ -143,7 +174,7 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
     await ensureAuth()
     resp = await make()
   }
-  if (!resp.ok) throw new Error(`${path}: ${resp.status}`)
+  if (!resp.ok) throw await errorFromResponse(resp, path)
   // A successful mutation changes server state — drop cached GETs so the next
   // poll reflects it immediately instead of serving up to CACHE_TTL_MS stale.
   invalidateCache()
@@ -211,7 +242,7 @@ export const api = {
         body: form,
       })
     }
-    if (!resp.ok) throw new Error(`logo upload: ${resp.status}`)
+    if (!resp.ok) throw await errorFromResponse(resp, `/api/settings/integrations/${id}/logo`)
     return resp.json()
   },
 }

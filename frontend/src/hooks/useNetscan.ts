@@ -203,3 +203,47 @@ export function formatUptime(seconds?: number): string {
   const h = Math.floor((seconds % 86400) / 3600)
   return d > 0 ? `${d}d ${h}h` : `${h}h ${Math.floor((seconds % 3600) / 60)}m`
 }
+
+/** Copy text to the clipboard and flash a short-lived "copied" flag per value.
+ *  Tracks WHICH value was copied (`copied`) so a table of many copy targets can
+ *  light up only the row that was clicked. The flag auto-clears after `resetMs`.
+ *  Falls back to a hidden-textarea + execCommand when the async Clipboard API is
+ *  unavailable (insecure origin / older browser). */
+export function useCopyToClipboard(resetMs = 1200) {
+  const [copied, setCopied] = useState<string | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => () => clearTimeout(timerRef.current), [])
+
+  const copy = useCallback(
+    async (text: string): Promise<boolean> => {
+      let ok = false
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text)
+          ok = true
+        } else {
+          const ta = document.createElement('textarea')
+          ta.value = text
+          ta.style.position = 'fixed'
+          ta.style.opacity = '0'
+          document.body.appendChild(ta)
+          ta.select()
+          ok = document.execCommand('copy')
+          document.body.removeChild(ta)
+        }
+      } catch {
+        ok = false
+      }
+      if (ok) {
+        setCopied(text)
+        clearTimeout(timerRef.current)
+        timerRef.current = setTimeout(() => setCopied(null), resetMs)
+      }
+      return ok
+    },
+    [resetMs],
+  )
+
+  return { copied, copy }
+}

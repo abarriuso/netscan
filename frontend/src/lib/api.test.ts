@@ -1,13 +1,34 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { api, hasToken, submitToken, clearToken, invalidateCache } from './api'
+import { api, hasToken, submitToken, clearToken, invalidateCache, errorFromResponse } from './api'
 
 // ---- helpers -------------------------------------------------------------
 function jsonResponse(body: unknown, status = 200): Response {
-  return {
+  const resp = {
     ok: status >= 200 && status < 300,
     status,
+    statusText: '',
     json: async () => body,
-  } as Response
+    clone() {
+      return jsonResponse(body, status)
+    },
+  }
+  return resp as unknown as Response
+}
+
+// A response whose body is not JSON (e.g. a proxy error page) — .json() rejects.
+function textResponse(status: number, statusText = ''): Response {
+  const resp = {
+    ok: false,
+    status,
+    statusText,
+    json: async () => {
+      throw new SyntaxError('Unexpected token < in JSON')
+    },
+    clone() {
+      return textResponse(status, statusText)
+    },
+  }
+  return resp as unknown as Response
 }
 
 describe('api client', () => {
@@ -96,9 +117,11 @@ describe('api client', () => {
       expect(fetchMock).toHaveBeenCalledTimes(2)
     })
 
-    it('throws with the path + status on a non-ok response', async () => {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({}, 500))
-      await expect(api.system()).rejects.toThrow('/api/system: 500')
+    it('throws the API detail message on a non-ok JSON response', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        jsonResponse({ detail: 'El logo no puede superar 2MB' }, 413),
+      )
+      await expect(api.system()).rejects.toThrow('El logo no puede superar 2MB')
     })
 
     it('URL-encodes a device MAC into the metrics path', async () => {
@@ -141,6 +164,32 @@ describe('api client', () => {
       expect(call[0]).toBe('/api/devices/aa%3Abb')
       expect(call[1]?.method).toBe('PATCH')
       expect(call[1]?.body).toBe(JSON.stringify({ trusted: false }))
+    })
+  })
+
+  describe('errorFromResponse', () => {
+    it('uses the string detail from the JSON body', async () => {
+      const err = await errorFromResponse(jsonResponse({ detail: 'no encontrado' }, 404), '/api/x')
+      expect(err.message).toBe('no encontrado')
+      expect((err as Error & { status?: number }).status).toBe(404)
+      expect((err as Error & { path?: string }).path).toBe('/api/x')
+    })
+
+    it('joins FastAPI 422 validation messages', async () => {
+      const body = { detail: [{ msg: 'campo requerido' }, { msg: 'debe ser un entero' }] }
+      const err = await errorFromResponse(jsonResponse(body, 422), '/api/y')
+      expect(err.message).toBe('campo requerido; debe ser un entero')
+    })
+
+    it('falls back to a generic message for a 5xx with no JSON body', async () => {
+      const err = await errorFromResponse(textResponse(500), '/api/z')
+      expect(err.message).toBe('error interno del servidor')
+      expect((err as Error & { status?: number }).status).toBe(500)
+    })
+
+    it('uses statusText for a 4xx with no usable detail', async () => {
+      const err = await errorFromResponse(textResponse(404, 'Not Found'), '/api/z')
+      expect(err.message).toBe('Not Found')
     })
   })
 })

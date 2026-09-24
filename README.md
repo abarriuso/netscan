@@ -14,41 +14,18 @@ integraciones configurables desde la propia web para **Proxmox VE**,
 
 ## Capturas
 
-Vista **En vivo** — latencia de red en tiempo real y mapa de equipos (online/offline):
+El dashboard (`http://localhost:8600`) reúne seis vistas:
 
-<p align="center">
-  <img src="docs/screenshots/dashboard-live-mock.png" width="820" alt="NetScan En vivo: gráfico de latencia en tiempo real y mapa de red con estado de cada equipo">
-</p>
-
-**Resumen** — KPIs, estado del sistema, inventario de dispositivos y alertas:
-
-<p align="center">
-  <img src="docs/screenshots/dashboard-overview-mock.png" width="820" alt="Dashboard de NetScan: KPIs, estado del sistema, inventario de dispositivos y alertas">
-</p>
-
-**Dispositivos** — inventario detallado con latencia, jitter, pérdida, calidad, puertos abiertos y confianza:
-
-<p align="center">
-  <img src="docs/screenshots/dashboard-devices-mock.png" width="820" alt="Inventario de dispositivos de NetScan con métricas por equipo y puertos abiertos">
-</p>
-
-**Analítica** — series de latencia/calidad/throughput, top vendors/SO/puertos, servicios web y hallazgos TLS:
-
-<p align="center">
-  <img src="docs/screenshots/dashboard-analytics-mock.png" width="820" alt="Analítica de red de NetScan: gráficos de métricas, rankings y hallazgos de seguridad">
-</p>
-
-**Integraciones** configurables desde la web (Proxmox/TrueNAS/AdGuard/Pi-hole/marcadores propios):
-
-<p align="center">
-  <img src="docs/screenshots/dashboard-integrations-mock.png" width="820" alt="Panel de integraciones de NetScan: Proxmox, TrueNAS, AdGuard, Pi-hole y marcadores personalizados">
-</p>
-
-**Sistema** — recursos del host y estado del servidor NetScan:
-
-<p align="center">
-  <img src="docs/screenshots/dashboard-system-mock.png" width="820" alt="Panel de sistema de NetScan: CPU, memoria, discos, red y estado del servidor">
-</p>
+- **En vivo** — latencia de red en tiempo real y mapa de equipos (online/offline).
+- **Resumen** — KPIs, estado del sistema, inventario de dispositivos y alertas.
+- **Dispositivos** — inventario detallado con latencia, jitter, pérdida, calidad,
+  puertos abiertos y confianza; columnas ordenables y IP/MAC copiables al clic.
+- **Analítica** — series de latencia/calidad/throughput, top vendors/SO/puertos,
+  servicios web y hallazgos TLS.
+- **Integraciones** — Proxmox/TrueNAS/AdGuard/Pi-hole y marcadores propios,
+  configurables desde la web.
+- **Sistema** — recursos del host (CPU, memoria, discos, red) y estado del
+  servidor NetScan.
 
 `netscan.sh doctor` / `netscan.bat doctor` — diagnóstico de un vistazo antes de arrancar:
 
@@ -133,10 +110,18 @@ Docker, WSL con las 6 herramientas) en [Arranque rápido](#arranque-rápido-un-s
 **Dashboard**
 - Tabla densa de dispositivos con puertos, latencia/jitter/pérdida/calidad,
   tooltips de versión y filtrado
+- **Columnas ordenables** (host/IP/latencia/jitter/pérdida/calidad; los valores
+  sin dato caen siempre al final) y, en móvil, tarjetas apiladas que conservan
+  todas las métricas en vez de ocultar columnas
+- **Microinteracciones** en clave terminal: IP/MAC copiables al clic con
+  confirmación, respuesta física en botones, tick de columna activa y entrada
+  escalonada de filas — todo respeta `prefers-reduced-motion`
 - Paneles de Proxmox/TrueNAS/AdGuard/Pi-hole con salud de pools y guests, más
   gestor de integraciones (alta/edición/borrado) y marcadores personalizados
-- Progreso de escaneo en vivo por WebSocket
+- Progreso de escaneo en vivo por WebSocket, con aviso visible si cae a sondeo HTTP
 - Feed de alertas con acknowledge
+- Avisos (toasts) con el mensaje real de la API en cada acción (trust, speed
+  test, Wake-on-LAN, copiar)
 
 ## Arranque rápido — un solo comando
 
@@ -451,6 +436,51 @@ NETSCAN_NOTIFY_URLS__0=ntfy://ntfy.sh/mi-topic
 Con el dashboard compilado, la API **y** la web se sirven en el mismo puerto
 (`/` = dashboard, `/api/...` = API). Docs interactivas en
 `http://localhost:8600/docs` (OpenAPI).
+
+### Mensajes de error
+
+Toda respuesta de error de la API llega como JSON `{"detail": "..."}` (con
+mensaje en español), y el dashboard muestra ese texto directamente en un aviso
+(toast) — nunca un código pelado. Un error inesperado del servidor se captura
+de forma global y se convierte en un `500` con `detail` legible; el detalle
+técnico (traza) queda en el log de NetScan, no en el cliente.
+
+| Código | Significado | Qué mirar |
+|---|---|---|
+| `400` | Petición mal formada (ej. rango de red inválido) | Revisa el cuerpo/parámetros de la petición |
+| `401` | Falta el token o es incorrecto | Configura el token en el dashboard (icono de llave) o `NETSCAN_API_TOKEN` |
+| `403` | Origen no permitido (CORS) | Añade el origen a `NETSCAN_API_CORS_ORIGINS` |
+| `404` | Recurso inexistente (ej. aún no hay ningún scan) | Lanza un scan; comprueba la MAC/ruta |
+| `409` | Conflicto (ej. ya hay un scan en curso) | Espera a que termine el scan activo |
+| `413` | Fichero demasiado grande (ej. logo de integración) | El logo no puede superar 2 MB |
+| `415` | Tipo de contenido no soportado | Sube PNG/JPG/SVG para el logo |
+| `422` | Validación de campos fallida | El `detail` lista qué campo falla |
+| `429` | Demasiadas peticiones | Baja la frecuencia de sondeo o espera |
+| `500` | Error interno no controlado | Revisa los logs de NetScan (ver abajo) |
+
+## Resolución de problemas
+
+- **El dashboard carga en blanco / no aparecen datos.** Comprueba que la API
+  responde: `curl http://localhost:8600/api/health` debe devolver
+  `{"status":"ok"}`. Si no, el servicio no está arrancado (ver systemd abajo).
+- **`401` al abrir el dashboard.** Hay un token configurado en el servidor pero
+  el navegador no lo tiene. Pulsa el icono de llave en la cabecera e introdúcelo;
+  se guarda en el navegador. El token es `NETSCAN_API_TOKEN`.
+- **El puerto ya está en uso.** Cambia `NETSCAN_API_PORT` (y `NETSCAN_API_HOST`
+  si solo quieres escuchar en localhost). En Linux: `ss -tlnp | grep 8600` para
+  ver qué lo ocupa.
+- **El escaneo ARP no encuentra dispositivos.** Suele ser permisos o red. El
+  escaneo de capa 2 necesita privilegios (en Linux, `cap_net_raw` o root; el
+  servicio systemd ya lo concede). En LXC, el contenedor debe estar en modo
+  bridge sobre la misma VLAN que quieres escanear.
+- **`403` / errores de CORS desde otro equipo.** Añade el origen del navegador
+  (ej. `http://192.168.1.50:8601`) a `NETSCAN_API_CORS_ORIGINS` (lista separada
+  por comas).
+- **Una integración (Proxmox/TrueNAS/AdGuard) sale en rojo.** Verifica URL,
+  credenciales y que el destino sea alcanzable desde el host de NetScan. El
+  `detail` del error de la integración dice qué falló (DNS, TLS, auth…).
+- **¿Dónde están los logs?** En `NETSCAN_DATA_DIR/netscan.log` (además de la
+  salida estándar). Con systemd: `journalctl -u netscan -f`.
 
 ## Desarrollo
 
