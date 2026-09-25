@@ -133,6 +133,60 @@ Docker, WSL con las 6 herramientas) en [Arranque rápido](#arranque-rápido-un-s
 - Interfaz en inglés y en español, con selector en la cabecera (arranca en el
   idioma del navegador)
 
+## Cómo funciona
+
+Un único proceso sirve la API, el panel y las tareas en segundo plano; la CLI
+llama directamente al mismo motor de escaneo. Más detalle y las decisiones de
+diseño en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+```mermaid
+flowchart LR
+  subgraph clients[" "]
+    UI["Panel web<br/>React 19 · Vite · Tailwind"]
+    CLI["CLI (typer)<br/>up · scan · doctor · speedtest"]
+  end
+  subgraph proc["netscan — un proceso, puerto 8600"]
+    API["FastAPI<br/>REST + WebSocket /ws/progress"]
+    SCHED["Planificador<br/>escaneos periódicos"]
+    ENGINE["engine.run_scan()"]
+    STORE[("SQLite<br/>inventario · escaneos · alertas · métricas")]
+    LIVE["LiveMonitor<br/>ping a los equipos conocidos"]
+    INTEG["integrations.collect_all()"]
+    SYS["system.py<br/>métricas del host (psutil)"]
+    NOTIFY["Apprise<br/>ntfy · Telegram · Discord…"]
+  end
+  UI <-->|REST / WebSocket| API
+  CLI --> ENGINE
+  API --> ENGINE
+  SCHED --> ENGINE
+  ENGINE -->|record_scan: diff por MAC| STORE
+  STORE -->|alertas nuevas| NOTIFY
+  API --> STORE & LIVE & INTEG & SYS
+  ENGINE --> LAN(("LAN"))
+  LIVE --> LAN
+  INTEG --> PVE["Proxmox VE"] & TN["TrueNAS"] & AG["AdGuard Home"] & PH["Pi-hole"]
+```
+
+Qué hace un escaneo, etapa a etapa (cada herramienta opcional se salta sin
+error si no está instalada):
+
+```mermaid
+flowchart TD
+  A["Barrido ARP (scapy)<br/>todos los equipos del segmento L2"] --> B["Fabricante por OUI + nombres mDNS<br/>hilo principal: no son thread-safe"]
+  B --> C["Enriquecimiento por equipo, pool de hilos"]
+  C --> C1["DNS inverso · ping"]
+  C --> C2["puertos abiertos: RustScan en todo el rango,<br/>o el escáner propio multihilo"]
+  C2 --> C3["versiones con nmap -sV (+ SO)"]
+  C --> C4["huella HTTP/TLS:<br/>título, servidor, certificado"]
+  C --> C5["test de velocidad: latencia, jitter,<br/>pérdida, caudal (opcional)"]
+  C1 & C3 & C4 & C5 --> D["interfaces web → nuclei · whatweb · testssl.sh<br/>(solo si están instaladas; nuclei acotado)"]
+  D --> E["record_scan: diff con el inventario, por MAC"]
+  E -->|MAC desconocida| F1["new_device"]
+  E -->|cambio IP ↔ MAC| F2["mac_changed"]
+  E -->|equipo ausente| F3["device_down"]
+  F1 & F2 & F3 --> G["Notificación con Apprise"]
+```
+
 ## Arranque rápido — un solo comando
 
 Tras instalar, **`netscan up`** arranca la API **y** el dashboard integrado en
