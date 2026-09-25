@@ -27,7 +27,7 @@ jobs:
           pip install build
           python -m build backend
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: netscan-backend-dist
           path: backend/dist/*
@@ -79,7 +79,7 @@ jobs:
           chmod +x "$stage/install.sh" "$stage/netscan.sh"
           tar -czf "netscan-${version}-linux.tar.gz" "$stage"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: netscan-linux-bundle
           path: netscan-*-linux.tar.gz
