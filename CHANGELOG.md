@@ -5,6 +5,46 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Seguridad
+- **Subir un logo de integración ya exige el token.** La excepción para
+  `<img src>` abarcaba cualquier ruta terminada en `/logo`, también el `POST`
+  que lo sube: cualquiera en la red podía subir un SVG con JavaScript que se
+  servía desde el origen del dashboard (y desde ahí, leer el token guardado en
+  el navegador). Ahora solo es pública la lectura, y los logos se sirven con
+  `Content-Security-Policy: sandbox` y `nosniff`. La subida se lee con límite
+  en vez de entera en memoria.
+- **Cambiar el host, el puerto o el SSL de una integración exige volver a
+  escribir su secreto.** Antes se conservaba el guardado, así que bastaba con
+  cambiar el host para que NetScan enviara el token de Proxmox/TrueNAS (o la
+  contraseña de AdGuard/Pi-hole) a otra máquina. Además, `host` solo admite un
+  nombre o una IP (nada de `evil.example/x?` ni `user@…`), y la URL de un
+  marcador debe ser `http(s)://`.
+- **Sin token, la API solo responde a `localhost`/`127.0.0.1`/`::1`.** Una web
+  cualquiera abierta en el navegador podía usar la API local mediante DNS
+  rebinding. `netscan serve`/`up` y `netscan-server` se niegan a escuchar fuera
+  de loopback sin `NETSCAN_API_TOKEN` (el comentario de la configuración ya lo
+  decía, pero no se comprobaba).
+- **Las peticiones que modifican algo desde otro origen se rechazan (CSRF)**, y
+  el WebSocket de progreso comprueba el `Origin`. Detrás de un proxy inverso se
+  tiene en cuenta `X-Forwarded-Host`.
+- **`install.sh` ya no enlaza `testssl.sh` a un clon en `/tmp`.** El servicio lo
+  ejecuta como root y `/tmp` se vacía al reiniciar: cualquier usuario podía
+  recrear esa ruta. Ahora se clona en `/opt/testssl.sh` y el enlace antiguo se
+  elimina al reinstalar.
+
+### Corregido
+- **Los dispositivos que dejan de responder pasan a offline** aunque
+  `alert_on_device_down` esté desactivado (antes solo se marcaban si había
+  alerta, así que «online» contaba todos los vistos alguna vez). Solo se tocan
+  los de la red escaneada.
+- **Pi-hole: se cierra la sesión de la API tras cada consulta.** Cada sondeo
+  (cada 30 s) abría una sesión nueva sin cerrarla y agotaba el límite de
+  sesiones de Pi-hole v6, bloqueando también el acceso a su web. Todas las
+  integraciones cierran ya su cliente HTTP.
+- La API rechaza escanear redes mayores de /16 (un /8 son 65 536 barridos ARP,
+  unos dos días con el escaneo bloqueado), y los `limit` de los históricos se
+  limitan a 1000.
+
 ### Añadido — monitor en vivo y más gráficas
 - **Monitor en vivo**: un servicio de fondo (`netscan/live.py`) hace ping
   continuo a los dispositivos conocidos y expone `/api/live`. Nueva pestaña
