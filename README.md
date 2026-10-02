@@ -522,7 +522,7 @@ stays in the NetScan log, not in the client.
 |---|---|---|
 | `400` | Malformed request (e.g. invalid network range) | Check the request body/parameters |
 | `401` | Missing or wrong token | Set the token in the dashboard (key icon) or `NETSCAN_API_TOKEN` |
-| `403` | Origin not allowed (CORS) | Add the origin to `NETSCAN_API_CORS_ORIGINS` |
+| `403` | Origin not allowed, or no token while reaching the API by a non-localhost name | Add the origin to `NETSCAN_API_CORS_ORIGINS`; without `NETSCAN_API_TOKEN` only `localhost`/`127.0.0.1` are accepted |
 | `404` | Resource does not exist (e.g. no scan yet) | Run a scan; check the MAC/path |
 | `409` | Conflict (e.g. a scan is already running) | Wait for the running scan to finish |
 | `413` | File too large (e.g. integration logo) | The logo cannot exceed 2 MB |

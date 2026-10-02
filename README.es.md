@@ -527,7 +527,7 @@ técnico (traza) queda en el log de NetScan, no en el cliente.
 |---|---|---|
 | `400` | Petición mal formada (ej. rango de red inválido) | Revisa el cuerpo/parámetros de la petición |
 | `401` | Falta el token o es incorrecto | Configura el token en el dashboard (icono de llave) o `NETSCAN_API_TOKEN` |
-| `403` | Origen no permitido (CORS) | Añade el origen a `NETSCAN_API_CORS_ORIGINS` |
+| `403` | Origen no permitido, o sin token y accediendo por un nombre que no es localhost | Añade el origen a `NETSCAN_API_CORS_ORIGINS`; sin `NETSCAN_API_TOKEN` solo se aceptan `localhost`/`127.0.0.1` |
 | `404` | Recurso inexistente (ej. aún no hay ningún scan) | Lanza un scan; comprueba la MAC/ruta |
 | `409` | Conflicto (ej. ya hay un scan en curso) | Espera a que termine el scan activo |
 | `413` | Fichero demasiado grande (ej. logo de integración) | El logo no puede superar 2 MB |
