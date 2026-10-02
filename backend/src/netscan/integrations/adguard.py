@@ -6,7 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
 import httpx
 
@@ -53,6 +53,15 @@ class AdGuardClient:
             "top_blocked_domains": stats.get("top_blocked_domains", [])[:10],
         }
 
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
 
 def collect_all(instances: list[AdGuardInstance]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
@@ -60,7 +69,8 @@ def collect_all(instances: list[AdGuardInstance]) -> list[dict[str, Any]]:
         if not cfg.enabled:
             continue
         try:
-            out.append(AdGuardClient(cfg).summary())
+            with AdGuardClient(cfg) as client:
+                out.append(client.summary())
         except Exception as exc:
             out.append({"name": cfg.name, "host": cfg.host, "error": str(exc)})
     return out

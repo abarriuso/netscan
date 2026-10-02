@@ -6,7 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
 import httpx
 
@@ -59,6 +59,15 @@ class ProxmoxClient:
             "guests_total": len(guests),
         }
 
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
 
 def collect_all(instances: list[ProxmoxInstance]) -> list[dict[str, Any]]:
     """Summaries for every enabled instance; failures are reported, not raised."""
@@ -67,7 +76,8 @@ def collect_all(instances: list[ProxmoxInstance]) -> list[dict[str, Any]]:
         if not cfg.enabled:
             continue
         try:
-            out.append(ProxmoxClient(cfg).summary())
+            with ProxmoxClient(cfg) as client:
+                out.append(client.summary())
         except Exception as exc:  # network/auth errors must not break the API
             out.append({"name": cfg.name, "host": cfg.host, "error": str(exc)})
     return out

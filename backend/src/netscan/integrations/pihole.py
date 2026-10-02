@@ -13,7 +13,8 @@ collect_all() below also isolates any instance's failure from the rest.
 
 from __future__ import annotations
 
-from typing import Any
+import contextlib
+from typing import Any, Self
 
 import httpx
 
@@ -61,6 +62,26 @@ class PiholeClient:
             "unique_clients": queries.get("unique_clients", 0),
         }
 
+    def close(self) -> None:
+        """End the API session, then the connection pool.
+
+        Pi-hole v6 caps concurrent API sessions (``webserver.api.max_sessions``).
+        Polling every 30 s without logging out used them all up within minutes,
+        after which every login — the integration's and the Pi-hole web UI's —
+        was refused until old sessions timed out.
+        """
+        if self._sid:
+            with contextlib.suppress(httpx.HTTPError):
+                self._client.delete(f"{self.base}/auth", headers={"sid": self._sid})
+            self._sid = None
+        self._client.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
 
 def collect_all(instances: list[PiholeInstance]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
@@ -68,7 +89,8 @@ def collect_all(instances: list[PiholeInstance]) -> list[dict[str, Any]]:
         if not cfg.enabled:
             continue
         try:
-            out.append(PiholeClient(cfg).summary())
+            with PiholeClient(cfg) as client:
+                out.append(client.summary())
         except Exception as exc:
             out.append({"name": cfg.name, "host": cfg.host, "error": str(exc)})
     return out
