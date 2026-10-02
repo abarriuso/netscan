@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 
 from __future__ import annotations
 
+import ipaddress
 import json
 from datetime import datetime
 
@@ -19,6 +20,20 @@ from netscan.models import ScanResult
 SCAN_RETENTION = 200
 # How many metric samples to keep per device (oldest pruned).
 METRIC_RETENTION = 500
+
+
+def _network_or_none(cidr: str) -> ipaddress.IPv4Network | None:
+    try:
+        return ipaddress.IPv4Network(cidr, strict=False)
+    except ValueError:
+        return None
+
+
+def _ip_in(ip: str, network: ipaddress.IPv4Network) -> bool:
+    try:
+        return ipaddress.IPv4Address(ip) in network
+    except ValueError:
+        return False
 
 
 class InventoryStore:
@@ -157,19 +172,25 @@ class InventoryStore:
                 if dev.first_seen is None:
                     dev.first_seen = record.first_seen
 
-            if alert_on_down:
-                for mac, record in known.items():
-                    if mac not in seen_macs and record.online:
-                        record.online = False
-                        alerts.append(
-                            AlertRecord(
-                                kind="device_down",
-                                device_mac=mac,
-                                device_ip=record.ip,
-                                detail=f"Device down: {record.ip} "
-                                f"({record.hostname or record.vendor or mac})",
-                            )
+            # Devices of the scanned network that didn't answer are offline,
+            # whether or not that raises an alert. Devices outside it (a scan
+            # of another subnet) weren't looked at, so they keep their state.
+            scanned = _network_or_none(result.network)
+            for mac, record in known.items():
+                if mac in seen_macs or not record.online or scanned is None:
+                    continue
+                if not _ip_in(record.ip, scanned):
+                    continue
+                record.online = False
+                if alert_on_down:
+                    alerts.append(
+                        AlertRecord(
+                            kind="device_down",
+                            device_mac=mac,
+                            device_ip=record.ip,
+                            detail=f"Device down: {record.ip} ({record.hostname or record.vendor or mac})",
                         )
+                    )
 
             for alert in alerts:
                 session.add(alert)
