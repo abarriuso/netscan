@@ -14,7 +14,7 @@ from netscan.config import Settings
 def _client(tmp_path) -> TestClient:
     deps.init_state(Settings(data_dir=tmp_path))
     app = create_app()
-    return TestClient(app)
+    return TestClient(app, base_url="http://127.0.0.1")
 
 
 def test_health(tmp_path):
@@ -54,7 +54,7 @@ def test_integrations_empty(tmp_path):
 
 def test_auth_required_when_token_set(tmp_path):
     deps.init_state(Settings(data_dir=tmp_path, api_token="secret123"))
-    client = TestClient(create_app())
+    client = TestClient(create_app(), base_url="http://127.0.0.1")
     assert client.get("/api/devices").status_code == 401
     assert client.get("/api/devices", headers={"X-API-Key": "wrong"}).status_code == 401
     assert client.get("/api/devices", headers={"X-API-Key": "secret123"}).status_code == 200
@@ -116,7 +116,7 @@ def test_ws_progress_requires_token(tmp_path):
     from starlette.websockets import WebSocketDisconnect
 
     deps.init_state(Settings(data_dir=tmp_path, api_token="t0ken"))
-    client = TestClient(create_app())
+    client = TestClient(create_app(), base_url="http://127.0.0.1")
     with pytest.raises(WebSocketDisconnect), client.websocket_connect("/ws/progress"):
         pass
     with client.websocket_connect("/ws/progress?token=t0ken") as ws:
@@ -140,7 +140,7 @@ def test_unhandled_exception_returns_json_500(tmp_path, monkeypatch):
 
     # raise_server_exceptions=False so the client returns the handler's response
     # instead of re-raising the error into the test.
-    client = TestClient(app, raise_server_exceptions=False)
+    client = TestClient(app, base_url="http://127.0.0.1", raise_server_exceptions=False)
     resp = client.get("/api/system")
     assert resp.status_code == 500
     body = resp.json()

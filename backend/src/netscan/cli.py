@@ -18,7 +18,7 @@ from rich.table import Table
 from rich.text import Text
 
 from netscan import __version__
-from netscan.config import load_settings
+from netscan.config import load_settings, require_token_for_bind
 from netscan.models import ScanResult
 from netscan.scanner import engine, tools
 
@@ -229,10 +229,12 @@ def serve(
     import uvicorn
 
     settings = load_settings()
+    listen_host = host or settings.api_host
+    require_token_for_bind(listen_host, settings.api_token)
     uvicorn.run(
         "netscan.api.app:create_app",
         factory=True,
-        host=host or settings.api_host,
+        host=listen_host,
         port=port or settings.api_port,
     )
 
@@ -298,6 +300,7 @@ def up(
     _print_banner()
     settings = load_settings()
     listen_host = host or settings.api_host
+    require_token_for_bind(listen_host, settings.api_token)
     listen_port = port or settings.api_port
     url_host = "localhost" if listen_host in ("0.0.0.0", "127.0.0.1", "") else listen_host
     url = f"http://{url_host}:{listen_port}/"
