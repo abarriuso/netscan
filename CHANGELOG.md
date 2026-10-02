@@ -5,6 +5,34 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Seguridad
+- **Solo es pública la lectura del logo de una integración.** La excepción
+  para `<img src>` abarcaba cualquier `GET` de una ruta terminada en `/logo`;
+  ahora solo `GET`/`HEAD` de `/api/settings/integrations/<id>/logo`. Los logos
+  se sirven con `Content-Security-Policy: sandbox` y `nosniff` (un SVG con
+  JavaScript no puede ejecutarse en el origen del dashboard y leer el token
+  guardado en el navegador), y la subida se lee con límite en vez de entera en
+  memoria.
+- **Cambiar el host, el puerto o el SSL de una integración exige volver a
+  escribir su secreto.** Antes se conservaba el guardado, así que bastaba con
+  cambiar el host para que NetScan enviara el token de Proxmox/TrueNAS (o la
+  contraseña de AdGuard/Pi-hole) a otra máquina. Además, `host` solo admite un
+  nombre o una IP (nada de `evil.example/x?` ni `user@…`), y la URL de un
+  marcador debe ser `http(s)://`.
+- **Sin token, la API solo responde a `localhost`/`127.0.0.1`/`::1`.** Una web
+  cualquiera abierta en el navegador podía usar la API local mediante DNS
+  rebinding. `netscan serve`/`up` y `netscan-server` se niegan a escuchar fuera
+  de loopback sin `NETSCAN_API_TOKEN` (el comentario de la configuración ya lo
+  decía, pero no se comprobaba).
+- **Las peticiones que modifican algo desde otro origen se rechazan (CSRF)**, y
+  el WebSocket de progreso comprueba el `Origin`. Detrás de un proxy inverso se
+  tiene en cuenta `X-Forwarded-Host`. Las peticiones rechazadas aparecen en la
+  terminal de eventos.
+- **`install.sh` ya no enlaza `testssl.sh` a un clon en `/tmp`.** El servicio lo
+  ejecuta como root y `/tmp` se vacía al reiniciar: cualquier usuario podía
+  recrear esa ruta. Ahora se clona en `/opt/testssl.sh` y el enlace antiguo se
+  elimina al reinstalar.
+
 ### Añadido — observabilidad, uptime, mapa, seguridad y herramientas
 - **Tutorial de primera visita** al estilo de los videojuegos: foco sobre cada
   elemento (el resto se oscurece), diálogo que se escribe solo, contador
@@ -76,6 +104,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - `memory.free` era en realidad la memoria disponible; las tasas de red
   `*_bps` eran bytes/s (nuevos campos explícitos `available_bytes`,
   `rx/tx_bytes_per_s`).
+- La API rechaza escanear redes mayores de /16 (un /8 son 65 536 barridos ARP,
+  unos dos días con el escaneo bloqueado), y los `limit` de los históricos se
+  limitan a 1000.
 
 ### Añadido — monitor en vivo y más gráficas
 - **Monitor en vivo**: un servicio de fondo (`netscan/live.py`) hace ping
