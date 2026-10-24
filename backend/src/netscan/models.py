@@ -34,6 +34,10 @@ class HttpInfo(BaseModel):
     server: str = ""
     tls: TlsInfo | None = None
     tech: list[str] = Field(default_factory=list)  # whatweb technology fingerprint
+    final_url: str = ""  # where redirects ended, when different from url
+    # Why the page could not be fetched although the port is open
+    # (e.g. "TLS: server requires SNI", "redirect target failed").
+    error: str = ""
 
 
 class DeviceMetrics(BaseModel):
@@ -49,7 +53,10 @@ class DeviceMetrics(BaseModel):
     tcp_connect_avg_ms: float | None = None
     throughput_mbps: float | None = None
     throughput_port: int | None = None
-    quality: int | None = None  # 0-100 composite score
+    quality: int | None = None  # 0-100 composite score; None = not measurable
+    # Where the latency figures come from: "icmp" (echo), "tcp/<port>" (TCP
+    # handshake, when the host filters ICMP) or "" (nothing answered).
+    rtt_source: str = "icmp"
     measured_at: datetime | None = None
 
 
@@ -65,6 +72,8 @@ class Device(BaseModel):
     mdns_services: list[str] = Field(default_factory=list)
     http: list[HttpInfo] = Field(default_factory=list)
     metrics: DeviceMetrics | None = None
+    # Other MACs that answered ARP for this same IP (IP conflict / spoofing)
+    conflict_macs: list[str] = Field(default_factory=list)
     # Inventory state, filled by the persistence layer
     is_new: bool = False
     first_seen: datetime | None = None
@@ -93,3 +102,14 @@ class ScanResult(BaseModel):
     ports_open_total: int = 0
     link_speed_mbps: int | None = None
     speedtest_ran: bool = False
+    # How hosts were found: "arp" (scapy, needs admin) or "sweep" (ICMP +
+    # OS neighbour cache, unprivileged fallback).
+    discovery_method: str = ""
+    mode: str = ""  # quick | full | only:<stage>
+    gateway_ip: str = ""
+    gateway_mac: str = ""
+    # TCP ports probed on every host this pass (empty = no port stage). The
+    # inventory only treats a port as *closed* if it was in this set.
+    ports_scanned: list[int] = Field(default_factory=list)
+    # Stages that did not run and why ("nuclei: not installed", ...)
+    skipped: list[str] = Field(default_factory=list)

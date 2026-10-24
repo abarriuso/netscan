@@ -49,12 +49,18 @@ export default function ServicesPanel({ refreshKey }: { refreshKey: number }) {
             </a>
             <div className="flex items-center justify-between">
               <CertBadge days={svc.tls?.days_remaining ?? null} selfSigned={!!svc.tls?.self_signed} tls={!!svc.tls} />
-              <span className="text-[11px] text-muted-foreground">{svc.status_code}</span>
+              <span className="text-[11px] text-muted-foreground">{svc.status_code ? `HTTP ${svc.status_code}` : '—'}</span>
             </div>
             <p className="truncate text-xs text-muted-foreground">
               {svc.title || svc.server || svc.name}
               {svc.title && svc.server ? ` · ${svc.server}` : ''}
             </p>
+            {svc.final_url && (
+              <p className="truncate font-mono text-[10.5px] text-muted-foreground/80" title={svc.final_url}>
+                → {svc.final_url.replace(/^https?:\/\//, '')}
+              </p>
+            )}
+            {svc.error && <p className="font-mono text-[10.5px] text-warn">{svc.error}</p>}
             {(svc.tech ?? []).length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {(svc.tech ?? []).slice(0, 6).map((t) => (

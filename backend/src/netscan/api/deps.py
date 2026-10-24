@@ -11,10 +11,12 @@ import contextlib
 import threading
 import time
 from collections import defaultdict, deque
+from datetime import datetime
 from pathlib import Path
 
 from netscan.config import Settings, load_settings
 from netscan.db.store import InventoryStore
+from netscan.events import Event, bus
 from netscan.scanner import tools
 
 
@@ -39,17 +41,27 @@ class AppState:
         self.scan_lock = threading.Lock()
         self.scan_progress: dict[str, object] = {"stage": "idle", "done": 0, "total": 0}
         self.ws_clients: set[asyncio.Queue] = set()
+        # /ws/events subscribers (the dashboard terminal).
+        self.event_clients: set[asyncio.Queue] = set()
         self.loop: asyncio.AbstractEventLoop | None = None
         self._capabilities: tools.Capabilities | None = None
         # Server runtime bookkeeping (exposed via /api/system + /api/status).
         self.started_at = time.time()
         self.requests_served = 0
         self.scans_completed = 0
+        self.scans_failed = 0
         self.last_scan_duration_s: float | None = None
+        self.last_scan_error: str | None = None
+        self.scan_started_at: float | None = None
+        self.next_scheduled_scan: datetime | None = None
         self.frontend_dist: Path | None = _find_frontend_dist()
         self.live: object | None = None  # LiveMonitor, started in lifespan
+        self.gateway_ip: str | None = None
+        self.local_ip: str | None = None
+        self.network_cidr: str | None = None
         # Failed-auth timestamps per client IP (rate limiting; see api/app.py).
         self.auth_failures: dict[str, deque[float]] = defaultdict(lambda: deque(maxlen=50))
+        self._unsubscribe = bus.subscribe(self._on_event)
 
     def capabilities(self, refresh: bool = False) -> tools.Capabilities:
         """Cached capability detection — binaries don't change between requests."""
@@ -58,7 +70,14 @@ class AppState:
         return self._capabilities
 
     def progress_callback(self, stage: str, done: int, total: int) -> None:
-        self.scan_progress = {"stage": stage, "done": done, "total": total}
+        started = self.scan_started_at or time.time()
+        self.scan_progress = {
+            "stage": stage,
+            "done": done,
+            "total": total,
+            "started_at": datetime.fromtimestamp(started).isoformat(timespec="seconds"),
+            "elapsed_s": round(time.time() - started, 1),
+        }
         if self.loop:
             self.loop.call_soon_threadsafe(self._broadcast)
 
@@ -67,12 +86,31 @@ class AppState:
             with contextlib.suppress(asyncio.QueueFull):
                 queue.put_nowait(self.scan_progress)
 
+    def _on_event(self, event: Event) -> None:
+        """Bus subscriber (any thread) → fan-out to /ws/events queues on the loop."""
+        loop = self.loop
+        if loop is None or not self.event_clients or loop.is_closed():
+            return
+        with contextlib.suppress(RuntimeError):  # loop shutting down
+            loop.call_soon_threadsafe(self._fanout_event, event)
+
+    def _fanout_event(self, event: Event) -> None:
+        for queue in list(self.event_clients):
+            # Slow client: it notices the seq gap and resyncs via ?since=.
+            with contextlib.suppress(asyncio.QueueFull):
+                queue.put_nowait(event)
+
+    def close(self) -> None:
+        self._unsubscribe()
+
 
 _state: AppState | None = None
 
 
 def init_state(settings: Settings | None = None) -> AppState:
     global _state
+    if _state is not None:
+        _state.close()
     _state = AppState(settings or load_settings())
     return _state
 

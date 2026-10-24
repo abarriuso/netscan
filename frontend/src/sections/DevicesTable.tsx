@@ -1,7 +1,8 @@
-import { lazy, Suspense, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, Check, ChevronsUpDown, Copy, Gauge, Power, ShieldCheck, ShieldQuestion } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowDown, ArrowUp, Check, ChevronsUpDown, Copy, Download, Gauge, Power, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { toast } from 'sonner'
 import { GlassPanel, QualityBadge } from '@/components/metrics'
+import { RoleIcon } from '@/components/RoleIcon'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -14,12 +15,13 @@ import {
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCopyToClipboard, usePoll } from '@/hooks/useNetscan'
-import { api } from '@/lib/api'
-import type { DeviceRecord, PortInfo } from '@/types'
+import { api, downloadExport } from '@/lib/api'
+import { openDeviceDetail } from '@/lib/deviceDetail'
+import { LEVEL_STYLE } from '@/lib/risk'
+import { fmtAgo, fmtMbps, fmtMs, fmtPct } from '@/lib/format'
+import type { DeviceRecord, MapNode, PortInfo } from '@/types'
 import PanelError from './PanelError'
 import { useI18n } from '@/i18n/context'
-
-const DeviceDetailDialog = lazy(() => import('./DeviceDetailDialog'))
 
 function portsOf(dev: DeviceRecord): PortInfo[] {
   try {
@@ -32,14 +34,17 @@ function portsOf(dev: DeviceRecord): PortInfo[] {
 // Sortable columns and how to extract a comparable value from each device.
 // Missing metrics (offline / unmeasured) return null and always sink to the
 // bottom regardless of direction, so "worst latency first" shows real data.
-type SortKey = 'host' | 'ip' | 'latency' | 'jitter' | 'loss' | 'quality'
-const SORT_VALUE: Record<SortKey, (d: DeviceRecord) => number | string | null> = {
+type SortKey = 'host' | 'ip' | 'role' | 'latency' | 'jitter' | 'loss' | 'quality' | 'risk'
+type Row = DeviceRecord & { node?: MapNode }
+const SORT_VALUE: Record<SortKey, (d: Row) => number | string | null> = {
   host: (d) => (d.hostname || d.mdns_name || d.ip || '').toLowerCase(),
   ip: (d) => d.ip || '',
+  role: (d) => d.node?.role ?? null,
   latency: (d) => d.last_latency_ms ?? null,
   jitter: (d) => d.jitter_ms ?? null,
   loss: (d) => d.packet_loss_pct ?? null,
   quality: (d) => d.quality ?? null,
+  risk: (d) => d.node?.risk_score ?? null,
 }
 
 function ipToNum(ip: string): number {
@@ -54,8 +59,10 @@ const lossColor = (pct: number) =>
 export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
   const { t } = useI18n()
   const { data: devices, error, refresh } = usePoll(api.devices, 15000, refreshKey)
+  // Role + risk come from the map endpoint (computed server-side by crossing
+  // ports, mDNS, vendor, TLS and findings) — joined here by MAC.
+  const { data: map } = usePoll(api.map, 30000, refreshKey)
   const loading = devices == null && !error
-  const [detail, setDetail] = useState<DeviceRecord | null>(null)
   const [filter, setFilter] = useState('')
   const [testing, setTesting] = useState<Set<string>>(new Set())
   const [sortKey, setSortKey] = useState<SortKey>('host')
@@ -76,7 +83,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
       setSortKey(key)
       // Metrics default to descending (worst-first is what an admin scans for);
       // text columns default to ascending (A→Z).
-      setSortDir(key === 'host' || key === 'ip' ? 'asc' : 'desc')
+      setSortDir(key === 'host' || key === 'ip' || key === 'role' ? 'asc' : 'desc')
     }
   }
 
@@ -84,8 +91,10 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
     const mac = dev.mac
     setTesting((s) => new Set(s).add(mac))
     try {
-      await api.speedtest(mac)
-      toast.success(t('speedtestDone'), { description: dev.hostname || dev.ip })
+      const r = await api.speedtest(mac)
+      toast.success(t('speedtestDone'), {
+        description: `${dev.hostname || dev.ip} · ${fmtMs(r.metrics.latency_avg_ms)} (${r.metrics.rtt_source || 'n/a'}) · jitter ${fmtMs(r.metrics.jitter_ms)} · loss ${fmtPct(r.metrics.packet_loss_pct)} · Q ${r.metrics.quality ?? '—'}/100`,
+      })
       refresh()
     } catch (e) {
       toast.error(t('speedtestFailed'), { description: (e as Error).message })
@@ -98,13 +107,17 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
     }
   }
 
+  const rows: Row[] = useMemo(() => {
+    const byMac = new Map((map?.nodes ?? []).map((n) => [n.mac, n]))
+    return (devices ?? []).map((d) => ({ ...d, node: byMac.get(d.mac) }))
+  }, [devices, map])
+
   const filtered = useMemo(() => {
-    const list = devices ?? []
     const q = filter.toLowerCase()
     const matched = !q
-      ? list
-      : list.filter((d) =>
-          [d.ip, d.mac, d.hostname, d.vendor, d.mdns_name, d.os_guess]
+      ? rows
+      : rows.filter((d) =>
+          [d.ip, d.mac, d.hostname, d.vendor, d.mdns_name, d.os_guess, d.notes, d.node?.role ? t('role', d.node.role) : '']
             .join(' ')
             .toLowerCase()
             .includes(q),
@@ -121,7 +134,7 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
       if (typeof va === 'string' && typeof vb === 'string') return dir * va.localeCompare(vb)
       return dir * ((va as number) - (vb as number))
     })
-  }, [devices, filter, sortKey, sortDir])
+  }, [rows, filter, sortKey, sortDir, t])
 
   const toggleTrust = async (dev: DeviceRecord) => {
     const next = !dev.trusted
@@ -138,10 +151,18 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
 
   const wake = async (dev: DeviceRecord) => {
     try {
-      await api.wake(dev.mac)
-      toast(t('wolSent'), { description: dev.hostname || dev.ip })
+      const r = await api.wake(dev.mac)
+      toast(t('wolSent'), { description: `${dev.hostname || dev.ip} · UDP ${r.broadcast ?? ''}:9` })
     } catch (e) {
       toast.error(t('wolFailed'), { description: (e as Error).message })
+    }
+  }
+
+  const exportAs = async (format: 'csv' | 'json') => {
+    try {
+      await downloadExport(format)
+    } catch (e) {
+      toast.error(t('exportFailed'), { description: (e as Error).message })
     }
   }
 
@@ -197,286 +218,316 @@ export default function DevicesTable({ refreshKey }: { refreshKey: number }) {
     )
   }
 
-  return (
-    <>
-      <GlassPanel
-        title={t('devicesTitle')}
-        right={
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">{t('discovered', filtered.length)}</span>
-            <Input
-              placeholder={t('filterPlaceholder')}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              aria-label={t('filterAria')}
-              className="h-7 w-28 min-w-0 rounded-none border-border bg-secondary text-xs sm:w-40"
-            />
-          </div>
-        }
-        contentClassName="-mx-5 -mb-2"
+  const RiskCell = ({ node }: { node?: MapNode }) =>
+    node ? (
+      <span
+        title={t('riskLevel', node.risk_level)}
+        className={`inline-flex min-w-[34px] justify-center border px-1 font-mono text-[10.5px] font-bold tabular-nums ${LEVEL_STYLE[node.risk_level].badge}`}
       >
-        <div className="px-5">
-          <PanelError error={error} onRetry={refresh} />
-        </div>
+        {node.risk_score}
+      </span>
+    ) : (
+      <span className="text-muted-foreground">—</span>
+    )
 
-        {/* ── Desktop / tablet: sortable data table ───────────────────────── */}
-        <div className="hidden max-h-[560px] overflow-auto px-5 pb-2 sm:block">
-          <Table>
-            <TableHeader className="[&_tr]:border-white/10">
-              <TableRow className="border-white/10 hover:bg-transparent">
-                <SortHead label="Host" k="host" />
-                <SortHead label="IP / MAC" k="ip" />
-                <SortHead label={t('colLatency')} k="latency" align="right" />
-                <SortHead label="Jitter" k="jitter" align="right" extra="hidden md:table-cell" />
-                <SortHead label={t('colLoss')} k="loss" align="right" extra="hidden md:table-cell" />
-                <SortHead label={t('colQuality')} k="quality" />
-                <TableHead className={`${th} hidden lg:table-cell`}>OS</TableHead>
-                <TableHead className={th}>{t('colPorts')}</TableHead>
-                <TableHead className={th}>Trust</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading &&
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={`sk-${i}`} className="border-white/[0.06] hover:bg-transparent">
-                    <TableCell colSpan={10}>
-                      <Skeleton className="h-6 w-full" />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              {filtered.map((dev, i) => {
-                const ports = portsOf(dev)
-                return (
-                  <TableRow
-                    key={dev.mac}
-                    style={{ '--row-i': Math.min(i, 12) } as React.CSSProperties}
-                    className={`row-in border-white/[0.06] transition-colors hover:bg-white/[0.03] ${dev.online ? '' : 'opacity-45'}`}
-                  >
-                    <TableCell>
-                      <button
-                        onClick={() => setDetail(dev)}
-                        title={t('viewHistory')}
-                        className="flex items-center gap-2 text-left transition-colors hover:text-primary"
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${dev.online ? 'bg-ok' : 'bg-muted-foreground/40'}`}
-                        />
-                        <span>
-                          <span className="block font-semibold">{dev.hostname || dev.mdns_name || dev.ip}</span>
-                          <span className="block text-xs text-muted-foreground">{dev.vendor || '—'}</span>
+  const exportBtn =
+    'press flex h-7 items-center gap-1 rounded-none border border-border px-2 font-mono text-[10.5px] uppercase text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary'
+
+  return (
+    <GlassPanel
+      title={t('devicesTitle')}
+      right={
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">{t('discovered', filtered.length)}</span>
+          <Input
+            placeholder={t('filterPlaceholder')}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            aria-label={t('filterAria')}
+            className="h-7 w-28 min-w-0 rounded-none border-border bg-secondary text-xs sm:w-40"
+          />
+          <button className={exportBtn} onClick={() => exportAs('csv')} title={t('exportTitle')}>
+            <Download className="h-3 w-3" /> CSV
+          </button>
+          <button className={exportBtn} onClick={() => exportAs('json')} title={t('exportTitle')}>
+            <Download className="h-3 w-3" /> JSON
+          </button>
+        </div>
+      }
+      contentClassName="-mx-5 -mb-2"
+    >
+      <div className="px-5">
+        <PanelError error={error} onRetry={refresh} />
+      </div>
+
+      {/* ── Desktop / tablet: sortable data table ───────────────────────── */}
+      <div className="hidden max-h-[620px] overflow-auto px-5 pb-2 sm:block">
+        <Table>
+          <TableHeader className="[&_tr]:border-white/10">
+            <TableRow className="border-white/10 hover:bg-transparent">
+              <SortHead label="Host" k="host" />
+              <SortHead label="IP / MAC" k="ip" />
+              <SortHead label={t('colRole')} k="role" extra="hidden lg:table-cell" />
+              <SortHead label={t('colLatency')} k="latency" align="right" />
+              <SortHead label="Jitter" k="jitter" align="right" extra="hidden md:table-cell" />
+              <SortHead label={t('colLoss')} k="loss" align="right" extra="hidden md:table-cell" />
+              <SortHead label={t('colQuality')} k="quality" />
+              <SortHead label={t('colRisk')} k="risk" />
+              <TableHead className={th}>{t('colPorts')}</TableHead>
+              <TableHead className={th}>Trust</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading &&
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={`sk-${i}`} className="border-white/[0.06] hover:bg-transparent">
+                  <TableCell colSpan={11}>
+                    <Skeleton className="h-6 w-full" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            {filtered.map((dev, i) => {
+              const ports = portsOf(dev)
+              return (
+                <TableRow
+                  key={dev.mac}
+                  style={{ '--row-i': Math.min(i, 12) } as React.CSSProperties}
+                  className={`row-in border-white/[0.06] transition-colors hover:bg-white/[0.03] ${dev.online ? '' : 'opacity-45'}`}
+                >
+                  <TableCell>
+                    <button
+                      onClick={() => openDeviceDetail(dev.mac)}
+                      title={t('viewHistory')}
+                      className="flex items-center gap-2 text-left transition-colors hover:text-primary"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${dev.online ? 'bg-ok' : 'bg-muted-foreground/40'}`}
+                      />
+                      <span>
+                        <span className="block font-semibold">{dev.hostname || dev.mdns_name || dev.ip}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {dev.vendor || (dev.node?.randomized_mac ? t('mapRandomMac') : '—')}
+                          {!dev.online && <span className="ml-1">· {t('lastSeenAgo', fmtAgo(dev.last_seen))}</span>}
                         </span>
-                      </button>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <CopyChip value={dev.ip} label="IP" />
-                      <br />
-                      <CopyChip value={dev.mac} label="MAC" className="text-muted-foreground/70" />
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
-                      {dev.last_latency_ms != null ? (
-                        <TooltipProvider>
+                      </span>
+                    </button>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <CopyChip value={dev.ip} label="IP" />
+                    <br />
+                    <CopyChip value={dev.mac} label="MAC" className="text-muted-foreground/70" />
+                  </TableCell>
+                  <TableCell className="hidden text-xs lg:table-cell">
+                    {dev.node ? (
+                      <span className="flex items-center gap-1.5" title={dev.node.role_reasons.join(' · ')}>
+                        <RoleIcon role={dev.node.role} />
+                        {t('role', dev.node.role)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">{dev.os_guess || '—'}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs">
+                    {dev.last_latency_ms != null ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger aria-label={t('latencyAria', dev.last_latency_ms)}>{fmtMs(dev.last_latency_ms)}</TooltipTrigger>
+                          <TooltipContent className="font-mono text-xs">
+                            {t('tcpHandshake')} {fmtMs(dev.tcp_connect_avg_ms)}
+                            {dev.throughput_mbps != null && <div>throughput: {fmtMbps(dev.throughput_mbps)}</div>}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden text-right font-mono text-xs text-muted-foreground md:table-cell">
+                    {fmtMs(dev.jitter_ms)}
+                  </TableCell>
+                  <TableCell className="hidden text-right font-mono text-xs md:table-cell">
+                    {dev.packet_loss_pct != null ? (
+                      <span className={lossColor(dev.packet_loss_pct)}>{fmtPct(dev.packet_loss_pct)}</span>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <QualityBadge score={dev.quality} />
+                  </TableCell>
+                  <TableCell>
+                    <RiskCell node={dev.node} />
+                  </TableCell>
+                  <TableCell className="max-w-64">
+                    <div className="flex flex-wrap gap-1">
+                      {ports.slice(0, 6).map((p) => (
+                        <TooltipProvider key={p.port}>
                           <Tooltip>
-                            <TooltipTrigger aria-label={t('latencyAria', dev.last_latency_ms)}>{dev.last_latency_ms}ms</TooltipTrigger>
+                            <TooltipTrigger aria-label={t('portAria', p.port, p.service)}>
+                              <span className="rounded-none border border-primary/40 bg-primary/[0.12] px-1.5 py-0.5 font-mono text-[11px] text-primary">
+                                {p.port}
+                              </span>
+                            </TooltipTrigger>
                             <TooltipContent className="font-mono text-xs">
-                              {t('tcpHandshake')}{' '}
-                              {dev.tcp_connect_avg_ms != null ? `${dev.tcp_connect_avg_ms}ms` : '—'}
-                              {dev.throughput_mbps != null && (
-                                <div>throughput: {dev.throughput_mbps} Mbps</div>
-                              )}
+                              {p.service}
+                              {p.version ? ` — ${p.version}` : ''}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                      ) : (
-                        '—'
+                      ))}
+                      {ports.length > 6 && (
+                        <span className="rounded-none border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+                          +{ports.length - 6}
+                        </span>
                       )}
-                    </TableCell>
-                    <TableCell className="hidden text-right font-mono text-xs text-muted-foreground md:table-cell">
-                      {dev.jitter_ms != null ? `${dev.jitter_ms}ms` : '—'}
-                    </TableCell>
-                    <TableCell className="hidden text-right font-mono text-xs md:table-cell">
-                      {dev.packet_loss_pct != null ? (
-                        <span className={lossColor(dev.packet_loss_pct)}>{dev.packet_loss_pct}%</span>
-                      ) : (
-                        '—'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <QualityBadge score={dev.quality} />
-                    </TableCell>
-                    <TableCell className="hidden text-xs lg:table-cell">
-                      {dev.os_guess || <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell className="max-w-64">
-                      <div className="flex flex-wrap gap-1">
-                        {ports.slice(0, 6).map((p) => (
-                          <TooltipProvider key={p.port}>
-                            <Tooltip>
-                              <TooltipTrigger aria-label={t('portAria', p.port, p.service)}>
-                                <span className="rounded-none border border-primary/40 bg-primary/[0.12] px-1.5 py-0.5 font-mono text-[11px] text-primary">
-                                  {p.port}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent className="font-mono text-xs">
-                                {p.service}
-                                {p.version ? ` — ${p.version}` : ''}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        ))}
-                        {ports.length > 6 && (
-                          <span className="rounded-none border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-                            +{ports.length - 6}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <button
-                        onClick={() => toggleTrust(dev)}
-                        title={dev.trusted ? t('verified') : t('markTrusted')}
-                        aria-label={dev.trusted ? t('untrustAria', dev.ip) : t('trustAria', dev.ip)}
-                        className={`press flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
-                          dev.trusted
-                            ? 'border-ok/40 bg-ok/[0.16] text-ok'
-                            : 'border-destructive/40 bg-destructive/[0.16] text-destructive'
-                        }`}
-                      >
-                        {dev.trusted ? <ShieldCheck className="h-3 w-3" /> : <ShieldQuestion className="h-3 w-3" />}
-                      </button>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => runSpeedtest(dev)}
-                          disabled={testing.has(dev.mac)}
-                          title={t('speedtestTitle')}
-                          aria-label={t('speedtestAria', dev.ip)}
-                          className="press flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary disabled:opacity-50"
-                        >
-                          <Gauge className={`h-3.5 w-3.5 ${testing.has(dev.mac) ? 'animate-spin' : ''}`} strokeWidth={1.6} />
-                        </button>
-                        {!dev.online && (
-                          <button
-                            onClick={() => wake(dev)}
-                            title="Wake-on-LAN"
-                            aria-label={t('wakeAria', dev.ip)}
-                            className="press flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
-                          >
-                            <Power className="h-3.5 w-3.5" strokeWidth={1.6} />
-                          </button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-              {!loading && filtered.length === 0 && (
-                <TableRow className="border-white/[0.06] hover:bg-transparent">
-                  <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
-                    {emptyMsg}
+                    </div>
                   </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* ── Mobile: stacked cards — every metric stays, nothing hidden ───── */}
-        <div className="space-y-2 px-5 pb-3 sm:hidden">
-          {loading && Array.from({ length: 4 }).map((_, i) => <Skeleton key={`mc-${i}`} className="h-24 w-full" />)}
-          {!loading && filtered.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted-foreground">{emptyMsg}</p>
-          )}
-          {filtered.map((dev, i) => {
-            const ports = portsOf(dev)
-            return (
-              <div
-                key={dev.mac}
-                style={{ '--row-i': Math.min(i, 12) } as React.CSSProperties}
-                className={`row-in rounded-none border border-white/[0.08] bg-white/[0.02] p-3 ${dev.online ? '' : 'opacity-50'}`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <button onClick={() => setDetail(dev)} className="flex min-w-0 items-center gap-2 text-left">
-                    <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${dev.online ? 'bg-ok' : 'bg-muted-foreground/40'}`} />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold">{dev.hostname || dev.mdns_name || dev.ip}</span>
-                      <span className="block font-mono text-xs text-muted-foreground">{dev.vendor || '—'}</span>
-                    </span>
-                  </button>
-                  <div className="flex shrink-0 items-center gap-1.5">
+                  <TableCell>
                     <button
                       onClick={() => toggleTrust(dev)}
+                      title={dev.trusted ? t('verified') : t('markTrusted')}
                       aria-label={dev.trusted ? t('untrustAria', dev.ip) : t('trustAria', dev.ip)}
-                      className={`press flex h-6 w-6 items-center justify-center rounded-full border ${dev.trusted ? 'border-ok/40 bg-ok/[0.16] text-ok' : 'border-destructive/40 bg-destructive/[0.16] text-destructive'}`}
+                      className={`press flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
+                        dev.trusted
+                          ? 'border-ok/40 bg-ok/[0.16] text-ok'
+                          : 'border-destructive/40 bg-destructive/[0.16] text-destructive'
+                      }`}
                     >
                       {dev.trusted ? <ShieldCheck className="h-3 w-3" /> : <ShieldQuestion className="h-3 w-3" />}
                     </button>
-                    <button
-                      onClick={() => runSpeedtest(dev)}
-                      disabled={testing.has(dev.mac)}
-                      aria-label={t('speedtestAria', dev.ip)}
-                      className="press flex h-6 w-6 items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground disabled:opacity-50"
-                    >
-                      <Gauge className={`h-3.5 w-3.5 ${testing.has(dev.mac) ? 'animate-spin' : ''}`} strokeWidth={1.6} />
-                    </button>
-                    {!dev.online && (
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => wake(dev)}
-                        aria-label={t('wakeAria', dev.ip)}
-                        className="press flex h-6 w-6 items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground"
+                        onClick={() => runSpeedtest(dev)}
+                        disabled={testing.has(dev.mac)}
+                        title={t('speedtestTitle')}
+                        aria-label={t('speedtestAria', dev.ip)}
+                        className="press flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary disabled:opacity-50"
                       >
-                        <Power className="h-3.5 w-3.5" strokeWidth={1.6} />
+                        <Gauge className={`h-3.5 w-3.5 ${testing.has(dev.mac) ? 'animate-spin' : ''}`} strokeWidth={1.6} />
                       </button>
-                    )}
-                  </div>
+                      {!dev.online && (
+                        <button
+                          onClick={() => wake(dev)}
+                          title="Wake-on-LAN"
+                          aria-label={t('wakeAria', dev.ip)}
+                          className="press flex h-[26px] w-[26px] items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
+                        >
+                          <Power className="h-3.5 w-3.5" strokeWidth={1.6} />
+                        </button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+            {!loading && filtered.length === 0 && (
+              <TableRow className="border-white/[0.06] hover:bg-transparent">
+                <TableCell colSpan={11} className="py-8 text-center text-sm text-muted-foreground">
+                  {emptyMsg}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* ── Mobile: stacked cards — every metric stays, nothing hidden ───── */}
+      <div className="space-y-2 px-5 pb-3 sm:hidden">
+        {loading && Array.from({ length: 4 }).map((_, i) => <Skeleton key={`mc-${i}`} className="h-24 w-full" />)}
+        {!loading && filtered.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted-foreground">{emptyMsg}</p>
+        )}
+        {filtered.map((dev, i) => {
+          const ports = portsOf(dev)
+          return (
+            <div
+              key={dev.mac}
+              style={{ '--row-i': Math.min(i, 12) } as React.CSSProperties}
+              className={`row-in rounded-none border border-white/[0.08] bg-white/[0.02] p-3 ${dev.online ? '' : 'opacity-50'}`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <button onClick={() => openDeviceDetail(dev.mac)} className="flex min-w-0 items-center gap-2 text-left">
+                  {dev.node ? (
+                    <RoleIcon role={dev.node.role} />
+                  ) : (
+                    <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${dev.online ? 'bg-ok' : 'bg-muted-foreground/40'}`} />
+                  )}
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{dev.hostname || dev.mdns_name || dev.ip}</span>
+                    <span className="block font-mono text-xs text-muted-foreground">{dev.vendor || '—'}</span>
+                  </span>
+                </button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <RiskCell node={dev.node} />
+                  <button
+                    onClick={() => toggleTrust(dev)}
+                    aria-label={dev.trusted ? t('untrustAria', dev.ip) : t('trustAria', dev.ip)}
+                    className={`press flex h-6 w-6 items-center justify-center rounded-full border ${dev.trusted ? 'border-ok/40 bg-ok/[0.16] text-ok' : 'border-destructive/40 bg-destructive/[0.16] text-destructive'}`}
+                  >
+                    {dev.trusted ? <ShieldCheck className="h-3 w-3" /> : <ShieldQuestion className="h-3 w-3" />}
+                  </button>
+                  <button
+                    onClick={() => runSpeedtest(dev)}
+                    disabled={testing.has(dev.mac)}
+                    aria-label={t('speedtestAria', dev.ip)}
+                    className="press flex h-6 w-6 items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground disabled:opacity-50"
+                  >
+                    <Gauge className={`h-3.5 w-3.5 ${testing.has(dev.mac) ? 'animate-spin' : ''}`} strokeWidth={1.6} />
+                  </button>
+                  {!dev.online && (
+                    <button
+                      onClick={() => wake(dev)}
+                      aria-label={t('wakeAria', dev.ip)}
+                      className="press flex h-6 w-6 items-center justify-center rounded-none border border-border bg-secondary text-muted-foreground"
+                    >
+                      <Power className="h-3.5 w-3.5" strokeWidth={1.6} />
+                    </button>
+                  )}
                 </div>
-                <div className="mt-2 font-mono text-xs">
-                  <CopyChip value={dev.ip} label="IP" />
-                </div>
-                <dl className="mt-3 grid grid-cols-4 gap-2 font-mono text-xs">
-                  <div>
-                    <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('latShort')}</dt>
-                    <dd>{dev.last_latency_ms != null ? `${dev.last_latency_ms}ms` : '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Jitter</dt>
-                    <dd className="text-muted-foreground">{dev.jitter_ms != null ? `${dev.jitter_ms}ms` : '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('colLoss')}</dt>
-                    <dd className={dev.packet_loss_pct != null ? lossColor(dev.packet_loss_pct) : ''}>
-                      {dev.packet_loss_pct != null ? `${dev.packet_loss_pct}%` : '—'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('colQuality')}</dt>
-                    <dd><QualityBadge score={dev.quality} /></dd>
-                  </div>
-                </dl>
-                {ports.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {ports.slice(0, 8).map((p) => (
-                      <span key={p.port} className="rounded-none border border-primary/40 bg-primary/[0.12] px-1.5 py-0.5 font-mono text-[11px] text-primary">
-                        {p.port}
-                      </span>
-                    ))}
-                    {ports.length > 8 && (
-                      <span className="rounded-none border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">+{ports.length - 8}</span>
-                    )}
-                  </div>
-                )}
               </div>
-            )
-          })}
-        </div>
-      </GlassPanel>
-      {detail && (
-        <Suspense fallback={null}>
-          <DeviceDetailDialog device={detail} onClose={() => setDetail(null)} />
-        </Suspense>
-      )}
-    </>
+              <div className="mt-2 font-mono text-xs">
+                <CopyChip value={dev.ip} label="IP" />
+              </div>
+              <dl className="mt-3 grid grid-cols-4 gap-2 font-mono text-xs">
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('latShort')}</dt>
+                  <dd>{fmtMs(dev.last_latency_ms)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">Jitter</dt>
+                  <dd className="text-muted-foreground">{fmtMs(dev.jitter_ms)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('colLoss')}</dt>
+                  <dd className={dev.packet_loss_pct != null ? lossColor(dev.packet_loss_pct) : ''}>
+                    {fmtPct(dev.packet_loss_pct)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">{t('colQuality')}</dt>
+                  <dd><QualityBadge score={dev.quality} /></dd>
+                </div>
+              </dl>
+              {ports.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {ports.slice(0, 8).map((p) => (
+                    <span key={p.port} className="rounded-none border border-primary/40 bg-primary/[0.12] px-1.5 py-0.5 font-mono text-[11px] text-primary">
+                      {p.port}
+                    </span>
+                  ))}
+                  {ports.length > 8 && (
+                    <span className="rounded-none border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">+{ports.length - 8}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </GlassPanel>
   )
 }

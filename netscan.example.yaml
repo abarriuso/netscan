@@ -23,11 +23,18 @@ scan:
   use_rustscan: true     # descubrimiento ultrarrápido de puertos (si está instalado)
   use_nuclei: false      # auditoría de vulnerabilidades de las web UIs (opt-in)
   alert_on_new_device: true
-  alert_on_device_down: false
+  alert_on_device_down: false   # down/back alerts (scans + live monitor); always recorded in the timeline
+  alert_on_port_change: true    # a known device opened/closed a probed TCP port
   # --- Speed test / métricas de calidad por dispositivo ---
   use_speedtest: true    # latencia media/min/max, jitter, pérdida y handshake TCP
   speedtest_pings: 5     # nº de pings por dispositivo (jitter/pérdida)
   use_throughput: false  # medir ancho de banda real por HTTP (más lento, opt-in)
+  # --- Live monitor (uptime per device, gateway and Internet RTT) ---
+  live_enabled: true
+  live_interval_s: 5          # probe every device every N seconds (ICMP → TCP → ARP)
+  live_down_after: 3          # consecutive failed probes before "down"
+  live_max_devices: 120
+  live_wan_targets: ["1.1.1.1", "8.8.8.8"]   # [] disables the Internet RTT/loss probe
 
 # Notification targets (Apprise URLs): ntfy, Telegram, Discord, email...
 notify_urls:

@@ -14,13 +14,18 @@ import {
 import { Kbd } from '@/components/ui/kbd'
 import { toast } from 'sonner'
 import { usePoll, useScanProgress } from '@/hooks/useNetscan'
+import { useLastBackLine, useStreamState } from '@/hooks/useFeed'
 import { api, requestTokenDialog } from '@/lib/api'
+import { fmtDuration } from '@/lib/format'
+import { logFront } from '@/lib/telemetry'
 import type { ScanStage } from '@/types'
 import { useI18n, type TextKey } from '@/i18n/context'
 
 const STAGE_KEYS: Record<string, TextKey> = {
   idle: 'stage_idle',
+  starting: 'stage_starting',
   arp: 'stage_arp',
+  sweep: 'stage_sweep',
   mdns: 'stage_mdns',
   nmap: 'stage_nmap',
   rustscan: 'stage_rustscan',
@@ -30,6 +35,9 @@ const STAGE_KEYS: Record<string, TextKey> = {
   enrich: 'stage_enrich',
   done: 'stage_done',
 }
+
+// Backend sources whose latest line is shown under the progress bar.
+const SCAN_SOURCES = ['scan', 'discovery', 'mdns', 'ports', 'nmap', 'tool', 'http', 'tls', 'speed', 'vuln', 'dns']
 
 interface ToolAction {
   stage?: ScanStage
@@ -44,75 +52,40 @@ interface ToolAction {
 }
 
 const SCANS: ToolAction[] = [
-  {
-    full: false,
-    nameKey: 'scanQuickName',
-    descKey: 'scanQuickDesc',
-    shortcut: 'R',
-  },
-  {
-    full: true,
-    nameKey: 'scanFullName',
-    descKey: 'scanFullDesc',
-    shortcut: 'F',
-  },
+  { full: false, nameKey: 'scanQuickName', descKey: 'scanQuickDesc', shortcut: 'R' },
+  { full: true, nameKey: 'scanFullName', descKey: 'scanFullDesc', shortcut: 'F' },
 ]
 
 const TOOLS: ToolAction[] = [
-  {
-    stage: 'arp',
-    nameKey: 'toolArpName',
-    descKey: 'toolArpDesc',
-  },
-  {
-    stage: 'mdns',
-    name: 'mDNS / Bonjour',
-    descKey: 'toolMdnsDesc',
-    requires: 'mdns',
-  },
-  {
-    stage: 'nmap',
-    name: 'nmap',
-    descKey: 'toolNmapDesc',
-    requires: 'nmap',
-  },
-  {
-    stage: 'rustscan',
-    name: 'rustscan',
-    descKey: 'toolRustscanDesc',
-    requires: 'rustscan',
-  },
-  {
-    stage: 'nuclei',
-    name: 'nuclei',
-    descKey: 'toolNucleiDesc',
-    requires: 'nuclei',
-  },
-  {
-    stage: 'whatweb',
-    name: 'whatweb',
-    descKey: 'toolWhatwebDesc',
-    requires: 'whatweb',
-  },
-  {
-    stage: 'testssl',
-    name: 'testssl.sh',
-    descKey: 'toolTestsslDesc',
-    requires: 'testssl',
-  },
+  { stage: 'arp', nameKey: 'toolArpName', descKey: 'toolArpDesc' },
+  { stage: 'mdns', name: 'mDNS / Bonjour', descKey: 'toolMdnsDesc', requires: 'mdns' },
+  { stage: 'nmap', name: 'nmap', descKey: 'toolNmapDesc', requires: 'nmap' },
+  { stage: 'rustscan', name: 'rustscan', descKey: 'toolRustscanDesc', requires: 'rustscan' },
+  { stage: 'nuclei', name: 'nuclei', descKey: 'toolNucleiDesc', requires: 'nuclei' },
+  { stage: 'whatweb', name: 'whatweb', descKey: 'toolWhatwebDesc', requires: 'whatweb' },
+  { stage: 'testssl', name: 'testssl.sh', descKey: 'toolTestsslDesc', requires: 'testssl' },
 ]
 
 const fmtElapsed = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
-export default function Header({ onScanDone }: { onScanDone: () => void }) {
+export default function Header({ onScanDone, onNavigate }: { onScanDone: () => void; onNavigate?: (tab: string) => void }) {
   const { t, lang, setLang } = useI18n()
   const { progress, scanning, elapsed, wsConnected, startScan } = useScanProgress()
   const { data: caps, error: capsError } = usePoll(api.capabilities, 60000)
-  const connected = !capsError
+  const stream = useStreamState()
+  const lastScanLine = useLastBackLine(SCAN_SOURCES)
+  const apiUp = !capsError
+  const isError = progress.stage.startsWith('error')
+  const errorText = progress.error ?? progress.stage.replace(/^error:\s*/, '')
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
   // A scan is running but the live socket is down: we're on the HTTP fallback
   // poll (slower updates). Tell the user instead of looking frozen/healthy.
-  const degraded = scanning && !wsConnected && !progress.stage.startsWith('error')
+  const degraded = scanning && !wsConnected && !isError
+  // Linear ETA for the per-host stage (the long one), only once it has data.
+  const eta =
+    scanning && progress.stage === 'enrich' && progress.done > 0 && progress.total > progress.done && progress.elapsed_s
+      ? (progress.elapsed_s / progress.done) * (progress.total - progress.done)
+      : null
 
   // Toast once per stage change — not again when only the language changes.
   const toastedStage = useRef<string | null>(null)
@@ -121,17 +94,13 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
     toastedStage.current = progress.stage
     if (progress.stage === 'done') {
       onScanDone()
-      toast.success(t('scanDone'))
+      toast.success(t('scanDone'), { description: t('scanDoneDesc', fmtElapsed(elapsed)) })
     } else if (progress.stage.startsWith('error')) {
-      toast.error(t('scanError'), { description: progress.stage })
+      toast.error(t('scanError'), { description: errorText, duration: 12000 })
     }
-  }, [progress.stage, onScanDone, t])
+  }, [progress.stage, onScanDone, t, elapsed, errorText])
 
-  const label = progress.stage.startsWith('error')
-    ? progress.stage
-    : STAGE_KEYS[progress.stage]
-      ? t(STAGE_KEYS[progress.stage])
-      : progress.stage
+  const label = isError ? errorText : STAGE_KEYS[progress.stage] ? t(STAGE_KEYS[progress.stage]) : progress.stage
 
   const isAvailable = (requires?: string) => {
     if (!requires) return true
@@ -139,8 +108,38 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
     return caps?.tools[requires]?.available ?? true
   }
 
-  const run = (action: ToolAction) => startScan({ full: action.full, only: action.stage })
+  const run = (action: ToolAction) => {
+    logFront('ui', `scan requested: ${action.stage ? `only ${action.stage}` : action.full ? 'full' : 'quick'}`)
+    startScan({ full: action.full, only: action.stage })
+  }
   const nameOf = (action: ToolAction) => (action.nameKey ? t(action.nameKey) : (action.name ?? ''))
+
+  // R = quick scan, F = full scan (the menu advertised them; now they work).
+  const runRef = useRef(run)
+  useEffect(() => {
+    runRef.current = run
+  })
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
+      if (document.querySelector('[role="dialog"]')) return
+      const key = e.key.toLowerCase()
+      if (key !== 'r' && key !== 'f') return
+      if (scanning) {
+        toast(t('scanAlreadyRunning'))
+        return
+      }
+      e.preventDefault()
+      runRef.current(SCANS[key === 'r' ? 0 : 1])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [scanning, t])
+
+  const runtime = caps?.runtime
+  const connected = apiUp && stream !== 'offline'
 
   return (
     <header className="glass hud flex flex-wrap items-center justify-between gap-4 px-6 py-3.5">
@@ -169,16 +168,24 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
             // Homelab Monitor
           </span>
         </div>
+        {runtime && (
+          <span
+            title={runtime.privileged ? t('modeArpTitle') : t('modeSweepTitle')}
+            className={`ml-2 hidden border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider md:inline ${runtime.privileged ? 'border-ok/50 text-ok' : 'border-warn/50 text-warn'}`}
+          >
+            {runtime.privileged ? t('modeArp') : t('modeSweep')} · ICMP {runtime.icmp_backend}
+          </span>
+        )}
       </div>
 
-      <div className="flex items-center gap-4">
-        {(scanning || progress.stage.startsWith('error')) && (
-          <div className="flex w-72 flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-4">
+        {(scanning || isError) && (
+          <div className="flex w-[22rem] max-w-full flex-col gap-1">
             <div className="flex items-center justify-between font-mono text-xs text-muted-foreground">
               <span className="flex min-w-0 items-center gap-1.5">
-                {progress.stage.startsWith('error') ? (
-                  <Badge variant="destructive" className="min-w-0 truncate rounded-none font-mono text-xs">
-                    {progress.stage}
+                {isError ? (
+                  <Badge variant="destructive" className="min-w-0 truncate rounded-none font-mono text-xs" title={errorText}>
+                    {t('scanFailedShort')}: {errorText}
                   </Badge>
                 ) : (
                   <>
@@ -192,7 +199,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
                   </>
                 )}
               </span>
-              {!progress.stage.startsWith('error') && (
+              {!isError && (
                 <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
                   {degraded && (
                     <span
@@ -203,20 +210,33 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
                     </span>
                   )}
                   <span className="text-muted-foreground/60">{fmtElapsed(elapsed)}</span>
+                  {eta != null && <span className="text-muted-foreground/60" title="ETA">~{fmtDuration(eta)}</span>}
                   {pct}%
                 </span>
               )}
             </div>
-            <Progress value={pct} className="h-1 rounded-none" />
+            <Progress value={isError ? 100 : pct} className={`h-1 rounded-none ${isError ? '[&>div]:bg-destructive' : ''}`} />
+            {scanning && lastScanLine && (
+              <button
+                onClick={() => onNavigate?.('live')}
+                title={lastScanLine.msg}
+                className="truncate text-left font-mono text-[10.5px] text-muted-foreground/80 hover:text-foreground"
+              >
+                <span className="text-primary/70">[{lastScanLine.source}]</span> {lastScanLine.msg}
+              </button>
+            )}
           </div>
         )}
 
-        <span className={`flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider ${connected ? 'text-ok' : 'text-destructive'}`}>
+        <span
+          title={apiUp ? t(`stream_${stream}` as const) : t('apiDown')}
+          className={`flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wider ${connected ? (stream === 'live' ? 'text-ok' : 'text-warn') : 'text-destructive'}`}
+        >
           <span
             className={`h-[7px] w-[7px] bg-current ${connected ? 'animate-pulse' : ''}`}
             style={{ boxShadow: '0 0 8px currentColor' }}
           />
-          {connected ? <span className="caret">Live</span> : 'Offline'}
+          {connected ? <span className="caret">{stream === 'live' ? 'Live' : 'Polling'}</span> : 'Offline'}
         </span>
 
         <button
@@ -265,9 +285,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
                 <Play className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <div className="font-mono text-sm font-medium lowercase">{nameOf(action)}</div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {t(action.descKey)}
-                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{t(action.descKey)}</p>
                 </div>
                 {action.shortcut && (
                   <DropdownMenuShortcut>
@@ -293,9 +311,7 @@ export default function Header({ onScanDone }: { onScanDone: () => void }) {
                   <Play className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="font-mono text-sm font-medium lowercase">{nameOf(action)}</div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {t(action.descKey)}
-                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t(action.descKey)}</p>
                   </div>
                   {!available && (
                     <span className="shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">

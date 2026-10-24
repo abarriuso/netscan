@@ -5,6 +5,73 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Añadido — observabilidad, uptime, mapa, seguridad y herramientas
+- **Terminal en vivo** acoplada abajo en todas las pestañas (tecla `` ` ``):
+  mezcla los eventos del backend (BE: cada sondeo ARP/ICMP, puerto abierto,
+  petición HTTP, certificado TLS, comando externo exacto, tick del monitor,
+  llamada a la API vista por el servidor) con los del navegador (FE: cada
+  petición con estado, tiempo y tamaño, estado del WebSocket, errores).
+  Filtros por origen y nivel, búsqueda (texto o `/regex/`), pausa, exportación
+  `.log`. Bus de eventos nuevo (`events.py`) con `/ws/events` (reanuda desde el
+  último `seq`) y `/api/events` como respaldo.
+- **Monitor en vivo** reescrito: cadena de sondas ICMP → TCP → ARP, histéresis
+  (caído tras 3 fallos seguidos), RTT del gateway y de Internet, estado real en
+  el inventario y en el historial del equipo.
+- **Uptime por dispositivo** (1 h / 24 h / 7 d / 30 d) con barras tipo status
+  page, **cobertura** (qué parte de la ventana se observó), caídas, MTTR y caída
+  más larga. Buckets de 5 min en SQLite.
+- **Mapa de red** ("radar de latencia": distancia = RTT en escala log, sector =
+  rol, anillo = riesgo) y **mapa de IPs** de la subred (ocupación, libres).
+- **Rol inferido** por equipo con sus motivos (puertos, mDNS, título web, OUI,
+  hostname, MAC virtual/aleatoria).
+- **Riesgo 0–100** por equipo con cada factor desglosado (evidencia +
+  remediación), exposición por puerto, certificados, hallazgos, integridad del
+  gateway. Pestaña **Seguridad**.
+- **Alertas nuevas**: `ports_changed`, `ip_conflict`, `gateway_mac_changed`
+  (indicio de ARP spoofing), `device_back`. "Marcar todo leído".
+- **Ficha de dispositivo** única (tabla, mapa, uptime, seguridad): resumen,
+  uptime, métricas, servicios/TLS, riesgo, historial y notas editables.
+- **Herramientas** (pestaña nueva, sin binarios externos): ping, traceroute
+  nativo, consulta DNS con cliente propio, benchmark de resolvers, TCP, escaneo
+  de puertos de un host privado, tiempos HTTP por fase, inspector TLS, subred,
+  MAC.
+- **`/metrics`** en formato Prometheus (segundos y ratios 0–1) y **exportación**
+  del inventario a CSV/JSON con rol, riesgo y disponibilidad 24 h.
+- **Descubrimiento sin privilegios**: sin admin, barrido ICMP + caché ARP del
+  sistema en vez de fallar el escaneo entero.
+- `docs/METRICS.md`: definición, fórmula y unidad de cada número.
+
+### Corregido
+- Los equipos nunca pasaban a *offline* con la configuración por defecto (solo
+  se marcaban con `alert_on_device_down`). Un escaneo de otra subred ya no
+  marca caído el resto del inventario.
+- La subida de logo de integraciones no exigía token (solo debía estar
+  exento el GET); `/metrics` queda tras el token.
+- `ping.exe` daba por vivo un host con "Host de destino inaccesible" (exit 0).
+- Pi-hole abría una sesión nueva en cada sondeo y agotaba las sesiones de la
+  API v6 (429); además leía los clientes del campo equivocado.
+- AdGuard: `avg_processing_time` viene en segundos y se mostraba como ms.
+- Calidad: un host sin respuesta puntuaba 20/100; un host que filtra ICMP
+  puntuaba 0. Ahora se mide por handshake TCP o se muestra "—".
+- Throughput: incluía conexión/TLS en el tiempo y subestimaba el ancho de banda.
+- Velocidad de enlace tomada de un adaptador virtual (Hyper-V) en vez del real.
+- Puertos cerrados que nunca desaparecían del inventario.
+- Fingerprint HTTP/TLS perdido en routers con TLS antiguo y en proxies con SNI
+  estricto; Proxmox (8006) no estaba entre los puertos comunes.
+- El propio host no aparecía en el inventario; el DNS inverso bloqueaba ~5 s
+  por equipo.
+- Dos peticiones simultáneas podían recibir "escaneo iniciado"; el error real
+  de un escaneo fallido se ocultaba tras "see netscan.log".
+- El planificador ignoraba el último escaneo al reiniciar; el log crecía sin
+  límite (ahora rota 5 MiB × 3) y `/api/logs` lo releía entero.
+- La tendencia de red mezclaba speed tests manuales; la serie "dispositivos
+  online" contaba en realidad equipos medidos.
+- KPI "calidad: estable" fijo; atajos R/F anunciados pero sin conectar;
+  descripciones de escaneo rápido/completo que no correspondían a lo que hacían.
+- `memory.free` era en realidad la memoria disponible; las tasas de red
+  `*_bps` eran bytes/s (nuevos campos explícitos `available_bytes`,
+  `rx/tx_bytes_per_s`).
+
 ### Añadido — monitor en vivo y más gráficas
 - **Monitor en vivo**: un servicio de fondo (`netscan/live.py`) hace ping
   continuo a los dispositivos conocidos y expone `/api/live`. Nueva pestaña

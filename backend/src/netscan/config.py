@@ -102,7 +102,11 @@ class ScanDefaults(BaseModel):
     use_testssl: bool = False  # TLS configuration audit of discovered HTTPS UIs (opt-in, slow)
     testssl_max_targets: int = 10
     alert_on_new_device: bool = True
+    # Down/back alerts, from scans and from the live monitor's confirmed
+    # transitions. Off by default: phones leaving home would be noise. The
+    # transitions are always recorded in the device timeline and uptime.
     alert_on_device_down: bool = False
+    alert_on_port_change: bool = True  # a known device opened/closed a probed port
     # Speed / quality metrics
     use_speedtest: bool = True  # latency stats + TCP handshake per device
     speedtest_pings: int = 5  # ICMP echoes per device for jitter/loss
@@ -111,7 +115,10 @@ class ScanDefaults(BaseModel):
     live_enabled: bool = True
     live_interval_s: float = 5.0
     live_buffer: int = 180  # samples kept in memory for the live latency chart
-    live_max_devices: int = 80  # cap devices probed per tick
+    live_max_devices: int = 120  # cap devices probed per tick
+    live_down_after: int = 3  # consecutive failed ticks before a device is declared down
+    # Internet reference targets pinged every tick (WAN latency/loss). [] = off.
+    live_wan_targets: list[str] = Field(default_factory=lambda: ["1.1.1.1", "8.8.8.8"])
 
 
 class Settings(BaseSettings):

@@ -22,18 +22,34 @@ integraciones configurables desde la propia web para **Proxmox VE**,
 
 ## Capturas
 
-El dashboard (`http://localhost:8600`) reúne seis vistas:
+El dashboard (`http://localhost:8600`) reúne nueve vistas y una terminal
+acoplada abajo en todas ellas:
 
-- **En vivo** — latencia de red en tiempo real y mapa de equipos (online/offline).
-- **Resumen** — KPIs, estado del sistema, inventario de dispositivos y alertas.
-- **Dispositivos** — inventario detallado con latencia, jitter, pérdida, calidad,
-  puertos abiertos y confianza; columnas ordenables y IP/MAC copiables al clic.
-- **Analítica** — series de latencia/calidad/throughput, top vendors/SO/puertos,
-  servicios web y hallazgos TLS.
+- **En vivo** — RTT de la LAN, del gateway y de Internet cada 5 s y el
+  **tablero de uptime**: disponibilidad por equipo en 1 h / 24 h / 7 d / 30 d
+  con barras tipo status page, cobertura, caídas y MTTR.
+- **Resumen** — KPIs (cada uno con una cifra real debajo: nuevos en 24 h, peor
+  calidad, latencia p95, último/próximo escaneo), estado del sistema y alertas.
+- **Dispositivos** — inventario con rol inferido, latencia, jitter, pérdida,
+  calidad, riesgo, puertos abiertos y confianza; exportación CSV/JSON.
+- **Mapa** — radar de latencia (gateway en el centro, distancia = RTT, sector =
+  rol, anillo = riesgo) y mapa de direcciones IP de la subred.
+- **Seguridad** — ranking de riesgo con cada factor explicado, servicios
+  expuestos, certificados TLS, hallazgos, integridad de la MAC del gateway y
+  conflictos de IP.
+- **Analítica** — tendencias por escaneo, top vendors/SO/puertos, servicios web y TLS.
+- **Herramientas** — ping, traceroute, consulta DNS y benchmark de resolvers,
+  TCP, escaneo de puertos, tiempos HTTP por fase, inspector TLS, subred y MAC.
 - **Integraciones** — Proxmox/TrueNAS/AdGuard/Pi-hole y marcadores propios,
   configurables desde la web.
-- **Sistema** — recursos del host (CPU, memoria, discos, red) y estado del
-  servidor NetScan.
+- **Sistema** — toolchain y la cola de `netscan.log`.
+- **Terminal** (tecla `` ` ``) — cada evento del backend (cada sondeo ARP/ICMP,
+  puerto abierto, petición HTTP, certificado, comando externo exacto, tick del
+  monitor, llamada a la API) mezclado con las peticiones del propio navegador,
+  con filtros, búsqueda, pausa y exportación `.log`.
+
+Cada número tiene unidad y fórmula definidas: ver
+[docs/METRICS.md](docs/METRICS.md) (en inglés).
 
 `netscan.sh doctor` / `netscan.bat doctor` — diagnóstico de un vistazo antes de arrancar:
 
@@ -74,7 +90,13 @@ Docker, WSL con las 6 herramientas) en [Arranque rápido](#arranque-rápido-un-s
 ## Qué hace
 
 **Descubrimiento y fingerprinting**
-- ARP scan (scapy) con lookup de vendor por OUI
+- ARP scan (scapy) con lookup de vendor por OUI — o, **sin permisos de
+  administrador**, barrido ICMP + caché ARP del sistema (mismo resultado en el
+  segmento local)
+- ICMP nativo (`IcmpSendEcho` en Windows, sockets ICMP en Linux/macOS): RTT por
+  debajo del milisegundo, sin lanzar un proceso `ping` por sondeo
+- Rol inferido por equipo (gateway, hipervisor, NAS, servidor, PC, móvil,
+  impresora, multimedia, cámara, IoT, equipo de red, VM) con sus motivos
 - mDNS/Bonjour (zeroconf) para nombrar IoT que no responden a DNS inverso
 - Escaneo de puertos multihilo + heurística de OS
 - Fingerprint HTTP/TLS de las web UIs: título, `Server`, emisor del
@@ -83,10 +105,22 @@ Docker, WSL con las 6 herramientas) en [Arranque rápido](#arranque-rápido-un-s
   degradación elegante**: `nmap -sV` para versiones reales de servicio,
   RustScan, nuclei, whatweb, testssl.sh (ver [Licencias](#licencias))
 
+**Monitorización en vivo y uptime**
+- Cada equipo se sondea cada 5 s (ICMP → TCP → ARP); caído tras 3 fallos seguidos
+- Disponibilidad, cobertura, caídas y MTTR por equipo; RTT y pérdida del
+  gateway y de Internet para distinguir "mi LAN" de "mi operador"
+- Endpoint Prometheus `/metrics` para Grafana
+
+**Seguridad**
+- Riesgo 0–100 por equipo con factores desglosados (servicios de riesgo, TLS,
+  certificados, hallazgos de nuclei/testssl, confianza, MACs aleatorias)
+- Alertas de puertos abiertos/cerrados, conflictos de IP y **cambio de MAC del
+  gateway** (el indicio de ARP spoofing)
+
 **Inventario vivo (SQLite)**
-- Cada escaneo se compara con el inventario persistido
+- Cada escaneo se compara con el inventario persistido; historial por equipo
 - Alertas de **dispositivo nuevo** (detección de intrusos casera), cambio de
-  IP↔MAC y dispositivo caído
+  IP↔MAC y dispositivo caído/de vuelta
 - Marca dispositivos como "de confianza" desde el dashboard
 - Notificaciones vía Apprise: ntfy, Telegram, Discord y +80 servicios
 
@@ -510,6 +544,16 @@ ir **siempre** en variables de entorno, nunca en el YAML.
 | `GET /api/devices/{mac}/metrics` | Histórico de latencia/jitter/calidad |
 | `POST /api/devices/{mac}/speedtest` | Speed test bajo demanda de un dispositivo |
 | `POST /api/devices/{mac}/wake` | Wake-on-LAN |
+| `GET /api/devices/{mac}/profile` · `/timeline` · `/uptime` | Todo lo conocido de un equipo, su historial, su disponibilidad |
+| `GET /api/live` | Instantánea del monitor en vivo (estado por equipo, series LAN/gateway/WAN) |
+| `GET /api/uptime?hours=24&slots=48` | Disponibilidad, cobertura, caídas y MTTR por equipo |
+| `GET /api/map` · `GET /api/ipmap` | Nodos del mapa (rol, riesgo, RTT) · mapa de direcciones IP |
+| `GET /api/security` | Ranking de riesgo, exposición, certificados, hallazgos, integridad del gateway |
+| `GET /api/export/devices?format=csv\|json` | Exportación del inventario |
+| `GET /api/events?since=N` · `WS /ws/events` | Feed de eventos (la terminal) |
+| `POST /api/tools/{ping,traceroute,dns,dns-bench,tcp,portscan,http,tls,subnet,mac}` | Caja de herramientas de diagnóstico |
+| `POST /api/alerts/ack-all` | Marca todas las alertas como leídas |
+| `GET /metrics` | Exposición Prometheus (segundos, ratios 0–1) |
 
 Con el dashboard compilado, la API **y** la web se sirven en el mismo puerto
 (`/` = dashboard, `/api/...` = API). Docs interactivas en
@@ -547,10 +591,15 @@ técnico (traza) queda en el log de NetScan, no en el cliente.
 - **El puerto ya está en uso.** Cambia `NETSCAN_API_PORT` (y `NETSCAN_API_HOST`
   si solo quieres escuchar en localhost). En Linux: `ss -tlnp | grep 8600` para
   ver qué lo ocupa.
-- **El escaneo ARP no encuentra dispositivos.** Suele ser permisos o red. El
-  escaneo de capa 2 necesita privilegios (en Linux, `cap_net_raw` o root; el
+- **El escaneo ARP no encuentra dispositivos.** Sin privilegios, NetScan pasa
+  solo a barrido ICMP + caché ARP del sistema (la cabecera muestra "barrido
+  ICMP (sin admin)"); cubre el segmento local pero rechaza redes mayores de una
+  /20. El ARP en crudo necesita privilegios (en Linux, `cap_net_raw` o root; el
   servicio systemd ya lo concede). En LXC, el contenedor debe estar en modo
   bridge sobre la misma VLAN que quieres escanear.
+- **¿Qué está haciendo NetScan ahora mismo?** Abre la terminal (tecla `` ` ``):
+  cada sondeo, petición y comando está ahí con su tiempo. Filtra por origen o
+  nivel, o expórtala como `.log` para reportar un fallo.
 - **`403` / errores de CORS desde otro equipo.** Añade el origen del navegador
   (ej. `http://192.168.1.50:3000`) a `NETSCAN_API_CORS_ORIGINS` (lista separada
   por comas).
@@ -583,7 +632,11 @@ pushear tags `v*` (backend + instalador Windows + bundle Linux, ver
 
 ```
 ├── backend/src/netscan/
-│   ├── scanner/        # discovery (ARP), enrich, mDNS, fingerprint, tools, speed, engine
+│   ├── scanner/        # discovery (ARP/barrido), icmp, enrich, mDNS, fingerprint, tools, speed, engine
+│   ├── events.py       # bus de eventos de la terminal (/ws/events)
+│   ├── live.py         # monitor en vivo: cadena de sondas, histéresis, buckets de uptime
+│   ├── insights.py     # uptime, mapa, mapa de IPs, informe de seguridad, Prometheus
+│   ├── classify.py · security.py · diag.py   # roles · riesgo · herramientas
 │   ├── db/             # SQLModel: inventario, escaneos, alertas, muestras de métricas
 │   ├── integrations/   # proxmox · truenas · adguard
 │   ├── api/            # FastAPI + WebSocket + scheduler + estático del dashboard
