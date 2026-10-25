@@ -275,6 +275,7 @@ export default function TerminalDock() {
     <>
       <div aria-hidden style={{ height: open ? height + 8 : 46 }} />
       <section
+        data-tour="terminal"
         aria-label={t('termTitle')}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-primary/30 bg-[rgb(6_8_11/0.97)] font-mono text-[12px] shadow-[0_-8px_24px_rgba(0,0,0,0.45)] backdrop-blur"
       >

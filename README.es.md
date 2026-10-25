@@ -48,6 +48,11 @@ acoplada abajo en todas ellas:
   monitor, llamada a la API) mezclado con las peticiones del propio navegador,
   con filtros, búsqueda, pausa y exportación `.log`.
 
+En la primera visita un **tutorial guiado** (estilo videojuego: foco sobre cada
+elemento, contador de misiones, diálogo que se escribe solo; → / ← / Esc)
+recorre todas las secciones; repítelo cuando quieras con el botón **?** de la
+cabecera.
+
 Cada número tiene unidad y fórmula definidas: ver
 [docs/METRICS.md](docs/METRICS.md) (en inglés).
 

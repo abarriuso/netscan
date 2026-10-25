@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Activity, BarChart3, LayoutDashboard, Network, Plug, Radio, Share2, ShieldAlert, Wrench } from 'lucide-react'
 import TokenDialog from '@/components/TokenDialog'
 import HeroTitle from '@/components/HeroTitle'
@@ -7,6 +7,9 @@ import Header from '@/sections/Header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useI18n } from '@/i18n/context'
 import { logFront } from '@/lib/telemetry'
+import { api } from '@/lib/api'
+import { startTour, tourSeen, useTourOpen } from '@/lib/tour'
+import { toast } from 'sonner'
 
 // Every tab is lazy-loaded: the initial bundle is the shell (header,
 // terminal dock, token dialog) and each section arrives when its tab opens.
@@ -26,6 +29,7 @@ const NetworkMap = lazy(() => import('@/sections/NetworkMap'))
 const SecurityPanel = lazy(() => import('@/sections/SecurityPanel'))
 const Toolbox = lazy(() => import('@/sections/Toolbox'))
 const DeviceDetailHost = lazy(() => import('@/sections/DeviceDetailDialog'))
+const Tour = lazy(() => import('@/sections/Tour'))
 
 const TABS = [
   { value: 'live', labelKey: 'tabLive', icon: Radio },
@@ -80,6 +84,20 @@ export default function Home() {
     }
   }, [])
 
+  // First visit: open the guided tour once the shell has painted — unless a
+  // dialog (the API-token prompt) is already asking for attention.
+  const tourOpen = useTourOpen()
+  useEffect(() => {
+    if (tourSeen()) return
+    const id = setTimeout(() => {
+      if (!document.querySelector('[role="dialog"]')) startTour()
+    }, 1200)
+    return () => clearTimeout(id)
+  }, [])
+  const startFirstScan = useCallback(() => {
+    api.startScan({}).catch((e: Error) => toast.error(t('toastScanStartFailed'), { description: e.message }))
+  }, [t])
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
       <TokenDialog />
@@ -94,11 +112,12 @@ export default function Home() {
         <Header onScanDone={bump} onNavigate={onTab} />
 
         <Tabs value={tab} onValueChange={onTab} className="mt-5 gap-4">
-          <TabsList className="glass hud relative grid h-auto w-full grid-cols-3 gap-0 rounded-none border border-border bg-card p-0 sm:grid-cols-5 xl:grid-cols-9">
+          <TabsList data-tour="tabs" className="glass hud relative grid h-auto w-full grid-cols-3 gap-0 rounded-none border border-border bg-card p-0 sm:grid-cols-5 xl:grid-cols-9">
             {TABS.map(({ value, labelKey, icon: Icon }, i) => (
               <TabsTrigger
                 key={value}
                 value={value}
+                data-tour={`tab-${value}`}
                 className="group relative flex items-center justify-center gap-2 rounded-none border-r border-b border-border/70 px-2 py-3 font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors data-[state=active]:bg-primary/[0.07] data-[state=active]:text-primary xl:border-b-0 xl:last:border-r-0"
               >
                 {/* active top ticker */}
@@ -180,6 +199,7 @@ export default function Home() {
       <Suspense fallback={null}>
         <DeviceDetailHost />
         <TerminalDock />
+        {tourOpen && <Tour onNavigate={onTab} onStartScan={startFirstScan} />}
       </Suspense>
     </div>
   )

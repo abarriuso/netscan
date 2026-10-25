@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Activity, ChevronDown, KeyRound, Play } from 'lucide-react'
+import { Activity, ChevronDown, CircleHelp, KeyRound, Play } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -18,6 +18,7 @@ import { useLastBackLine, useStreamState } from '@/hooks/useFeed'
 import { api, requestTokenDialog } from '@/lib/api'
 import { fmtDuration } from '@/lib/format'
 import { logFront } from '@/lib/telemetry'
+import { startTour } from '@/lib/tour'
 import type { ScanStage } from '@/types'
 import { useI18n, type TextKey } from '@/i18n/context'
 
@@ -170,6 +171,7 @@ export default function Header({ onScanDone, onNavigate }: { onScanDone: () => v
         </div>
         {runtime && (
           <span
+            data-tour="mode"
             title={runtime.privileged ? t('modeArpTitle') : t('modeSweepTitle')}
             className={`ml-2 hidden border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider md:inline ${runtime.privileged ? 'border-ok/50 text-ok' : 'border-warn/50 text-warn'}`}
           >
@@ -250,6 +252,15 @@ export default function Header({ onScanDone, onNavigate }: { onScanDone: () => v
         </button>
 
         <button
+          onClick={startTour}
+          title={t('tourReplay')}
+          aria-label={t('tourReplay')}
+          className="press flex h-9 w-9 shrink-0 items-center justify-center rounded-none border border-border text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
+        >
+          <CircleHelp className="h-4 w-4" />
+        </button>
+
+        <button
           onClick={requestTokenDialog}
           title={t('apiToken')}
           aria-label={t('apiToken')}
@@ -261,6 +272,7 @@ export default function Header({ onScanDone, onNavigate }: { onScanDone: () => v
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
+              data-tour="scan"
               disabled={scanning}
               className="flex items-center gap-2 rounded-none bg-primary px-4 py-2.5 font-mono text-[12.5px] font-bold uppercase tracking-wider text-primary-foreground shadow-hard-cyan transition-[filter,transform,box-shadow] duration-150 hover:-translate-x-[1px] hover:-translate-y-[1px] hover:brightness-110 hover:shadow-[6px_6px_0_0_rgba(45,226,230,0.28)] active:translate-x-0 active:translate-y-0 disabled:opacity-50 disabled:hover:brightness-100"
             >

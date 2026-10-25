@@ -47,6 +47,10 @@ at the bottom of every one of them:
   API call) merged with the browser's own requests, with filters, search,
   pause and `.log` export.
 
+On the first visit a **guided tutorial** (video-game style: spotlight, mission
+counter, typed-out dialogue; → / ← / Esc) walks through every section; replay
+it any time with the **?** button in the header.
+
 Every number has a defined unit and formula: see
 [docs/METRICS.md](docs/METRICS.md).
 

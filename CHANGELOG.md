@@ -6,6 +6,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 ## [Unreleased]
 
 ### Añadido — observabilidad, uptime, mapa, seguridad y herramientas
+- **Tutorial de primera visita** al estilo de los videojuegos: foco sobre cada
+  elemento (el resto se oscurece), diálogo que se escribe solo, contador
+  "misión 05/15" con barra de progreso, cambia a cada pestaña que explica y
+  termina con un botón para lanzar el primer escaneo. Teclas → / ← / Esc; se
+  repite con el botón **?** de la cabecera.
 - **Terminal en vivo** acoplada abajo en todas las pestañas (tecla `` ` ``):
   mezcla los eventos del backend (BE: cada sondeo ARP/ICMP, puerto abierto,
   petición HTTP, certificado TLS, comando externo exacto, tick del monitor,

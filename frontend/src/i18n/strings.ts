@@ -593,6 +593,60 @@ const en = {
   toolSubnetDesc: 'Network, mask, wildcard, broadcast and host range of any CIDR.',
   toolMac: 'MAC lookup',
   toolMacDesc: 'Vendor (OUI), randomized/private and virtual-NIC detection.',
+
+  // --- first-run tutorial ---
+  tourLabel: 'tutorial',
+  tourMission: (n: number, total: number) => `mission ${String(n).padStart(2, '0')}/${total}`,
+  tourNext: 'next',
+  tourBack: 'back',
+  tourSkip: 'skip tutorial',
+  tourFinish: 'finish',
+  tourStartScan: 'quick scan now',
+  tourKeys: '→ / Enter next · ← back · Esc skip',
+  tourReplay: 'replay the tutorial',
+  tour_welcome_title: 'Welcome to NetScan',
+  tour_welcome_body:
+    'Your network seen from the inside: who is connected, how each device answers, what it exposes and what changed. This one-minute tutorial walks through every part.',
+  tour_scan_title: 'Run a scan',
+  tour_scan_body:
+    'Discovers every device on your LAN and probes it: ports, services, web UIs, TLS certificates and latency. Quick = 27 common ports (~20-60 s on a /24). Full = 58 ports plus every installed audit tool. Shortcuts: R quick, F full.',
+  tour_mode_title: 'Discovery mode',
+  tour_mode_body:
+    'Without admin rights hosts are found with an ICMP sweep plus the system ARP cache; as administrator/root, with raw ARP. "ICMP win-api" means pings use the native API, not ping.exe: sub-millisecond precision.',
+  tour_tabs_title: 'Nine sections',
+  tour_tabs_body: 'Each tab answers one question, and only the visible one polls the API. Let\'s go through them in order.',
+  tour_live_title: 'Live — is everything up?',
+  tour_live_body:
+    'Every device is probed every 5 s (ICMP → TCP → ARP). On top: LAN, gateway and Internet RTT. Below: availability per device over 1 h / 24 h / 7 d / 30 d, outages and MTTR. Grey bars = NetScan was not running, never counted as down.',
+  tour_overview_title: 'Overview',
+  tour_overview_body:
+    'The network at a glance: devices online and new in 24 h, unverified devices, unread alerts, quality, latency (mean and p95), last and next scan. Plus host resources and the alert feed — click an alert to open its device.',
+  tour_devices_title: 'Devices',
+  tour_devices_body:
+    'The inventory: inferred role, latency, jitter, loss, quality, risk and open ports. Click a name for its profile (uptime, services, TLS, risk, history, notes). Mark the devices you recognise as trusted. Export to CSV/JSON.',
+  tour_map_title: 'Map',
+  tour_map_body:
+    'A latency radar: the gateway at the centre and each device at a distance proportional to its RTT, grouped by role. Pulsing ring = high risk, red dot = not trusted. Below, the IP map of the subnet: used, free, gateway.',
+  tour_security_title: 'Security',
+  tour_security_body:
+    'Every device gets a 0-100 risk score and each point is explained: exposed services (Telnet, SMB, databases…), certificates, old TLS, scanner findings, unknown devices. Plus gateway MAC integrity (ARP spoofing) and IP conflicts.',
+  tour_analytics_title: 'Analytics',
+  tour_analytics_body:
+    'How the network evolves scan after scan: latency, quality, loss, devices. Plus top vendors, systems and ports, and every web service found with its certificate.',
+  tour_tools_title: 'Tools',
+  tour_tools_body:
+    'Diagnostics run from this host: ping, traceroute, DNS lookup and resolver benchmark, TCP check, port scan, HTTP timing by phase, TLS inspector, subnet and MAC calculators.',
+  tour_integrations_title: 'Integrations',
+  tour_integrations_body:
+    'Connect Proxmox, TrueNAS, AdGuard Home and Pi-hole from the web — no YAML editing — or add your own bookmarks with a logo and an up/down check.',
+  tour_system_title: 'System',
+  tour_system_body: 'Which external tools are installed (nmap, RustScan, nuclei…) and the tail of netscan.log.',
+  tour_terminal_title: 'Terminal',
+  tour_terminal_body:
+    'Everything NetScan does, live: each probe, port, request, certificate and command (BE) next to every call your browser makes (FE). Filter, search, pause, export. Toggle it with the ` key.',
+  tour_done_title: 'Tutorial complete',
+  tour_done_body:
+    'That is all. Launch your first quick scan now or explore on your own. Replay this tutorial any time with the ? button in the header.',
 }
 
 export type Dict = typeof en
@@ -1040,6 +1094,60 @@ const es: Dict = {
   toolSubnetDesc: 'Red, máscara, wildcard, broadcast y rango de hosts de cualquier CIDR.',
   toolMac: 'Consulta de MAC',
   toolMacDesc: 'Fabricante (OUI), detección de MAC aleatoria/privada y de NIC virtual.',
+
+  // --- tutorial de primera visita ---
+  tourLabel: 'tutorial',
+  tourMission: (n: number, total: number) => `misión ${String(n).padStart(2, '0')}/${total}`,
+  tourNext: 'siguiente',
+  tourBack: 'atrás',
+  tourSkip: 'saltar tutorial',
+  tourFinish: 'terminar',
+  tourStartScan: 'escaneo rápido ya',
+  tourKeys: '→ / Enter siguiente · ← atrás · Esc saltar',
+  tourReplay: 'repetir el tutorial',
+  tour_welcome_title: 'Bienvenido a NetScan',
+  tour_welcome_body:
+    'Tu red vista desde dentro: quién está conectado, cómo responde cada equipo, qué expone y qué ha cambiado. Este tutorial de un minuto recorre cada parte.',
+  tour_scan_title: 'Lanza un escaneo',
+  tour_scan_body:
+    'Descubre todos los equipos de tu LAN y los sondea: puertos, servicios, interfaces web, certificados TLS y latencia. Rápido = 27 puertos comunes (~20-60 s en una /24). Completo = 58 puertos y cada herramienta de auditoría instalada. Atajos: R rápido, F completo.',
+  tour_mode_title: 'Modo de descubrimiento',
+  tour_mode_body:
+    'Sin permisos de administrador los equipos se encuentran con un barrido ICMP más la caché ARP del sistema; como administrador/root, con ARP en crudo. "ICMP win-api" significa que los pings usan la API nativa, no ping.exe: precisión por debajo del milisegundo.',
+  tour_tabs_title: 'Nueve secciones',
+  tour_tabs_body: 'Cada pestaña responde a una pregunta, y solo la visible consulta la API. Vamos a recorrerlas en orden.',
+  tour_live_title: 'En vivo — ¿está todo arriba?',
+  tour_live_body:
+    'Cada equipo se sondea cada 5 s (ICMP → TCP → ARP). Arriba: RTT de la LAN, del gateway y de Internet. Debajo: disponibilidad por equipo en 1 h / 24 h / 7 d / 30 d, caídas y MTTR. Barras grises = NetScan no estaba activo, nunca cuentan como caída.',
+  tour_overview_title: 'Resumen',
+  tour_overview_body:
+    'La red de un vistazo: equipos online y nuevos en 24 h, sin verificar, alertas sin leer, calidad, latencia (media y p95), último y próximo escaneo. Además, recursos del host y el feed de alertas — pulsa una alerta para abrir su equipo.',
+  tour_devices_title: 'Dispositivos',
+  tour_devices_body:
+    'El inventario: rol inferido, latencia, jitter, pérdida, calidad, riesgo y puertos abiertos. Pulsa un nombre para ver su ficha (uptime, servicios, TLS, riesgo, historial, notas). Marca como de confianza los que reconozcas. Exporta a CSV/JSON.',
+  tour_map_title: 'Mapa',
+  tour_map_body:
+    'Un radar de latencia: el gateway en el centro y cada equipo a una distancia proporcional a su RTT, agrupado por rol. Anillo pulsante = riesgo alto, punto rojo = sin confianza. Debajo, el mapa de IPs de la subred: usadas, libres, gateway.',
+  tour_security_title: 'Seguridad',
+  tour_security_body:
+    'Cada equipo tiene un riesgo 0-100 y cada punto está explicado: servicios expuestos (Telnet, SMB, bases de datos…), certificados, TLS antiguo, hallazgos de los escáneres, equipos desconocidos. Además, integridad de la MAC del gateway (ARP spoofing) y conflictos de IP.',
+  tour_analytics_title: 'Analítica',
+  tour_analytics_body:
+    'Cómo evoluciona la red escaneo a escaneo: latencia, calidad, pérdida, equipos. Además, top de fabricantes, sistemas y puertos, y cada servicio web encontrado con su certificado.',
+  tour_tools_title: 'Herramientas',
+  tour_tools_body:
+    'Diagnósticos ejecutados desde este host: ping, traceroute, consulta DNS y benchmark de resolvers, comprobación TCP, escaneo de puertos, tiempos HTTP por fase, inspector TLS, calculadoras de subred y MAC.',
+  tour_integrations_title: 'Integraciones',
+  tour_integrations_body:
+    'Conecta Proxmox, TrueNAS, AdGuard Home y Pi-hole desde la web — sin tocar YAML — o añade marcadores propios con logo y comprobación de si están arriba.',
+  tour_system_title: 'Sistema',
+  tour_system_body: 'Qué herramientas externas están instaladas (nmap, RustScan, nuclei…) y la cola de netscan.log.',
+  tour_terminal_title: 'Terminal',
+  tour_terminal_body:
+    'Todo lo que hace NetScan, en directo: cada sondeo, puerto, petición, certificado y comando (BE) junto a cada llamada de tu navegador (FE). Filtra, busca, pausa, exporta. Ábrela y ciérrala con la tecla `.',
+  tour_done_title: 'Tutorial completado',
+  tour_done_body:
+    'Eso es todo. Lanza ya tu primer escaneo rápido o explora por tu cuenta. Puedes repetir este tutorial cuando quieras con el botón ? de la cabecera.',
 }
 
 export const LANGS = ['en', 'es'] as const
