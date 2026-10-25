@@ -14,10 +14,14 @@ from __future__ import annotations
 
 import contextlib
 import os
+import shlex
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass, field
+
+from netscan.events import emit, fmt_s
 
 DEFAULT_TIMEOUT = 120
 
@@ -67,9 +71,17 @@ class Capabilities:
 
 
 def run_tool(binary: str, args: list[str], timeout: int = DEFAULT_TIMEOUT) -> str | None:
-    """Run an external tool and return stdout, or None on any failure."""
+    """Run an external tool and return stdout, or None on any failure.
+
+    The exact command line, exit code, duration and output size go to the
+    event feed, so the dashboard terminal shows what really ran.
+    """
     if not shutil.which(binary):
+        emit("tool", f"{binary}: not installed — stage skipped", "debug", tool=binary)
         return None
+    cmdline = shlex.join([binary, *args])
+    emit("tool", f"$ {cmdline}", tool=binary, cmd=cmdline, timeout_s=timeout)
+    start = time.perf_counter()
     try:
         proc = subprocess.run(
             [binary, *args],
@@ -78,8 +90,25 @@ def run_tool(binary: str, args: list[str], timeout: int = DEFAULT_TIMEOUT) -> st
             timeout=timeout,
             check=False,
         )
-    except (subprocess.TimeoutExpired, OSError):
+    except subprocess.TimeoutExpired:
+        emit("tool", f"{binary}: killed after the {timeout} s timeout", "warning", tool=binary)
         return None
+    except OSError as exc:
+        emit("tool", f"{binary}: could not start ({exc})", "error", tool=binary)
+        return None
+    elapsed = time.perf_counter() - start
+    level = "info" if proc.returncode == 0 else "warning"
+    detail = ""
+    if proc.returncode != 0 and proc.stderr:
+        detail = f" · stderr: {proc.stderr.strip().splitlines()[-1][:200]}"
+    emit(
+        "tool",
+        f"{binary}: exit {proc.returncode} in {fmt_s(elapsed)} · {len(proc.stdout.splitlines())} lines of output{detail}",
+        level,
+        tool=binary,
+        exit_code=proc.returncode,
+        seconds=round(elapsed, 2),
+    )
     return proc.stdout if proc.returncode == 0 else None
 
 
@@ -100,6 +129,7 @@ def nmap_service_scan(ip: str, ports: list[int], timeout: int = DEFAULT_TIMEOUT)
             except ValueError:
                 continue
             versions[port] = " ".join(parts[2:])
+            emit("nmap", f"{ip}:{port}/tcp → {versions[port]}", host=ip, port=port, version=versions[port])
     return versions
 
 
@@ -111,7 +141,9 @@ def nmap_os_scan(ip: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     for line in out.splitlines():
         line = line.strip()
         if line.startswith(("OS details:", "Aggressive OS guesses:")):
-            return line.split(":", 1)[1].strip()
+            guess = line.split(":", 1)[1].strip()
+            emit("nmap", f"{ip}: OS guess → {guess}", host=ip)
+            return guess
     return ""
 
 
@@ -123,9 +155,16 @@ def rustscan_ports(ip: str, timeout: int = 60) -> list[int]:
     for line in out.splitlines():
         if "->" in line:
             try:
-                return [int(p) for p in line.split("->", 1)[1].strip().strip("[]").split(",")]
+                ports = [int(p) for p in line.split("->", 1)[1].strip().strip("[]").split(",")]
             except ValueError:
                 continue
+            emit(
+                "ports",
+                f"rustscan {ip}: 65535 ports swept → open {', '.join(map(str, ports))}",
+                host=ip,
+                open=ports,
+            )
+            return ports
     return []
 
 
@@ -165,6 +204,12 @@ def nuclei_scan(
             parsed = parse_nuclei_line(line)
             if parsed:
                 findings.append(parsed)
+                emit(
+                    "vuln",
+                    f"nuclei [{parsed['severity']}] {parsed['name'] or parsed['template']} → {parsed['matched_at']}",
+                    "error" if parsed["severity"] in ("high", "critical") else "warning",
+                    **parsed,
+                )
     return findings
 
 
@@ -177,7 +222,9 @@ def whatweb_scan(url: str, timeout: int = 30) -> list[str]:
         if line.startswith("http"):
             # "http://x [200 OK] Apache[2.4.1], PHP[8.1], ..."
             _, _, rest = line.partition("]")
-            return [t.strip() for t in rest.split(",") if t.strip()][:20]
+            tech = [t.strip() for t in rest.split(",") if t.strip()][:20]
+            emit("http", f"whatweb {url} → {', '.join(tech) or 'nothing identified'}", url=url)
+            return tech
     return []
 
 
@@ -200,6 +247,7 @@ def testssl_scan(target: str, timeout: int = 180) -> list[dict[str, str]]:
         return []
     fd, out_path = tempfile.mkstemp(suffix=".json")
     os.close(fd)
+    emit("tool", f"$ testssl.sh --quiet --color 0 --jsonfile={out_path} {target}", tool="testssl.sh")
     try:
         subprocess.run(
             ["testssl.sh", "--quiet", "--color", "0", f"--jsonfile={out_path}", target],
@@ -238,5 +286,10 @@ def testssl_scan(target: str, timeout: int = 180) -> list[dict[str, str]]:
                 "name": str(item.get("finding", "")),
                 "matched_at": target,
             }
+        )
+        emit(
+            "vuln",
+            f"testssl [{severity.lower()}] {item.get('id', '')}: {item.get('finding', '')} → {target}",
+            "warning",
         )
     return findings

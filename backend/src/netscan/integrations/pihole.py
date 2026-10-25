@@ -13,11 +13,21 @@ collect_all() below also isolates any instance's failure from the rest.
 
 from __future__ import annotations
 
+import hashlib
+import threading
 from typing import Any
 
 import httpx
 
 from netscan.config import PiholeInstance
+
+# Session ids cached per (host, port, password hash): Pi-hole v6 limits the
+# number of concurrent API sessions (``webserver.api.max_sessions``, 16 by
+# default) and the dashboard polls every few seconds. Logging in on every
+# poll — as this client used to — exhausted the seats within a minute and the
+# API started answering 429 to everyone, including the Pi-hole web UI.
+_SESSIONS: dict[tuple[str, int, str], str] = {}
+_SESSIONS_LOCK = threading.Lock()
 
 
 class PiholeClient:
@@ -26,7 +36,12 @@ class PiholeClient:
         scheme = "https" if cfg.use_ssl else "http"
         self.base = f"{scheme}://{cfg.host}:{cfg.port}/api"
         self._client = httpx.Client(verify=cfg.verify_ssl, timeout=timeout)
-        self._sid: str | None = None
+        self._key = (cfg.host, cfg.port, hashlib.sha256(cfg.password.encode()).hexdigest())
+        with _SESSIONS_LOCK:
+            self._sid: str | None = _SESSIONS.get(self._key)
+
+    def close(self) -> None:
+        self._client.close()
 
     def _authenticate(self) -> None:
         resp = self._client.post(f"{self.base}/auth", json={"password": self.cfg.password})
@@ -35,6 +50,9 @@ class PiholeClient:
         if not session.get("valid"):
             raise RuntimeError("Pi-hole: authentication rejected (wrong password)")
         self._sid = session.get("sid")
+        with _SESSIONS_LOCK:
+            if self._sid:
+                _SESSIONS[self._key] = self._sid
 
     def _get(self, path: str) -> Any:
         if self._sid is None:
@@ -51,6 +69,7 @@ class PiholeClient:
         stats = self._get("/stats/summary")
         queries = stats.get("queries", {})
         gravity = stats.get("gravity", {})
+        clients = stats.get("clients", {})
         return {
             "name": self.cfg.name,
             "host": self.cfg.host,
@@ -58,7 +77,9 @@ class PiholeClient:
             "num_blocked_filtering": queries.get("blocked", 0),
             "percent_blocked": queries.get("percent_blocked", 0),
             "domains_being_blocked": gravity.get("domains_being_blocked", 0),
-            "unique_clients": queries.get("unique_clients", 0),
+            # v6 reports clients under "clients" ({active, total}), not "queries".
+            "unique_clients": clients.get("active", queries.get("unique_clients", 0)),
+            "total_clients": clients.get("total"),
         }
 
 
@@ -67,8 +88,13 @@ def collect_all(instances: list[PiholeInstance]) -> list[dict[str, Any]]:
     for cfg in instances:
         if not cfg.enabled:
             continue
+        client = None
         try:
-            out.append(PiholeClient(cfg).summary())
+            client = PiholeClient(cfg)
+            out.append(client.summary())
         except Exception as exc:
             out.append({"name": cfg.name, "host": cfg.host, "error": str(exc)})
+        finally:
+            if client is not None:
+                client.close()
     return out

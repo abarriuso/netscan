@@ -5,21 +5,39 @@ import type {
   Capabilities,
   CustomBookmark,
   DeviceMetrics,
+  DeviceProfile,
   DeviceRecord,
+  DnsBenchResult,
+  DnsResult,
+  HttpCheckResult,
   IntegrationKind,
   IntegrationSetting,
+  IpMapData,
   LiveSnapshot,
+  MacResult,
   MetricHistoryPoint,
   MetricSamplePoint,
   MetricsSummary,
+  NetworkMapData,
   Overview,
   PiholeSummary,
+  PingResult,
+  PortScanResult,
   ProxmoxSummary,
   ScanHistoryPoint,
   ScanStage,
+  SecurityReport,
+  SubnetResult,
   SystemStatus,
+  TcpResult,
+  TimelineEvent,
+  TlsResult,
+  TraceResult,
   TrueNASSummary,
+  UptimeDevice,
+  UptimeReport,
 } from '@/types'
+import { logFront } from './telemetry'
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -140,6 +158,28 @@ export async function errorFromResponse(resp: Response, path: string): Promise<E
   return err
 }
 
+/** fetch() + one telemetry line per request: method, path, status, wall
+ *  time measured in the browser (network + server) and response size. */
+async function traced(method: string, path: string, init: RequestInit): Promise<Response> {
+  const start = performance.now()
+  try {
+    const resp = await fetch(`${BASE}${path}`, init)
+    const ms = performance.now() - start
+    const size = Number(resp.headers?.get?.('content-length') ?? NaN)
+    logFront(
+      'http',
+      `${method} ${path} → ${resp.status} · ${ms < 100 ? ms.toFixed(1) : Math.round(ms)} ms` +
+        (Number.isFinite(size) ? ` · ${(size / 1024).toFixed(1)} KiB` : ''),
+      resp.ok ? 'debug' : 'warning',
+      { method, path, status: resp.status, ms: Math.round(ms * 100) / 100 },
+    )
+    return resp
+  } catch (e) {
+    logFront('http', `${method} ${path} → network error: ${(e as Error).message}`, 'error', { method, path })
+    throw e
+  }
+}
+
 async function get<T>(path: string): Promise<T> {
   const cached = _cache.get(path)
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value as T
@@ -147,10 +187,10 @@ async function get<T>(path: string): Promise<T> {
   if (existing) return existing as Promise<T>
   const run = (async () => {
     if (pendingAuth) await pendingAuth
-    let resp = await fetch(`${BASE}${path}`, { headers: authHeaders() })
+    let resp = await traced('GET', path, { headers: authHeaders() })
     if (resp.status === 401) {
       await ensureAuth()
-      resp = await fetch(`${BASE}${path}`, { headers: authHeaders() })
+      resp = await traced('GET', path, { headers: authHeaders() })
     }
     if (!resp.ok) throw await errorFromResponse(resp, path)
     const value = await resp.json()
@@ -163,7 +203,7 @@ async function get<T>(path: string): Promise<T> {
 
 async function send<T>(path: string, method: string, body?: unknown): Promise<T> {
   const make = () =>
-    fetch(`${BASE}${path}`, {
+    traced(method, path, {
       method,
       headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -179,6 +219,25 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
   // poll reflects it immediately instead of serving up to CACHE_TTL_MS stale.
   invalidateCache()
   return resp.json() as Promise<T>
+}
+
+/** Absolute URL for a download link (exports): carries the token in a
+ *  header-less context only if the server has none — otherwise the export
+ *  is fetched and saved as a Blob (see downloadExport). */
+export async function downloadExport(format: 'csv' | 'json'): Promise<void> {
+  const path = `/api/export/devices?format=${format}`
+  const resp = await traced('GET', path, { headers: authHeaders() })
+  if (!resp.ok) throw await errorFromResponse(resp, path)
+  const blob = await resp.blob()
+  const disposition = resp.headers.get('content-disposition') ?? ''
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `netscan-devices.${format}`
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  logFront('ui', `exported the inventory as ${name} (${(blob.size / 1024).toFixed(1)} KiB)`)
 }
 
 export const api = {
@@ -199,7 +258,8 @@ export const api = {
     ),
   capabilities: () => get<Capabilities>('/api/capabilities'),
   logs: (lines = 300) => get<{ path: string; lines: string[] }>(`/api/logs?lines=${lines}`),
-  scanProgress: () => get<{ stage: string; done: number; total: number }>('/api/scans/progress'),
+  scanProgress: () =>
+    get<{ stage: string; done: number; total: number; elapsed_s?: number; error?: string }>('/api/scans/progress'),
   devices: () => get<DeviceRecord[]>('/api/devices'),
   alerts: (unack = false) => get<AlertRecord[]>(`/api/alerts${unack ? '?unacknowledged=true' : ''}`),
   proxmox: () => get<ProxmoxSummary[]>('/api/integrations/proxmox'),
@@ -210,10 +270,45 @@ export const api = {
   startScan: (opts: { full?: boolean; only?: ScanStage } = {}) =>
     send<{ status: string }>('/api/scans', 'POST', opts),
   ackAlert: (id: number) => send<{ ok: boolean }>(`/api/alerts/${id}/ack`, 'POST'),
+  ackAllAlerts: () => send<{ acknowledged: number }>('/api/alerts/ack-all', 'POST'),
+  setNotes: (mac: string, notes: string) =>
+    send<{ ok: boolean }>(`/api/devices/${encodeURIComponent(mac)}`, 'PATCH', { notes }),
+
+  // -- Cross-source views --
+  uptime: (hours = 24, slots = 48) => get<UptimeReport>(`/api/uptime?hours=${hours}&slots=${slots}`),
+  deviceUptime: (mac: string, hours = 24, slots = 96) =>
+    get<UptimeReport & { device: UptimeDevice }>(
+      `/api/devices/${encodeURIComponent(mac)}/uptime?hours=${hours}&slots=${slots}`,
+    ),
+  deviceProfile: (mac: string) => get<DeviceProfile>(`/api/devices/${encodeURIComponent(mac)}/profile`),
+  deviceTimeline: (mac: string) =>
+    get<{ mac: string; events: TimelineEvent[] }>(`/api/devices/${encodeURIComponent(mac)}/timeline`),
+  map: () => get<NetworkMapData>('/api/map'),
+  ipMap: (network?: string) =>
+    get<IpMapData>(`/api/ipmap${network ? `?network=${encodeURIComponent(network)}` : ''}`),
+  security: () => get<SecurityReport>('/api/security'),
+
+  // -- Toolbox (run on the NetScan host) --
+  tools: {
+    ping: (target: string, count = 5) => send<PingResult>('/api/tools/ping', 'POST', { target, count }),
+    traceroute: (target: string, max_hops = 20) =>
+      send<TraceResult>('/api/tools/traceroute', 'POST', { target, max_hops }),
+    dns: (name: string, type: string, server: string) =>
+      send<DnsResult>('/api/tools/dns', 'POST', { name, type, server }),
+    dnsBench: (name: string, type = 'A', servers: string[] = []) =>
+      send<DnsBenchResult>('/api/tools/dns-bench', 'POST', { name, type, servers, rounds: 3 }),
+    tcp: (target: string, port: number) => send<TcpResult>('/api/tools/tcp', 'POST', { target, port, count: 3 }),
+    portscan: (target: string, ports: string) =>
+      send<PortScanResult>('/api/tools/portscan', 'POST', { target, ports }),
+    http: (url: string) => send<HttpCheckResult>('/api/tools/http', 'POST', { url }),
+    tls: (target: string, port: number) => send<TlsResult>('/api/tools/tls', 'POST', { target, port }),
+    subnet: (cidr: string) => send<SubnetResult>('/api/tools/subnet', 'POST', { cidr }),
+    mac: (mac: string) => send<MacResult>('/api/tools/mac', 'POST', { mac }),
+  },
   setTrusted: (mac: string, trusted: boolean) =>
     send<{ ok: boolean }>(`/api/devices/${encodeURIComponent(mac)}`, 'PATCH', { trusted }),
   wake: (mac: string) =>
-    send<{ ok: boolean }>(`/api/devices/${encodeURIComponent(mac)}/wake`, 'POST'),
+    send<{ ok: boolean; broadcast?: string }>(`/api/devices/${encodeURIComponent(mac)}/wake`, 'POST'),
   latestScanRaw: () => get<{ started_at: string; result: Omit<LatestScan, 'started_at'> }>('/api/scans/latest'),
 
   // -- Integration settings (add/edit/remove from the dashboard) --
@@ -256,8 +351,10 @@ export interface LatestScanDevice {
     status_code: number
     title: string
     server: string
-    // Optional: scans persisted before this field existed won't have it.
+    // Optional: scans persisted before these fields existed won't have them.
     tech?: string[]
+    final_url?: string
+    error?: string
     tls: { issuer: string; days_remaining: number | null; self_signed: boolean; version: string } | null
   }[]
 }
@@ -268,6 +365,11 @@ export interface LatestScan {
   total_devices: number
   devices: LatestScanDevice[]
   vulnerabilities: { tool?: string; template: string; severity: string; name: string; matched_at: string }[]
+  discovery_method?: string
+  mode?: string
+  skipped?: string[]
+  gateway_ip?: string
+  stage_timings?: { stage: string; duration_s: number }[]
 }
 
 export async function fetchLatestScan(): Promise<LatestScan | null> {

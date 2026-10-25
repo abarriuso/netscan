@@ -22,18 +22,37 @@ integrations you configure from the web itself for **Proxmox VE**,
 
 ## Screenshots
 
-The dashboard (`http://localhost:8600`) has six views:
+The dashboard (`http://localhost:8600`) has nine views and a terminal docked
+at the bottom of every one of them:
 
-- **Live** — real-time network latency and a map of devices (online/offline).
-- **Overview** — KPIs, system status, device inventory and alerts.
-- **Devices** — detailed inventory with latency, jitter, loss, quality, open
-  ports and trust; sortable columns and IP/MAC copied with one click.
-- **Analytics** — latency/quality/throughput series, top vendors/OS/ports, web
-  services and TLS findings.
+- **Live** — LAN, gateway and Internet RTT every 5 s and the **uptime board**:
+  availability per device over 1 h / 24 h / 7 d / 30 d with status-page bars,
+  coverage, outages and MTTR.
+- **Overview** — KPIs (each with a real sub-figure: new devices in 24 h, worst
+  quality, p95 latency, last/next scan), system status and alerts.
+- **Devices** — inventory with inferred role, latency, jitter, loss, quality,
+  risk, open ports and trust; CSV/JSON export.
+- **Map** — latency radar (gateway at the centre, distance = RTT, sector =
+  role, ring = risk) and the IP address map of the subnet.
+- **Security** — risk ranking with every factor explained, exposed services,
+  TLS certificates, scanner findings, gateway MAC integrity, IP conflicts.
+- **Analytics** — per-scan trends, top vendors/OS/ports, web services and TLS.
+- **Tools** — ping, traceroute, DNS lookup and resolver benchmark, TCP check,
+  port scan, HTTP phase timing, TLS inspector, subnet and MAC calculators.
 - **Integrations** — Proxmox/TrueNAS/AdGuard/Pi-hole and custom bookmarks,
   configured from the web.
-- **System** — host resources (CPU, memory, disks, network) and NetScan server
-  status.
+- **System** — toolchain and the tail of `netscan.log`.
+- **Terminal** (key `` ` ``) — every backend event (each ARP/ICMP probe, open
+  port, HTTP request, certificate, exact external command, live-monitor tick,
+  API call) merged with the browser's own requests, with filters, search,
+  pause and `.log` export.
+
+On the first visit a **guided tutorial** (video-game style: spotlight, mission
+counter, typed-out dialogue; → / ← / Esc) walks through every section; replay
+it any time with the **?** button in the header.
+
+Every number has a defined unit and formula: see
+[docs/METRICS.md](docs/METRICS.md).
 
 `netscan.sh doctor` / `netscan.bat doctor` — a diagnosis at a glance before starting:
 
@@ -74,7 +93,12 @@ with all 6 tools) in [Quick start](#quick-start--a-single-command).
 ## What it does
 
 **Discovery and fingerprinting**
-- ARP scan (scapy) with vendor lookup by OUI
+- ARP scan (scapy) with vendor lookup by OUI — or, **without admin rights**,
+  an ICMP sweep plus the OS ARP cache (same result on the local segment)
+- Native ICMP (Windows `IcmpSendEcho`, POSIX ICMP sockets): sub-millisecond
+  RTTs, no `ping` process per probe
+- Role inference per device (gateway, hypervisor, NAS, server, PC, phone,
+  printer, media, camera, IoT, network gear, VM) with the reasons behind it
 - mDNS/Bonjour (zeroconf) to name IoT devices that do not answer reverse DNS
 - Multithreaded port scan + OS heuristics
 - HTTP/TLS fingerprint of web UIs: title, `Server`, certificate issuer, expiry
@@ -83,10 +107,22 @@ with all 6 tools) in [Quick start](#quick-start--a-single-command).
   degradation**: `nmap -sV` for real service versions, RustScan, nuclei,
   whatweb, testssl.sh (see [Licences](#licences))
 
+**Live monitoring and uptime**
+- Every device probed every 5 s (ICMP → TCP → ARP), down after 3 failed probes
+- Availability, coverage, outages and MTTR per device; gateway and Internet
+  RTT/loss to tell "my LAN" from "my ISP"
+- Prometheus endpoint `/metrics` for Grafana
+
+**Security**
+- Risk score 0–100 per device with itemized factors (risky services, TLS,
+  certificates, nuclei/testssl findings, trust, randomized MACs)
+- Alerts for opened/closed ports, IP conflicts and a **gateway MAC change**
+  (the ARP-spoofing tell)
+
 **Live inventory (SQLite)**
-- Every scan is compared with the stored inventory
+- Every scan is compared with the stored inventory; per-device timeline
 - Alerts for a **new device** (home-made intrusion detection), IP↔MAC changes
-  and devices going down
+  and devices going down/back
 - Mark devices as "trusted" from the dashboard
 - Notifications through Apprise: ntfy, Telegram, Discord and 80+ services
 
@@ -505,6 +541,16 @@ NETSCAN_NOTIFY_URLS__0=ntfy://ntfy.sh/my-topic
 | `GET /api/devices/{mac}/metrics` | Latency/jitter/quality history |
 | `POST /api/devices/{mac}/speedtest` | On-demand speed test for a device |
 | `POST /api/devices/{mac}/wake` | Wake-on-LAN |
+| `GET /api/devices/{mac}/profile` · `/timeline` · `/uptime` | Everything known about a device, its event history, its availability |
+| `GET /api/live` | Live monitor snapshot (per-device state, LAN/gateway/WAN series) |
+| `GET /api/uptime?hours=24&slots=48` | Availability, coverage, outages and MTTR per device |
+| `GET /api/map` · `GET /api/ipmap` | Network map nodes (role, risk, RTT) · IP address map |
+| `GET /api/security` | Risk ranking, exposure, certificates, findings, gateway integrity |
+| `GET /api/export/devices?format=csv\|json` | Inventory export |
+| `GET /api/events?since=N` · `WS /ws/events` | Event feed (the terminal) |
+| `POST /api/tools/{ping,traceroute,dns,dns-bench,tcp,portscan,http,tls,subnet,mac}` | Diagnostics toolbox |
+| `POST /api/alerts/ack-all` | Acknowledge every alert |
+| `GET /metrics` | Prometheus exposition (seconds, ratios 0–1) |
 
 With the dashboard built, the API **and** the web UI are served on the same port
 (`/` = dashboard, `/api/...` = API). Interactive docs at
@@ -542,10 +588,15 @@ stays in the NetScan log, not in the client.
 - **The port is already in use.** Change `NETSCAN_API_PORT` (and
   `NETSCAN_API_HOST` if you only want to listen on localhost). On Linux:
   `ss -tlnp | grep 8600` shows what is using it.
-- **The ARP scan finds no devices.** Usually permissions or network. Layer-2
-  scanning needs privileges (on Linux, `cap_net_raw` or root; the systemd
-  service already grants it). In LXC, the container must be bridged onto the
-  same VLAN you want to scan.
+- **The ARP scan finds no devices.** Without privileges NetScan now falls back
+  to an ICMP sweep + the OS ARP cache by itself (the header shows "ICMP sweep
+  (no admin)"); it covers the local segment but refuses networks larger than a
+  /20. A raw ARP scan needs privileges (on Linux, `cap_net_raw` or root; the
+  systemd service already grants it). In LXC, the container must be bridged
+  onto the same VLAN you want to scan.
+- **What is NetScan doing right now?** Open the terminal (key `` ` ``): every
+  probe, request and command is there, with its timing. Filter by source or
+  level, or export it as a `.log` for a bug report.
 - **`403` / CORS errors from another machine.** Add the browser's origin (e.g.
   `http://192.168.1.50:3000`) to `NETSCAN_API_CORS_ORIGINS` (comma-separated
   list).
@@ -577,7 +628,11 @@ frontend lint+build, dependency licence check, vulnerability audit
 
 ```
 ├── backend/src/netscan/
-│   ├── scanner/        # discovery (ARP), enrich, mDNS, fingerprint, tools, speed, engine
+│   ├── scanner/        # discovery (ARP/sweep), icmp, enrich, mDNS, fingerprint, tools, speed, engine
+│   ├── events.py       # event bus behind the terminal (/ws/events)
+│   ├── live.py         # live monitor: probe chain, hysteresis, uptime buckets
+│   ├── insights.py     # uptime, map, IP map, security report, Prometheus
+│   ├── classify.py · security.py · diag.py   # roles · risk score · toolbox
 │   ├── db/             # SQLModel: inventory, scans, alerts, metric samples
 │   ├── integrations/   # proxmox · truenas · adguard
 │   ├── api/            # FastAPI + WebSocket + scheduler + static dashboard

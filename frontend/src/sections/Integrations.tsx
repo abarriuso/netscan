@@ -3,6 +3,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react'
 import IntegrationFormDialog from '@/components/IntegrationFormDialog'
 import { GlassPanel, Meter } from '@/components/metrics'
 import { formatBytes, formatUptime, usePoll } from '@/hooks/useNetscan'
+import { fmtMs } from '@/lib/format'
 import { api } from '@/lib/api'
 import type { IntegrationSetting } from '@/types'
 import PanelError from './PanelError'
@@ -251,7 +252,15 @@ export default function Integrations() {
                   label={t('blockRate')}
                   value={`${inst.num_dns_queries ? (((inst.num_blocked_filtering ?? 0) / inst.num_dns_queries) * 100).toFixed(1) : '0.0'}%`}
                 />
-                <StatLine label={t('avgTime')} value={`${(inst.avg_processing_time ?? 0).toFixed(1)} ms`} />
+                <StatLine
+                  label={t('avgTime')}
+                  // AdGuard reports seconds; the backend converts to ms (older
+                  // backends sent only the raw seconds, shown as "x ms" — wrong by 1000×).
+                  value={fmtMs(
+                    inst.avg_processing_time_ms ??
+                      (inst.avg_processing_time != null ? inst.avg_processing_time * 1000 : null),
+                  )}
+                />
                 <StatLine label={t('clients')} value={(inst.clients ?? []).length} />
               </div>
             ),
@@ -282,7 +291,10 @@ export default function Integrations() {
                 </div>
                 <StatLine label={t('blockRate')} value={`${(inst.percent_blocked ?? 0).toFixed(1)}%`} />
                 <StatLine label={t('domainsListed')} value={(inst.domains_being_blocked ?? 0).toLocaleString()} />
-                <StatLine label={t('clients')} value={inst.unique_clients ?? 0} />
+                <StatLine
+                  label={t('clientsActiveTotal')}
+                  value={`${inst.unique_clients ?? 0}${inst.total_clients != null ? ` / ${inst.total_clients}` : ''}`}
+                />
               </div>
             ),
           )}
@@ -298,6 +310,8 @@ export default function Integrations() {
               <a
                 key={b.id}
                 href={b.url}
+                title={b.error ? `${b.url}
+${b.error}` : b.url}
                 target="_blank"
                 rel="noreferrer"
                 className="flex flex-col items-center gap-2 rounded-none border border-border bg-secondary/60 p-3 text-center transition-colors hover:border-primary/50 hover:bg-secondary"
@@ -313,6 +327,9 @@ export default function Integrations() {
                   />
                 </div>
                 <span className="truncate text-[11px] font-medium">{b.name}</span>
+                <span className={`font-mono text-[10px] ${b.status === 'up' ? 'text-muted-foreground' : 'text-destructive'}`}>
+                  {b.status === 'up' ? `${b.http_status ?? ''} · ${fmtMs(b.ms)}` : t('bookmarkDown')}
+                </span>
               </a>
             ))}
           </div>

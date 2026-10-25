@@ -24,6 +24,9 @@ class AdGuardClient:
             auth=(cfg.username, cfg.password) if cfg.username else None,
         )
 
+    def close(self) -> None:
+        self._client.close()
+
     def _get(self, path: str) -> Any:
         resp = self._client.get(f"{self.base}{path}")
         resp.raise_for_status()
@@ -48,7 +51,9 @@ class AdGuardClient:
             "clients": self.clients(),
             "num_dns_queries": stats.get("num_dns_queries", 0),
             "num_blocked_filtering": stats.get("num_blocked_filtering", 0),
-            "avg_processing_time": stats.get("avg_processing_time", 0),
+            # AdGuard reports seconds; exposed in ms so every latency in the
+            # dashboard shares one unit.
+            "avg_processing_time_ms": round(float(stats.get("avg_processing_time", 0) or 0) * 1000, 3),
             "top_queried_domains": stats.get("top_queried_domains", [])[:10],
             "top_blocked_domains": stats.get("top_blocked_domains", [])[:10],
         }
@@ -59,8 +64,13 @@ def collect_all(instances: list[AdGuardInstance]) -> list[dict[str, Any]]:
     for cfg in instances:
         if not cfg.enabled:
             continue
+        client = None
         try:
-            out.append(AdGuardClient(cfg).summary())
+            client = AdGuardClient(cfg)
+            out.append(client.summary())
         except Exception as exc:
             out.append({"name": cfg.name, "host": cfg.host, "error": str(exc)})
+        finally:
+            if client is not None:
+                client.close()
     return out

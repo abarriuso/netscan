@@ -2,9 +2,16 @@
 
 NetScan's frontend: React 19 + TypeScript + Vite + Tailwind + shadcn/ui.
 
-It talks to the backend API (`http://localhost:8600` by default) with polling
-and a scan-progress WebSocket (`/ws/progress`). The interface is available in
-English and Spanish (`src/i18n/`).
+It talks to the backend API (`http://localhost:8600` by default) with polling,
+a scan-progress WebSocket (`/ws/progress`) and the event feed (`/ws/events`,
+with replay after reconnects and HTTP polling as fallback) that drives the
+terminal dock. The interface is available in English and Spanish
+(`src/i18n/`).
+
+Layout: `src/lib/format.ts` is the only place where units are formatted (see
+[`docs/METRICS.md`](../docs/METRICS.md)); `src/lib/eventStream.ts` and
+`src/lib/telemetry.ts` hold the backend and browser event streams;
+`src/sections/` has one component per tab, all lazy-loaded.
 
 ## Development
 

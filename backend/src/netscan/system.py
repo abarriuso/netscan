@@ -67,10 +67,14 @@ def memory_info() -> dict[str, object]:
     sw = _safe(psutil.swap_memory)
     out: dict[str, object] = {"available": True}
     if vm:
+        # Bytes. "available_bytes" is what applications can still allocate without
+        # swapping (free + reclaimable cache); "free" is truly unused RAM.
+        # The API used to send `available` under the name `free`.
         out.update(
             total=vm.total,
             used=vm.used,
-            free=vm.available,
+            free=vm.free,
+            available_bytes=vm.available,
             percent=vm.percent,
         )
     if sw:
@@ -144,8 +148,12 @@ def network_info() -> dict[str, object]:
                 "mac": mac,
                 "bytes_sent": sent,
                 "bytes_recv": recv,
+                # BYTES per second (multiply by 8 for bit/s). The *_bps names
+                # are kept for older dashboards; prefer the explicit ones.
                 "up_bps": round(up_bps, 0),
                 "down_bps": round(down_bps, 0),
+                "tx_bytes_per_s": round(up_bps, 0),
+                "rx_bytes_per_s": round(down_bps, 0),
             }
         )
     interfaces.sort(key=lambda i: (not i["is_up"], -int(i["bytes_recv"] or 0)))  # type: ignore[call-overload]

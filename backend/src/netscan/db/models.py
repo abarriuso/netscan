@@ -8,7 +8,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import DateTime, Field, SQLModel
+
+# Timestamps are naive local time (datetime.now()). sqlmodel >= 0.0.45 maps a
+# bare `datetime` to a UTC-only column that rejects naive values, so every
+# datetime field pins the plain DateTime column it has always had.
 
 
 class DeviceRecord(SQLModel, table=True):
@@ -25,8 +29,8 @@ class DeviceRecord(SQLModel, table=True):
     os_guess: str = ""
     notes: str = ""
     trusted: bool = False  # user-acknowledged device
-    first_seen: datetime = Field(default_factory=datetime.now)
-    last_seen: datetime = Field(default_factory=datetime.now)
+    first_seen: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
+    last_seen: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
     last_latency_ms: float | None = None
     open_ports_json: str = "[]"
     online: bool = True
@@ -44,7 +48,7 @@ class MetricSample(SQLModel, table=True):
     __tablename__ = "metric_samples"
 
     id: int | None = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.now, index=True)
+    created_at: datetime = Field(default_factory=datetime.now, index=True, sa_type=DateTime)
     device_mac: str = Field(index=True)
     latency_ms: float | None = None
     jitter_ms: float | None = None
@@ -53,6 +57,58 @@ class MetricSample(SQLModel, table=True):
     throughput_mbps: float | None = None
     quality: int | None = None
     online: bool = True
+    # "scan" (one row per device per scan) or "speedtest" (on-demand). The
+    # network trend only averages "scan" rows: a lone on-demand test used to
+    # show up as a one-device "network average".
+    source: str = "scan"
+
+
+class UptimeBucket(SQLModel, table=True):
+    """Live-monitor probes of one device aggregated over a fixed time bucket.
+
+    ``bucket_start`` is aligned to ``live.BUCKET_S`` (300 s). Availability of
+    a bucket = up / probes; RTT mean = rtt_sum_ms / rtt_count. Buckets only exist
+    while NetScan was running — a gap is "no data", never "down".
+    """
+
+    __tablename__ = "uptime_buckets"
+
+    id: int | None = Field(default=None, primary_key=True)
+    device_mac: str = Field(index=True)
+    bucket_start: datetime = Field(index=True, sa_type=DateTime)
+    probes: int = 0
+    up: int = 0
+    rtt_sum_ms: float = 0.0
+    rtt_count: int = 0  # probes that produced an RTT (ICMP/TCP; ARP answers carry none)
+    rtt_min_ms: float | None = None
+    rtt_max_ms: float | None = None
+
+
+class DeviceEvent(SQLModel, table=True):
+    """Per-device timeline: state changes and inventory changes.
+
+    kind: new | up | down | ip_changed | ports_changed | conflict |
+    gateway_mac_changed | trusted | untrusted.
+    """
+
+    __tablename__ = "device_events"
+
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.now, index=True, sa_type=DateTime)
+    device_mac: str = Field(index=True)
+    kind: str
+    detail: str = ""
+    data_json: str = "{}"
+
+
+class MetaRecord(SQLModel, table=True):
+    """Small key/value store (e.g. the gateway's last known MAC)."""
+
+    __tablename__ = "meta"
+
+    key: str = Field(primary_key=True)
+    value: str = ""
+    updated_at: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
 
 
 class ScanRecord(SQLModel, table=True):
@@ -61,7 +117,7 @@ class ScanRecord(SQLModel, table=True):
     __tablename__ = "scans"
 
     id: int | None = Field(default=None, primary_key=True)
-    started_at: datetime = Field(default_factory=datetime.now)
+    started_at: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
     duration_s: float = 0.0
     network: str = ""
     total_devices: int = 0
@@ -74,8 +130,10 @@ class AlertRecord(SQLModel, table=True):
     __tablename__ = "alerts"
 
     id: int | None = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.now)
-    kind: str  # new_device | mac_changed | device_down | device_back
+    created_at: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
+    # new_device | mac_changed (the MAC's IP changed) | device_down |
+    # device_back | ports_changed | ip_conflict | gateway_mac_changed
+    kind: str
     device_mac: str = ""
     device_ip: str = ""
     detail: str = ""
@@ -102,5 +160,5 @@ class IntegrationInstance(SQLModel, table=True):
     enabled: bool = True
     config_json: str = "{}"  # kind-specific fields, including credentials
     logo_path: str | None = None  # relative path under data_dir/logos/, "custom" only
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
+    updated_at: datetime = Field(default_factory=datetime.now, sa_type=DateTime)
