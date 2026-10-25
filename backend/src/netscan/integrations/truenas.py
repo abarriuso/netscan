@@ -24,6 +24,9 @@ class TrueNASClient:
             headers={"Authorization": f"Bearer {cfg.api_key}"},
         )
 
+    def close(self) -> None:
+        self._client.close()
+
     def _get(self, path: str) -> Any:
         resp = self._client.get(f"{self.base}{path}")
         resp.raise_for_status()
@@ -73,8 +76,13 @@ def collect_all(instances: list[TrueNASInstance]) -> list[dict[str, Any]]:
     for cfg in instances:
         if not cfg.enabled:
             continue
+        client = None
         try:
-            out.append(TrueNASClient(cfg).summary())
+            client = TrueNASClient(cfg)
+            out.append(client.summary())
         except Exception as exc:
             out.append({"name": cfg.name, "host": cfg.host, "error": str(exc)})
+        finally:
+            if client is not None:
+                client.close()
     return out

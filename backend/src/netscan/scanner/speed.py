@@ -21,21 +21,20 @@ as ``None`` instead of raising.
 
 from __future__ import annotations
 
-import platform
-import re
 import socket
-import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import pairwise
 from statistics import fmean, pstdev
+from typing import Any
 
+from netscan.events import emit, fmt_ms
 from netscan.models import DeviceMetrics, PortInfo
+from netscan.scanner import icmp
 
 # One HTTP GET of at most this many bytes is enough to estimate throughput
 # on a homelab LAN without hammering the target.
 _THROUGHPUT_MAX_BYTES = 4 * 1024 * 1024  # 4 MiB
-_PING_TIME_RE = re.compile(r"(?:time|tiempo|zeit|temps|tempo)\s*[=<]\s*(\d+(?:[.,]\d+)?)\s*ms", re.IGNORECASE)
 
 
 # --------------------------------------------------------------------------- #
@@ -43,28 +42,7 @@ _PING_TIME_RE = re.compile(r"(?:time|tiempo|zeit|temps|tempo)\s*[=<]\s*(\d+(?:[.
 # --------------------------------------------------------------------------- #
 def _ping_once(ip: str, timeout: float) -> float | None:
     """Single ICMP echo. Returns RTT in ms or None on loss/error."""
-    is_windows = platform.system().lower() == "windows"
-    count_flag = "-n" if is_windows else "-c"
-    wait_flag = "-w" if is_windows else "-W"
-    wait_val = str(int(timeout * 1000)) if is_windows else str(max(int(timeout), 1))
-    try:
-        start = time.perf_counter()
-        proc = subprocess.run(
-            ["ping", count_flag, "1", wait_flag, wait_val, ip],
-            capture_output=True,
-            text=True,
-            timeout=timeout + 2,
-            check=False,
-        )
-        elapsed = (time.perf_counter() - start) * 1000
-    except (subprocess.TimeoutExpired, OSError):
-        return None
-    if proc.returncode != 0:
-        return None
-    match = _PING_TIME_RE.search(proc.stdout)
-    if match:
-        return round(float(match.group(1).replace(",", ".")), 2)
-    return round(elapsed, 2)
+    return icmp.echo(ip, timeout)
 
 
 def latency_stats(ip: str, count: int = 5, timeout: float = 1.0) -> dict[str, float | None]:
@@ -80,6 +58,7 @@ def latency_stats(ip: str, count: int = 5, timeout: float = 1.0) -> dict[str, fl
     total = max(count, 1)
     loss_pct = round(lost / total * 100, 1)
     if not samples:
+        emit("speed", f"{ip}: 0/{total} echoes answered · loss 100.0 % (ICMP filtered or host down)", host=ip)
         return {
             "latency_avg_ms": None,
             "latency_min_ms": None,
@@ -91,16 +70,26 @@ def latency_stats(ip: str, count: int = 5, timeout: float = 1.0) -> dict[str, fl
     # falling back to population stdev for a single successful sample.
     if len(samples) > 1:
         diffs = [abs(b - a) for a, b in pairwise(samples)]
-        jitter = round(fmean(diffs), 2) if diffs else round(pstdev(samples), 2)
+        jitter = round(fmean(diffs), 3) if diffs else round(pstdev(samples), 3)
     else:
         jitter = 0.0
-    return {
-        "latency_avg_ms": round(fmean(samples), 2),
-        "latency_min_ms": round(min(samples), 2),
-        "latency_max_ms": round(max(samples), 2),
+    stats: dict[str, float | None] = {
+        "latency_avg_ms": round(fmean(samples), 3),
+        "latency_min_ms": round(min(samples), 3),
+        "latency_max_ms": round(max(samples), 3),
         "jitter_ms": jitter,
         "packet_loss_pct": loss_pct,
     }
+    payload: dict[str, Any] = dict(stats)
+    emit(
+        "speed",
+        f"{ip}: {len(samples)}/{total} echoes · avg {fmt_ms(stats['latency_avg_ms'])} · "
+        f"min {fmt_ms(stats['latency_min_ms'])} · max {fmt_ms(stats['latency_max_ms'])} · "
+        f"jitter {fmt_ms(jitter)} · loss {loss_pct:.1f} %",
+        host=ip,
+        **payload,
+    )
+    return stats
 
 
 # --------------------------------------------------------------------------- #
@@ -139,12 +128,18 @@ def port_connect_times(ip: str, ports: list[int], workers: int = 8, timeout: flo
 def http_throughput_mbps(
     ip: str, port: int, max_bytes: int = _THROUGHPUT_MAX_BYTES, timeout: float = 8.0
 ) -> float | None:
-    """Estimate download throughput (Mbit/s) by streaming from an HTTP port."""
+    """Estimate download throughput (Mbit/s, 1 Mbit = 10^6 bit) from an HTTP port.
+
+    The clock starts at the first body byte, not at connect(): TCP/TLS
+    set-up and the server's think time are latency, not bandwidth, and on a
+    small page they used to dominate and report a fraction of the real rate.
+    """
     import httpx
 
-    scheme = "https" if port in {443, 8443, 8006} else "http"
+    scheme = "https" if port in {443, 8443, 8006, 9443, 5001} else "http"
     url = f"{scheme}://{ip}:{port}/"
     downloaded = 0
+    first_byte_at: float | None = None
     try:
         start = time.perf_counter()
         with (
@@ -152,62 +147,121 @@ def http_throughput_mbps(
             client.stream("GET", url) as resp,
         ):
             for chunk in resp.iter_bytes(chunk_size=65536):
+                if first_byte_at is None:
+                    first_byte_at = time.perf_counter()
                 downloaded += len(chunk)
                 if downloaded >= max_bytes:
                     break
-        elapsed = time.perf_counter() - start
-    except Exception:
+        end = time.perf_counter()
+    except Exception as exc:
+        emit("speed", f"throughput {url} failed: {exc}", "debug", host=ip)
         return None
-    if downloaded < 16384 or elapsed <= 0:
-        # Too little data to be meaningful (tiny login page, etc.).
+    if first_byte_at is None:
         return None
-    return round((downloaded * 8) / elapsed / 1_000_000, 2)
+    transfer = end - first_byte_at
+    if downloaded < 262144 or transfer <= 0:
+        # < 256 KiB: one TCP window or two — measures latency, not bandwidth.
+        emit(
+            "speed",
+            f"throughput {url}: only {downloaded / 1024:.0f} KiB served — too small to measure bandwidth",
+            "debug",
+            host=ip,
+        )
+        return None
+    mbps = round((downloaded * 8) / transfer / 1_000_000, 2)
+    emit(
+        "speed",
+        f"throughput {url}: {downloaded / 1048576:.2f} MiB in {transfer * 1000:.0f} ms → {mbps} Mbit/s "
+        f"(TTFB {(first_byte_at - start) * 1000:.0f} ms excluded)",
+        host=ip,
+        mbps=mbps,
+    )
+    return mbps
 
 
 # --------------------------------------------------------------------------- #
 # Local adapter link speed
 # --------------------------------------------------------------------------- #
 def local_link_speed_mbps() -> int | None:
-    """Negotiated speed of the active local NIC in Mbit/s, or None."""
+    """Negotiated speed (Mbit/s) of the adapter that owns the primary IPv4.
+
+    The previous heuristic took the fastest "up" adapter with any traffic,
+    which on Windows is usually a Hyper-V/WSL vEthernet reporting a
+    fictitious 10 Gbit/s.
+    """
     try:
         import psutil
     except ImportError:
         return None
     try:
+        from netscan.scanner.discovery import _primary_ip
+
+        primary = _primary_ip()
         stats = psutil.net_if_stats()
-        io = psutil.net_io_counters(pernic=True)
+        for name, addrs in psutil.net_if_addrs().items():
+            if any(a.family == socket.AF_INET and a.address == primary for a in addrs):
+                st = stats.get(name)
+                return st.speed if st and st.isup and st.speed > 0 else None
     except Exception:
         return None
-    best: int | None = None
-    # Pick the up interface with the most traffic and a real reported speed.
-    for name, st in stats.items():
-        if not st.isup or st.speed <= 0:
-            continue
-        if name.lower().startswith(("lo", "loopback")):
-            continue
-        traffic = 0
-        counters = io.get(name)
-        if counters is not None:
-            traffic = counters.bytes_sent + counters.bytes_recv
-        if best is None or traffic > 0:
-            best = st.speed if best is None else max(best, st.speed)
-    return best
+    return None
 
 
 # --------------------------------------------------------------------------- #
 # Quality score
 # --------------------------------------------------------------------------- #
 def quality_score(metrics: DeviceMetrics) -> int:
-    """0-100 heuristic combining loss, latency and jitter (higher = better)."""
+    """0-100 heuristic combining loss, latency and jitter (higher = better).
+
+    score = 100 - loss% - min(1.2 * (latency - 1 ms), 40) - min(2 * jitter, 20).
+    Loss is subtracted 1:1, so a host that answered no echo (100 % loss)
+    scores 0 — previously it was weighted 0.8 and a dead host scored 20.
+    """
+    if metrics.packet_loss_pct is not None and metrics.packet_loss_pct >= 100:
+        return 0
     score = 100.0
     if metrics.packet_loss_pct is not None:
-        score -= metrics.packet_loss_pct * 0.8  # loss dominates
+        score -= metrics.packet_loss_pct
     if metrics.latency_avg_ms is not None:
         # Penalise latency above 1 ms, capped.
         score -= min(max(metrics.latency_avg_ms - 1, 0) * 1.2, 40)
     if metrics.jitter_ms is not None:
         score -= min(metrics.jitter_ms * 2, 20)
     return max(0, min(100, round(score)))
+
+
+def _tcp_rtt_fallback(
+    ip: str, metrics: DeviceMetrics, port_numbers: list[int], count: int, timeout: float
+) -> bool:
+    """RTT from repeated TCP handshakes when ICMP is filtered.
+
+    A Windows PC drops echo requests by default but completes the 3-way
+    handshake on its open ports; the SYN → SYN/ACK time is one round trip,
+    so it is a valid RTT sample. Loss here = handshakes that failed.
+    """
+    candidates = sorted(metrics.tcp_connect_ms) or port_numbers
+    if not candidates:
+        return False
+    port = candidates[0]
+    samples = [tcp_connect_ms(ip, port, timeout=timeout) for _ in range(max(count, 1))]
+    ok = [s for s in samples if s is not None]
+    if not ok:
+        return False
+    metrics.latency_avg_ms = round(fmean(ok), 3)
+    metrics.latency_min_ms = round(min(ok), 3)
+    metrics.latency_max_ms = round(max(ok), 3)
+    metrics.jitter_ms = round(fmean(abs(b - a) for a, b in pairwise(ok)), 3) if len(ok) > 1 else 0.0
+    metrics.packet_loss_pct = round(100 * (len(samples) - len(ok)) / len(samples), 1)
+    metrics.rtt_source = f"tcp/{port}"
+    emit(
+        "speed",
+        f"{ip}: ICMP filtered → RTT from {len(samples)} TCP handshakes to port {port}: "
+        f"avg {fmt_ms(metrics.latency_avg_ms)} · jitter {fmt_ms(metrics.jitter_ms)} · "
+        f"failed {metrics.packet_loss_pct:.1f} %",
+        host=ip,
+        port=port,
+    )
+    return True
 
 
 # --------------------------------------------------------------------------- #
@@ -231,6 +285,22 @@ def measure_device(
     metrics.tcp_connect_ms = port_connect_times(ip, port_numbers)
     if metrics.tcp_connect_ms:
         metrics.tcp_connect_avg_ms = round(fmean(metrics.tcp_connect_ms.values()), 2)
+
+    if metrics.latency_avg_ms is None and not _tcp_rtt_fallback(
+        ip, metrics, port_numbers, count, ping_timeout
+    ):
+        # Nothing answered: an ICMP-filtering host with no open port (or a
+        # host gone since discovery). That is "not measurable", not "quality
+        # 0" — and 100 % ICMP loss is not link loss when ICMP is filtered.
+        metrics.packet_loss_pct = None
+        metrics.rtt_source = ""
+        emit(
+            "speed",
+            f"{ip}: no ICMP echo and no TCP port answered — RTT and quality not measurable "
+            "(ICMP filtered by the host firewall, or the host left)",
+            host=ip,
+        )
+        return metrics
 
     if throughput:
         candidates = throughput_ports or {80, 8080, 8096, 8000, 5000, 9000, 3000}

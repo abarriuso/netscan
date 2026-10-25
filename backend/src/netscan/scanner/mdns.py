@@ -12,6 +12,8 @@ from __future__ import annotations
 import ipaddress
 from collections import defaultdict
 
+from netscan.events import emit
+
 SERVICE_TYPES = [
     "_googlecast._tcp.local.",
     "_airplay._tcp.local.",
@@ -68,6 +70,7 @@ def mdns_discover(timeout: float = 3.0) -> dict[str, dict[str, object]]:
             if short not in services:
                 services.append(short)
 
+    emit("mdns", f"browsing {len(SERVICE_TYPES)} service types on 224.0.0.251:5353 for {timeout:.1f} s")
     zc = Zeroconf()
     try:
         ServiceBrowser(zc, SERVICE_TYPES, handlers=[on_service_change])
@@ -76,4 +79,9 @@ def mdns_discover(timeout: float = 3.0) -> dict[str, dict[str, object]]:
         time.sleep(timeout)
     finally:
         zc.close()
+    for ip, entry in sorted(found.items()):
+        services = entry["services"]
+        assert isinstance(services, list)
+        emit("mdns", f"{ip} → “{entry['name']}” [{', '.join(services)}]", host=ip)
+    emit("mdns", f"mDNS: {len(found)} hosts announced services")
     return dict(found)

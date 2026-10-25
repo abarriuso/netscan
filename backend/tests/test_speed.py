@@ -117,3 +117,30 @@ def test_measure_device_no_ports(monkeypatch):
     m = speed.measure_device("10.0.0.9", [], count=2)
     assert m.tcp_connect_ms == {}
     assert m.tcp_connect_avg_ms is None
+    # Nothing answered: "not measurable", never "quality 0 / 100 % loss".
+    assert m.quality is None
+    assert m.packet_loss_pct is None
+    assert m.rtt_source == ""
+
+
+def test_icmp_filtered_host_is_measured_over_tcp(monkeypatch):
+    monkeypatch.setattr(
+        speed,
+        "latency_stats",
+        lambda ip, count, timeout: {
+            "latency_avg_ms": None,
+            "latency_min_ms": None,
+            "latency_max_ms": None,
+            "jitter_ms": None,
+            "packet_loss_pct": 100.0,
+        },
+    )
+    monkeypatch.setattr(speed, "port_connect_times", lambda ip, ports, **kw: {445: 0.4})
+    handshakes = iter([0.4, 0.6, None, 0.5])
+    monkeypatch.setattr(speed, "tcp_connect_ms", lambda ip, port, timeout=2.0: next(handshakes))
+    m = speed.measure_device("10.0.0.7", [PortInfo(port=445)], count=4)
+    assert m.rtt_source == "tcp/445"
+    assert m.latency_avg_ms == 0.5
+    assert m.latency_min_ms == 0.4 and m.latency_max_ms == 0.6
+    assert m.packet_loss_pct == 25.0  # 1 of 4 handshakes failed
+    assert m.quality is not None and m.quality > 0

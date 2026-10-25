@@ -105,6 +105,8 @@ def test_adguard_summary():
     assert summary["version"] == "v0.107.52"
     assert summary["num_dns_queries"] == 12345
     assert len(summary["clients"]) == 1
+    # AdGuard reports seconds; NetScan exposes milliseconds.
+    assert summary["avg_processing_time_ms"] == 420.0
 
 
 def test_disabled_instances_skipped():

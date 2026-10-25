@@ -5,10 +5,20 @@ import { api } from '@/lib/api'
 import PanelError from './PanelError'
 import { useI18n } from '@/i18n/context'
 
-function fmtTime(iso: string): string {
+function fmtTime(iso: string, withDate = false): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return withDate
+    ? d.toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+/** True when the series spans more than a day — the axis then needs dates. */
+function spansDays(rows: Row[]): boolean {
+  if (rows.length < 2) return false
+  const first = new Date(String(rows[0].t)).getTime()
+  const last = new Date(String(rows[rows.length - 1].t)).getTime()
+  return last - first > 86_400_000
 }
 
 type Row = Record<string, number | string | null>
@@ -37,6 +47,7 @@ function TrendChart({
   const { t } = useI18n()
   const present = data.filter((d) => d[dataKey] != null)
   const last = present.length ? (present[present.length - 1][dataKey] as number) : null
+  const withDate = spansDays(data)
 
   return (
     <GlassPanel title={title} meta={last != null ? `${last.toFixed(decimals)}${unit}` : '—'}>
@@ -56,7 +67,7 @@ function TrendChart({
             <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
             <XAxis
               dataKey="t"
-              tickFormatter={fmtTime}
+              tickFormatter={(v: string) => fmtTime(v, withDate)}
               tick={{ fill: 'rgba(255,255,255,0.42)', fontSize: 10 }}
               tickLine={false}
               axisLine={false}
@@ -79,7 +90,7 @@ function TrendChart({
                 fontFamily: 'JetBrains Mono',
               }}
               labelStyle={{ color: 'rgba(233,236,241,0.6)' }}
-              labelFormatter={(v) => fmtTime(String(v))}
+              labelFormatter={(v) => fmtTime(String(v), true)}
               formatter={(val: number | string) => [`${Number(val).toFixed(decimals)}${unit}`, title]}
             />
             <Area
@@ -128,8 +139,8 @@ export default function TrendsPanel({ refreshKey }: { refreshKey: number }) {
         <TrendChart title={t('trAvgQuality')} unit="/100" color="#38bdf8" gradientId="tr-q" data={points} dataKey="avg_quality" />
         <TrendChart title={t('trAvgThroughput')} unit=" Mbps" color="#2de2e6" gradientId="tr-tp" data={points} dataKey="avg_throughput_mbps" />
         <TrendChart title={t('trDevicesPerScan')} unit="" color="#94a3b8" gradientId="tr-dev" data={scanRows} dataKey="total_devices" />
-        <TrendChart title={t('trDevicesOnline')} unit="" color="#34d399" gradientId="tr-on" data={points} dataKey="devices" />
-        <TrendChart title={t('trPacketLoss')} unit="%" color="#fbbf24" gradientId="tr-loss" data={points} dataKey="avg_packet_loss_pct" decimals={1} />
+        <TrendChart title={t('trDevicesResponding')} unit="" color="#34d399" gradientId="tr-on" data={points} dataKey="devices_responding" />
+        <TrendChart title={t('trPacketLoss')} unit=" %" color="#fbbf24" gradientId="tr-loss" data={points} dataKey="avg_packet_loss_pct" decimals={1} />
       </div>
     </div>
   )

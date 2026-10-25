@@ -117,9 +117,10 @@ jobs:
           # License v2 (GPLv2)", which is GPL-2.0-only — compatible with this
           # project's GPL-2.0-or-later (you can always satisfy "or later" by
           # distributing under exactly 2.0), not a real incompatibility.
+          # scapy >= 2.8.0 reports the SPDX form "GPL-2.0-only" instead.
           if pip-licenses --format=plain --ignore-packages netscan-homelab \
             | tail -n +2 \
-            | grep -viE 'MIT|BSD|Apache|LGPL|ISC|PSF|Python|HPND|MPL|GPLv2|GPL-2.0-or-later|Public Domain|Unlicense'; then
+            | grep -viE 'MIT|BSD|Apache|LGPL|ISC|PSF|Python|HPND|MPL|GPLv2|GPL-2.0-only|GPL-2.0-or-later|Public Domain|Unlicense'; then
             echo "::error::Dependencias con licencia incompatible encontradas (listadas arriba)"
             exit 1
           fi

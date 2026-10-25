@@ -23,6 +23,9 @@ class ProxmoxClient:
             headers={"Authorization": f"PVEAPIToken={cfg.token_id}={cfg.token_secret}"},
         )
 
+    def close(self) -> None:
+        self._client.close()
+
     def _get(self, path: str) -> Any:
         resp = self._client.get(f"{self.base}{path}")
         resp.raise_for_status()
@@ -66,8 +69,13 @@ def collect_all(instances: list[ProxmoxInstance]) -> list[dict[str, Any]]:
     for cfg in instances:
         if not cfg.enabled:
             continue
+        client = None
         try:
-            out.append(ProxmoxClient(cfg).summary())
+            client = ProxmoxClient(cfg)
+            out.append(client.summary())
         except Exception as exc:  # network/auth errors must not break the API
             out.append({"name": cfg.name, "host": cfg.host, "error": str(exc)})
+        finally:
+            if client is not None:
+                client.close()
     return out

@@ -25,11 +25,11 @@ def _default_broadcast() -> str:
         return "255.255.255.255"
 
 
-def wake(mac: str, broadcast: str = "", port: int = 9, repeats: int = 3) -> None:
+def wake(mac: str, broadcast: str = "", port: int = 9, repeats: int = 3) -> str:
     """Send a WoL magic packet for ``mac`` (any common separator).
 
     The packet is sent ``repeats`` times: a single UDP datagram is easy to
-    lose on a congested or power-saving LAN.
+    lose on a congested or power-saving LAN. Returns the broadcast address used.
     """
     cleaned = mac.replace("-", ":").lower()
     if not _MAC_RE.match(cleaned):
@@ -43,3 +43,4 @@ def wake(mac: str, broadcast: str = "", port: int = 9, repeats: int = 3) -> None
             sock.sendto(packet, (target, port))
             if i < repeats - 1:
                 time.sleep(0.1)
+    return target

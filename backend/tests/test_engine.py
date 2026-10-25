@@ -27,6 +27,10 @@ def _patch_common(monkeypatch, tools_available: dict[str, bool] | None = None) -
         "detect",
         classmethod(lambda cls: _caps(tools_available)),
     )
+    # Keep the machine running the tests out of the result: the engine adds
+    # its own host when it lies inside the scanned network.
+    monkeypatch.setattr(engine.discovery, "local_mac", lambda ip: "")
+    monkeypatch.setattr(engine.discovery, "default_gateway", lambda: None)
     monkeypatch.setattr(engine.enrich, "resolve_vendors", lambda macs: {})
     monkeypatch.setattr(engine.enrich, "resolve_hostname", lambda ip: f"host-{ip.rsplit('.', 1)[1]}")
     monkeypatch.setattr(engine.enrich, "ping_host", lambda ip, timeout=1.0: 1.5)
