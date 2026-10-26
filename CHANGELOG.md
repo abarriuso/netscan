@@ -5,6 +5,27 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Corregido — estabilidad en ejecución (LXC / Linux)
+- **Uptime lento que crecía con el histórico**: con 30 días de datos el informe
+  tardaba ~4,4 s por petición (más en un LXC de 2 vCPU), acaparando el GIL y
+  frenando WebSockets y API. Ahora: índice cubriente
+  `(device_mac, bucket_start, probes, up)` (también se crea en bases
+  existentes), totales por ventana agregados en SQL y línea de tiempo en una
+  sola pasada → ~0,2 s para la vista de 24 h.
+- **Zona horaria**: el LXC corre en UTC y la API enviaba horas sin
+  desfase, así que el navegador (hora de España) desplazaba una hora los
+  "hace X", la duración de los estados y el orden de la terminal. Todas las
+  horas de la API llevan ahora el desfase del servidor (`+00:00`).
+- **Falsas caídas en Linux**: dispositivos que ignoran el ping (PCs con
+  firewall, móviles en ahorro de energía) caían y volvían en bucle porque el
+  respaldo ARP solo existía en Windows. Ahora el monitor consulta la tabla de
+  vecinos del kernel (`ip neigh`): `REACHABLE` cuenta como arriba y los
+  estados en verificación (`STALE`/`DELAY`/`PROBE`) no cuentan ni a favor ni
+  en contra.
+- **Dashboard sin token**: el stream de eventos reintentaba sin parar
+  (WebSocket + sondeo cada 2 s), disparando el limitador anti fuerza bruta
+  (429). Ahora espera al diálogo del token y se reconecta solo.
+
 ### Añadido — observabilidad, uptime, mapa, seguridad y herramientas
 - **Tutorial de primera visita** al estilo de los videojuegos: foco sobre cada
   elemento (el resto se oscurece), diálogo que se escribe solo, contador

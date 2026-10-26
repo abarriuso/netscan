@@ -102,6 +102,13 @@ export function clearToken() {
   localStorage.removeItem('netscan_token')
 }
 
+/** Wait until the user submits (or dismisses) the token dialog — shared by
+ *  every caller, so a missing token prompts once instead of each poller
+ *  hammering the API with 401s (which trips the server's 429 limiter). */
+export function waitForAuth(): Promise<void> {
+  return ensureAuth()
+}
+
 function ensureAuth(): Promise<void> {
   if (!pendingAuth) {
     pendingAuth = new Promise((resolve) => {
