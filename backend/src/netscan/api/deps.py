@@ -18,6 +18,7 @@ from netscan.config import Settings, load_settings
 from netscan.db.store import InventoryStore
 from netscan.events import Event, bus
 from netscan.scanner import tools
+from netscan.timeutil import iso
 
 
 def _find_frontend_dist() -> Path | None:
@@ -75,7 +76,7 @@ class AppState:
             "stage": stage,
             "done": done,
             "total": total,
-            "started_at": datetime.fromtimestamp(started).isoformat(timespec="seconds"),
+            "started_at": iso(datetime.fromtimestamp(started)),
             "elapsed_s": round(time.time() - started, 1),
         }
         if self.loop:

@@ -67,7 +67,7 @@ class EventBus:
             self._seq += 1
             event: Event = {
                 "seq": self._seq,
-                "ts": datetime.fromtimestamp(now).isoformat(timespec="milliseconds"),
+                "ts": datetime.fromtimestamp(now).astimezone().isoformat(timespec="milliseconds"),
                 "level": level,
                 "source": source,
                 "msg": msg,

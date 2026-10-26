@@ -41,6 +41,7 @@ from netscan.events import emit, fmt_ms
 from netscan.integrations import adguard, pihole, proxmox, truenas
 from netscan.models import ScanResult
 from netscan.scanner import discovery, engine, speed, tools
+from netscan.timeutil import iso, localize, now_iso
 
 logger = logging.getLogger("netscan")
 
@@ -563,8 +564,8 @@ def create_app() -> FastAPI:
         # crashes on `undefined.length`. model_validate backfills defaults.
         result = ScanResult.model_validate_json(record.result_json)
         return {
-            "started_at": record.started_at.isoformat(),
-            "result": result.model_dump(mode="json"),
+            "started_at": iso(record.started_at),
+            "result": localize(result.model_dump()),
         }
 
     @app.get("/api/scans/progress")
@@ -603,7 +604,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/devices")
     def list_devices() -> list[dict[str, object]]:
-        return [d.model_dump() for d in get_state().store.list_devices()]
+        return [localize(d.model_dump()) for d in get_state().store.list_devices()]
 
     @app.patch("/api/devices/{mac}")
     def update_device(mac: str, req: TrustRequest) -> dict[str, bool]:
@@ -631,7 +632,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/alerts")
     def list_alerts(unacknowledged: bool = False) -> list[dict[str, object]]:
-        return [a.model_dump() for a in get_state().store.list_alerts(unacknowledged)]
+        return [localize(a.model_dump()) for a in get_state().store.list_alerts(unacknowledged)]
 
     @app.post("/api/alerts/{alert_id}/ack")
     def ack_alert(alert_id: int) -> dict[str, bool]:
@@ -871,11 +872,9 @@ def create_app() -> FastAPI:
             "devices_untrusted": sum(1 for d in devices if not d.trusted),
             "devices_new_24h": sum(1 for d in devices if datetime.now() - d.first_seen < timedelta(hours=24)),
             "alerts_unacknowledged": len(state.store.list_alerts(unacknowledged_only=True)),
-            "last_scan": last.started_at.isoformat() if last else None,
+            "last_scan": iso(last.started_at) if last else None,
             "last_scan_duration_s": last.duration_s if last else None,
-            "next_scan": state.next_scheduled_scan.isoformat(timespec="seconds")
-            if state.next_scheduled_scan
-            else None,
+            "next_scan": iso(state.next_scheduled_scan) if state.next_scheduled_scan else None,
             "last_scan_error": state.last_scan_error,
             "capabilities": state.capabilities().as_dict(),
             "metrics": state.store.metrics_summary(),
@@ -897,9 +896,7 @@ def create_app() -> FastAPI:
             "scan_in_progress": state.scan_lock.locked(),
             "ws_clients": len(state.ws_clients) + len(state.event_clients),
             "scheduler_interval_min": state.settings.scan.interval_minutes,
-            "next_scan": state.next_scheduled_scan.isoformat(timespec="seconds")
-            if state.next_scheduled_scan
-            else None,
+            "next_scan": iso(state.next_scheduled_scan) if state.next_scheduled_scan else None,
             "api_host": state.settings.api_host,
             "api_port": state.settings.api_port,
             "auth_enabled": bool(state.settings.api_token),
@@ -930,13 +927,13 @@ def create_app() -> FastAPI:
 
         return {
             "version": __version__,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": now_iso(),
             "overview": {
                 "devices_total": len(devices),
                 "devices_online": sum(1 for d in devices if d.online),
                 "devices_untrusted": sum(1 for d in devices if not d.trusted),
                 "alerts_unacknowledged": len(state.store.list_alerts(unacknowledged_only=True)),
-                "last_scan": last.started_at.isoformat() if last else None,
+                "last_scan": iso(last.started_at) if last else None,
             },
             "metrics": state.store.metrics_summary(),
             "system": system.collect(state.frontend_dist),
@@ -977,7 +974,7 @@ def create_app() -> FastAPI:
             "mac": mac,
             "samples": [
                 {
-                    "t": s.created_at.isoformat(),
+                    "t": iso(s.created_at),
                     "latency_ms": s.latency_ms,
                     "jitter_ms": s.jitter_ms,
                     "packet_loss_pct": s.packet_loss_pct,
@@ -1017,7 +1014,7 @@ def create_app() -> FastAPI:
         metrics.measured_at = datetime.now()
         state.store.record_speedtest(mac, metrics)
         emit("speed", f"speed test {record.ip}: quality {metrics.quality}/100")
-        return {"mac": mac, "ip": record.ip, "metrics": metrics.model_dump()}
+        return {"mac": mac, "ip": record.ip, "metrics": localize(metrics.model_dump())}
 
     from netscan.api import routes_events, routes_insights, routes_toolbox
 

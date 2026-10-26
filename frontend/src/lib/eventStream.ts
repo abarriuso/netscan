@@ -5,6 +5,7 @@
 // /api/events and says so (state "polling").
 import type { BusEvent, FeedLine } from '@/types'
 import { logFront } from './telemetry'
+import { waitForAuth } from './api'
 
 export type StreamState = 'connecting' | 'live' | 'polling' | 'offline'
 
@@ -19,6 +20,9 @@ let refs = 0
 let retryTimer: ReturnType<typeof setTimeout> | undefined
 let pollTimer: ReturnType<typeof setInterval> | undefined
 let backoff = 1000
+// True while waiting for the user to provide a token: no WebSocket retries
+// and no polling, otherwise every attempt is a failed auth on the server.
+let authBlocked = false
 const listeners = new Set<() => void>()
 let scheduled = false
 
@@ -90,6 +94,10 @@ async function pollOnce() {
     const resp = await fetch(`${BASE}/api/events?since=${lastSeq}&limit=1000`, {
       headers: token ? { 'X-API-Key': token } : {},
     })
+    if (resp.status === 401) {
+      blockUntilAuth()
+      return
+    }
     if (!resp.ok) {
       setState('offline')
       return
@@ -103,8 +111,22 @@ async function pollOnce() {
   }
 }
 
+function blockUntilAuth() {
+  if (authBlocked) return
+  authBlocked = true
+  stopPolling()
+  clearTimeout(retryTimer)
+  setState('offline')
+  logFront('ws', 'event stream needs the API token — waiting for it before reconnecting', 'warning')
+  waitForAuth().then(() => {
+    authBlocked = false
+    backoff = 1000
+    if (refs > 0) connect()
+  })
+}
+
 function startPolling() {
-  if (pollTimer) return
+  if (pollTimer || authBlocked) return
   pollOnce()
   pollTimer = setInterval(pollOnce, 2000)
 }
@@ -115,7 +137,7 @@ function stopPolling() {
 }
 
 function connect() {
-  if (refs === 0) return
+  if (refs === 0 || authBlocked) return
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   const host = BASE ? new URL(BASE).host : location.host
   const token = authToken()
@@ -148,10 +170,24 @@ function connect() {
       /* malformed frame — ignore */
     }
   }
+  let opened = false
+  socket.addEventListener('open', () => (opened = true))
   socket.onclose = (ev) => {
     if (ws !== socket) return
     ws = null
     if (refs === 0) return
+    if (!opened) {
+      // Handshake rejected (a bad/missing token shows up as 1006 here):
+      // one HTTP poll tells a 401 apart from a server that is down.
+      pollOnce().then(() => {
+        if (!authBlocked) {
+          setState('polling')
+          startPolling()
+          scheduleReconnect()
+        }
+      })
+      return
+    }
     logFront(
       'ws',
       `event stream closed (code ${ev.code}${ev.code === 4401 ? ' — bad token' : ''}); polling /api/events, retrying in ${Math.round(backoff / 1000)} s`,

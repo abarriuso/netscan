@@ -28,6 +28,7 @@ from typing import Any
 
 from netscan.classify import classify, mac_info
 from netscan.security import assess, level_for
+from netscan.timeutil import iso
 
 WINDOWS_H = {"1h": 1, "24h": 24, "7d": 168, "30d": 720}
 
@@ -40,40 +41,10 @@ def _ports(record) -> list[dict[str, Any]]:
         return []
 
 
-def _bucket_rows(store, live, since: datetime, mac: str | None = None) -> dict[str, list[dict[str, Any]]]:
-    rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for b in store.uptime_buckets(since=since, mac=mac):
-        rows[b.device_mac].append(
-            {
-                "start": b.bucket_start,
-                "probes": b.probes,
-                "up": b.up,
-                "rtt_sum": b.rtt_sum_ms,
-                "rtt_n": b.rtt_count,
-                "rtt_min": b.rtt_min_ms,
-                "rtt_max": b.rtt_max_ms,
-            }
-        )
-    if live is not None:
-        for p in live.pending_rows():
-            if (mac and p["mac"] != mac) or p["bucket_start"] < since:
-                continue
-            rows[str(p["mac"])].append(
-                {
-                    "start": p["bucket_start"],
-                    "probes": p["probes"],
-                    "up": p["up"],
-                    "rtt_sum": p["rtt_sum_ms"],
-                    "rtt_n": p["rtt_count"],
-                    "rtt_min": p["rtt_min_ms"],
-                    "rtt_max": p["rtt_max_ms"],
-                }
-            )
-    return rows
-
-
 def _outages(events, now: datetime) -> list[dict[str, Any]]:
-    """Pair down→up transitions (events newest-first in, oldest-first out)."""
+    """Pair down→up transitions (events newest-first in, oldest-first out).
+
+    ``start``/``end`` stay datetimes here; the report serializes them."""
     outages: list[dict[str, Any]] = []
     open_down: datetime | None = None
     for ev in sorted(events, key=lambda e: e.created_at):
@@ -82,8 +53,8 @@ def _outages(events, now: datetime) -> list[dict[str, Any]]:
         elif ev.kind == "up" and open_down is not None:
             outages.append(
                 {
-                    "start": open_down.isoformat(timespec="seconds"),
-                    "end": ev.created_at.isoformat(timespec="seconds"),
+                    "start": open_down,
+                    "end": ev.created_at,
                     "duration_s": round((ev.created_at - open_down).total_seconds()),
                     "ongoing": False,
                 }
@@ -92,13 +63,33 @@ def _outages(events, now: datetime) -> list[dict[str, Any]]:
     if open_down is not None:
         outages.append(
             {
-                "start": open_down.isoformat(timespec="seconds"),
+                "start": open_down,
                 "end": None,
                 "duration_s": round((now - open_down).total_seconds()),
                 "ongoing": True,
             }
         )
     return outages
+
+
+def _pending(live, since: datetime, mac: str | None) -> list[tuple]:
+    """Unflushed live-monitor counters, in the same tuple shape as the DB rows."""
+    if live is None:
+        return []
+    return [
+        (
+            str(p["mac"]),
+            p["bucket_start"],
+            p["probes"],
+            p["up"],
+            p["rtt_sum_ms"],
+            p["rtt_count"],
+            p["rtt_min_ms"],
+            p["rtt_max_ms"],
+        )
+        for p in live.pending_rows()
+        if (not mac or p["mac"] == mac) and p["bucket_start"] >= since
+    ]
 
 
 def uptime_report(
@@ -111,60 +102,90 @@ def uptime_report(
     interval_s: float = 5.0,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Availability per device: windows, timeline slots, outages, MTTR."""
+    """Availability per device: windows, timeline slots, outages, MTTR.
+
+    Cost is linear in the buckets of the *displayed* window: the 1 h…30 d
+    totals are SQL aggregates, and the timeline bins each bucket once by
+    arithmetic. (It used to rescan every device's 30 days of buckets for
+    each window and each slot — 4-5 s per call after a month of history,
+    holding the GIL and starving the WebSockets.)
+    """
     now = now or datetime.now()
     hours = max(1.0, min(float(hours), 720.0))
     slots = max(6, min(int(slots), 288))
-    longest = max(hours, 720.0)
-    rows = _bucket_rows(store, live, now - timedelta(hours=longest), mac)
+    slot_s = hours * 3600 / slots
+    window_start = now - timedelta(hours=hours)
+
+    # Window totals: one GROUP BY per window, plus the unflushed counters.
+    # A bucket that started up to 5 min before the window edge overlaps it.
+    sums: dict[str, dict[str, tuple[int, int]]] = {}
+    for label, h in WINDOWS_H.items():
+        since = now - timedelta(hours=h) - timedelta(seconds=300)
+        per_mac = dict(store.uptime_sums(since, mac))
+        for m, _start, probes, up, *_ in _pending(live, since, mac):
+            p0, u0 = per_mac.get(m, (0, 0))
+            per_mac[m] = (p0 + probes, u0 + up)
+        sums[label] = per_mac
+
+    # Timeline: single pass over the window's buckets.
+    acc: dict[str, list[list[Any]]] = defaultdict(lambda: [[0, 0, 0.0, 0, None, None] for _ in range(slots)])
+    for m, start, probes, up, rtt_sum, rtt_n, rtt_min, rtt_max in [
+        *store.uptime_rows(window_start, mac),
+        *_pending(live, window_start, mac),
+    ]:
+        idx = int((start - window_start).total_seconds() // slot_s)
+        if not 0 <= idx < slots:
+            continue
+        cell = acc[m][idx]
+        cell[0] += probes
+        cell[1] += up
+        cell[2] += rtt_sum or 0.0
+        cell[3] += rtt_n or 0
+        if rtt_min is not None:
+            cell[4] = rtt_min if cell[4] is None else min(cell[4], rtt_min)
+        if rtt_max is not None:
+            cell[5] = rtt_max if cell[5] is None else max(cell[5], rtt_max)
+    slot_starts = [iso(window_start + timedelta(seconds=i * slot_s)) for i in range(slots)]
+
     events = store.device_events(mac=mac, since=now - timedelta(days=30), kinds={"up", "down"}, limit=5000)
     events_by_mac: dict[str, list] = defaultdict(list)
     for ev in events:
         events_by_mac[ev.device_mac].append(ev)
     live_by_mac = {d["mac"]: d for d in (live.snapshot()["devices"] if live is not None else [])}
 
-    slot_s = hours * 3600 / slots
-    window_start = now - timedelta(hours=hours)
     devices_out = []
+    day_ago = now - timedelta(hours=24)
     for record in store.list_devices():
         if mac and record.mac != mac:
             continue
-        drows = rows.get(record.mac, [])
         windows: dict[str, dict[str, float | None]] = {}
         for label, h in WINDOWS_H.items():
-            since = now - timedelta(hours=h)
-            sel = [r for r in drows if r["start"] >= since - timedelta(seconds=300)]
-            probes = sum(r["probes"] for r in sel)
-            up = sum(r["up"] for r in sel)
+            probes, up = sums[label].get(record.mac, (0, 0))
             expected = h * 3600 / interval_s
             windows[label] = {
                 "availability_pct": round(100 * up / probes, 3) if probes else None,
                 "coverage_pct": round(min(100.0, 100 * probes / expected), 1) if expected else None,
                 "probes": probes,
             }
+        cells = acc.get(record.mac)
         timeline = []
         for i in range(slots):
-            s_start = window_start + timedelta(seconds=i * slot_s)
-            s_end = s_start + timedelta(seconds=slot_s)
-            sel = [r for r in drows if s_start <= r["start"] < s_end]
-            probes = sum(r["probes"] for r in sel)
-            up = sum(r["up"] for r in sel)
-            rtt_n = sum(r["rtt_n"] for r in sel)
-            mins = [r["rtt_min"] for r in sel if r["rtt_min"] is not None]
-            maxs = [r["rtt_max"] for r in sel if r["rtt_max"] is not None]
+            probes_c, up_c, rtt_sum_c, rtt_n_c, rtt_min_c, rtt_max_c = (
+                cells[i] if cells else (0, 0, 0.0, 0, None, None)
+            )
             timeline.append(
                 {
-                    "start": s_start.isoformat(timespec="seconds"),
-                    "availability_pct": round(100 * up / probes, 2) if probes else None,
-                    "probes": probes,
-                    "rtt_avg_ms": round(sum(r["rtt_sum"] for r in sel) / rtt_n, 3) if rtt_n else None,
-                    "rtt_min_ms": round(min(mins), 3) if mins else None,
-                    "rtt_max_ms": round(max(maxs), 3) if maxs else None,
+                    "start": slot_starts[i],
+                    "availability_pct": round(100 * up_c / probes_c, 2) if probes_c else None,
+                    "probes": int(probes_c),
+                    "rtt_avg_ms": round(rtt_sum_c / rtt_n_c, 3) if rtt_n_c else None,
+                    "rtt_min_ms": round(rtt_min_c, 3) if rtt_min_c is not None else None,
+                    "rtt_max_ms": round(rtt_max_c, 3) if rtt_max_c is not None else None,
                 }
             )
         outages = _outages(events_by_mac.get(record.mac, []), now)
         closed = [o for o in outages if not o["ongoing"]]
-        recent = [o for o in outages if datetime.fromisoformat(o["start"]) >= now - timedelta(hours=24)]
+        recent = [o for o in outages if o["start"] >= day_ago]
         live_row = live_by_mac.get(record.mac, {})
         devices_out.append(
             {
@@ -178,10 +199,10 @@ def uptime_report(
                 "state_since_exact": bool(live_row.get("since_exact")),
                 "method": live_row.get("method", ""),
                 "latency_ms": live_row.get("latency_ms", record.last_latency_ms),
-                "last_seen": record.last_seen.isoformat(timespec="seconds"),
+                "last_seen": iso(record.last_seen),
                 "windows": windows,
                 "timeline": timeline,
-                "outages": outages[-50:],
+                "outages": [{**o, "start": iso(o["start"]), "end": iso(o["end"])} for o in outages[-50:]],
                 "outages_24h": len(recent),
                 "outages_30d": len(outages),
                 "longest_outage_s": max((o["duration_s"] for o in outages), default=None),
@@ -197,7 +218,7 @@ def uptime_report(
         )
     )
     return {
-        "generated_at": now.isoformat(timespec="seconds"),
+        "generated_at": iso(now),
         "hours": hours,
         "slots": slots,
         "slot_s": round(slot_s),
@@ -355,7 +376,7 @@ def ip_map(network: str, store, gateway_ip: str | None, local_ip: str | None, li
                 "state": state,
                 "mac": record.mac if record else "",
                 "name": (record.hostname or record.mdns_name or record.vendor) if record else "",
-                "last_seen": record.last_seen.isoformat(timespec="seconds") if record else None,
+                "last_seen": iso(record.last_seen) if record else None,
             }
         )
     usable = max(1, net.num_addresses - (2 if net.prefixlen < 31 else 0))
@@ -432,7 +453,7 @@ def security_report(
     gateway_history = []
     if gateway_ip:
         gateway_history = [
-            {"at": ev.created_at.isoformat(timespec="seconds"), "detail": ev.detail}
+            {"at": iso(ev.created_at), "detail": ev.detail}
             for ev in store.device_events(kinds={"gateway_mac_changed"}, limit=20)
         ]
     conflicts = [

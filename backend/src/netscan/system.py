@@ -21,6 +21,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from netscan.timeutil import iso, now_iso
+
 psutil: Any
 try:
     import psutil as _psutil
@@ -180,7 +182,7 @@ def process_info() -> dict[str, object]:
             threads=_safe(proc.num_threads),
             open_files=_safe(lambda: len(proc.open_files() or [])),
             connections=_safe(lambda: len(proc.net_connections() or [])),
-            create_time=_safe(lambda: datetime.fromtimestamp(proc.create_time()).isoformat()),
+            create_time=_safe(lambda: iso(datetime.fromtimestamp(proc.create_time()))),
         )
     return out
 
@@ -199,7 +201,7 @@ def host_info() -> dict[str, object]:
     if psutil is not None:
         boot_ts = _safe(psutil.boot_time)
         if boot_ts:
-            boot = datetime.fromtimestamp(boot_ts).isoformat()
+            boot = iso(datetime.fromtimestamp(boot_ts))
             uptime = round(time.time() - boot_ts, 0)
     return {
         "hostname": socket.gethostname(),
@@ -241,7 +243,7 @@ def frontend_status(dist_dir: Path | None = None) -> dict[str, object]:
                 "path": str(cand),
                 "files": files,
                 "size_bytes": total,
-                "built_at": datetime.fromtimestamp(newest).isoformat() if newest else None,
+                "built_at": iso(datetime.fromtimestamp(newest)) if newest else None,
             }
     return {"built": False, "path": None}
 
@@ -249,7 +251,7 @@ def frontend_status(dist_dir: Path | None = None) -> dict[str, object]:
 def collect(dist_dir: Path | None = None) -> dict[str, object]:
     """Full system snapshot for the /api/system endpoint."""
     return {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": now_iso(),
         "host": host_info(),
         "cpu": cpu_info(),
         "memory": memory_info(),
