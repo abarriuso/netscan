@@ -12,6 +12,7 @@ import json
 import logging
 import logging.handlers
 import os
+import re
 import secrets
 import threading
 import time
@@ -35,7 +36,9 @@ from netscan.config import (
     PiholeInstance,
     ProxmoxInstance,
     TrueNASInstance,
+    is_loopback_host,
     load_settings,
+    require_token_for_bind,
 )
 from netscan.events import emit, fmt_ms
 from netscan.integrations import adguard, pihole, proxmox, truenas
@@ -65,6 +68,15 @@ _SECRET_FIELDS: dict[str, set[str]] = {
     "custom": set(),
 }
 _SECRET_MASK = "••••••••"
+# Fields that decide where the stored credential is sent. Changing any of
+# them without re-entering the secret would ship the old secret to the new
+# destination, so such an update must resend the secret explicitly.
+_DESTINATION_FIELDS = {"host", "port", "use_ssl"}
+
+
+class SecretRequiredError(ValueError):
+    """An update moves an integration to a new destination without its secret."""
+
 
 # API paths whose calls are not echoed to the event feed: the terminal's own
 # polling fallback would otherwise fill the feed with itself.
@@ -87,8 +99,14 @@ def _merge_config_for_update(
 ) -> dict[str, object]:
     merged = dict(existing)
     merged.update(incoming)
+    destination_changed = any(
+        field in incoming and str(incoming[field]) != str(existing.get(field))
+        for field in _DESTINATION_FIELDS
+    )
     for field in _SECRET_FIELDS.get(kind, ()):
-        if merged.get(field) in (None, "", _SECRET_MASK):
+        if incoming.get(field) in (None, "", _SECRET_MASK):
+            if destination_changed and existing.get(field):
+                raise SecretRequiredError(f"Changing host, port or SSL requires entering '{field}' again")
             merged[field] = existing.get(field, "")
     return merged
 
@@ -190,6 +208,63 @@ def _rate_limited(state: AppState, client_ip: str) -> bool:
     return len(bucket) > _AUTH_FAIL_MAX
 
 
+# Integration logos are the only /api route served without a token (they're
+# rendered via plain <img src>). Only reads are exempt — never the upload.
+_PUBLIC_LOGO_RE = re.compile(r"/api/settings/integrations/\d+/logo")
+_UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE", "WEBSOCKET"}
+_LOGO_MAX_BYTES = 2 * 1024 * 1024
+_LOGO_HEADERS = {
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    "X-Content-Type-Options": "nosniff",
+}
+
+
+def _host_name(host_header: str) -> str:
+    """'LocalHost:8600' -> 'localhost', '[::1]:8600' -> '::1'."""
+    host = host_header.strip().lower()
+    if host.startswith("["):
+        return host[1 : host.find("]")] if "]" in host else host
+    return host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+
+
+def _origin_allowed(origin: str, headers, cors_origins: list[str]) -> bool:
+    """Same-origin (the dashboard served by this backend) or an allowed CORS origin.
+
+    Behind a reverse proxy that rewrites Host, X-Forwarded-Host carries the
+    public one; a cross-site page can't set that header without a CORS
+    preflight, which it wouldn't pass.
+    """
+    if origin.rstrip("/") in {o.rstrip("/") for o in cors_origins}:
+        return True
+    origin_host = urlsplit(origin).netloc.lower()
+    own_hosts = {headers.get("host", ""), headers.get("x-forwarded-host", "")}
+    return any(origin_host == h.strip().lower() for h in own_hosts if h)
+
+
+def _request_guard(state: AppState, method: str, headers) -> str | None:
+    """Reasons to refuse a request before auth, or None.
+
+    * No token configured: only loopback Host headers are accepted. A browser
+      tab on any website can otherwise reach 127.0.0.1:8600 through DNS
+      rebinding (the page's own hostname re-resolved to 127.0.0.1) and drive
+      the whole API.
+    * State-changing requests from a foreign Origin are cross-site requests
+      (CSRF): a form POST or a multipart upload needs no CORS preflight.
+      WebSockets (method "WEBSOCKET") get the same check: browsers open them
+      cross-origin without any CORS check, even just to read.
+    """
+    if not state.settings.api_token and not is_loopback_host(_host_name(headers.get("host", ""))):
+        return "An API token is required for non-localhost access (set NETSCAN_API_TOKEN)"
+    origin = headers.get("origin")
+    if (
+        method in _UNSAFE_METHODS
+        and origin
+        and not _origin_allowed(origin, headers, state.settings.api_cors_origins)
+    ):
+        return "Cross-origin request refused"
+    return None
+
+
 def _redact_db_url(url: str) -> str:
     """Strip any embedded credentials (user:pass@) from a DB URL.
 
@@ -212,6 +287,14 @@ def _redact_db_url(url: str) -> str:
     return urlunsplit((parts.scheme, redacted_netloc, parts.path, parts.query, parts.fragment))
 
 
+_MIN_SCAN_PREFIX = 16
+_MAX_LIMIT = 1000
+
+
+def _clamp_limit(limit: int) -> int:
+    return max(1, min(limit, _MAX_LIMIT))
+
+
 def _validate_network(network: str | None) -> None:
     """Reject scans against non-private CIDRs (the API must not be a scan oracle)."""
     if not network:
@@ -222,6 +305,12 @@ def _validate_network(network: str | None) -> None:
         raise HTTPException(status_code=400, detail=f"Invalid network: {network}") from exc
     if not net.is_private:
         raise HTTPException(status_code=400, detail="Only private networks are allowed (RFC 1918)")
+    if net.prefixlen < _MIN_SCAN_PREFIX:
+        # ARP runs one /24 at a time: a /8 is 65,536 sweeps (~2 days) holding
+        # the scan lock, so no other scan could run meanwhile.
+        raise HTTPException(
+            status_code=400, detail=f"Network too large: the biggest allowed is a /{_MIN_SCAN_PREFIX}"
+        )
 
 
 def _tail(path, lines: int) -> list[str]:
@@ -459,16 +548,20 @@ def create_app() -> FastAPI:
         token = state.settings.api_token
         # Static assets and the SPA shell stay reachable without a token so the
         # dashboard can load and then prompt for it on the first API call.
-        # Integration logos are exempted too, but only for GET: they're
-        # rendered via plain <img src>, which can't attach an X-API-Key
-        # header. The upload (POST) used to be exempt as well — anyone on the
-        # LAN could replace a logo without the token.
-        path = request.url.path
-        is_logo_read = request.method == "GET" and path.endswith("/logo")
-        needs_auth = (path.startswith(("/api", "/ws")) or path == "/metrics") and not is_logo_read
-        if token and needs_auth and not _token_ok(request.headers, token):
-            from fastapi.responses import JSONResponse
+        # Reading an integration logo is exempted too: it's rendered via plain
+        # <img src>, which can't attach an X-API-Key header, and a branding
+        # image isn't sensitive the way the rest of /api is. Uploading one is
+        # not exempt.
+        from fastapi.responses import JSONResponse
 
+        path = request.url.path
+        refused = _request_guard(state, request.method, request.headers)
+        if refused:
+            emit("api", f"{request.method} {path} → 403 ({refused}) from {_client_ip(request)}", "warning")
+            return JSONResponse(status_code=403, content={"detail": refused})
+        public_logo = request.method in ("GET", "HEAD") and _PUBLIC_LOGO_RE.fullmatch(path)
+        needs_auth = (path.startswith(("/api", "/ws")) or path == "/metrics") and not public_logo
+        if token and needs_auth and not _token_ok(request.headers, token):
             client_ip = _client_ip(request)
             emit("api", f"{request.method} {path} → 401 (bad or missing token) from {client_ip}", "warning")
             if _rate_limited(state, client_ip):
@@ -582,6 +675,9 @@ def create_app() -> FastAPI:
     async def ws_progress(ws: WebSocket) -> None:
         state = get_state()
         token = state.settings.api_token
+        if _request_guard(state, "WEBSOCKET", ws.headers):
+            await ws.close(code=4403)
+            return
         if token and not secrets.compare_digest(ws.query_params.get("token", ""), token):
             if _rate_limited(state, _client_ip(ws)):
                 await ws.close(code=4429)
@@ -793,7 +889,10 @@ def create_app() -> FastAPI:
         model_cls = KIND_MODELS[row.kind]
         config_json = None
         if req.config is not None:
-            merged = _merge_config_for_update(row.kind, json.loads(row.config_json), req.config)
+            try:
+                merged = _merge_config_for_update(row.kind, json.loads(row.config_json), req.config)
+            except SecretRequiredError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
             try:
                 validated = model_cls(name=req.name or row.name, **merged)
             except Exception as exc:
@@ -831,8 +930,9 @@ def create_app() -> FastAPI:
             raise HTTPException(
                 status_code=415, detail="Unsupported image format (use PNG, SVG, JPG or WEBP)"
             )
-        data = await file.read()
-        if len(data) > 2 * 1024 * 1024:
+        # Read one byte past the limit instead of the whole upload into memory.
+        data = await file.read(_LOGO_MAX_BYTES + 1)
+        if len(data) > _LOGO_MAX_BYTES:
             raise HTTPException(status_code=413, detail="The logo cannot be larger than 2 MB")
         settings = get_state().settings
         logos_dir = settings.data_dir / "logos"
@@ -855,8 +955,9 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="Logo file not found")
         from fastapi.responses import FileResponse
 
-        headers = {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'"}
-        return FileResponse(str(full_path), headers=headers)
+        # Served from the dashboard's own origin and without a token, so an
+        # SVG logo opened directly must not be able to run scripts there.
+        return FileResponse(str(full_path), headers=_LOGO_HEADERS)
 
     @app.get("/api/overview")
     def overview() -> dict[str, object]:
@@ -964,15 +1065,15 @@ def create_app() -> FastAPI:
 
     @app.get("/api/metrics/history")
     def metrics_history(limit: int = 200) -> dict[str, object]:
-        return {"points": get_state().store.metrics_history(limit=limit)}
+        return {"points": get_state().store.metrics_history(limit=_clamp_limit(limit))}
 
     @app.get("/api/scans/history")
     def scan_history(limit: int = 100) -> dict[str, object]:
-        return {"scans": get_state().store.scan_history(limit=limit)}
+        return {"scans": get_state().store.scan_history(limit=_clamp_limit(limit))}
 
     @app.get("/api/devices/{mac}/metrics")
     def device_metrics(mac: str, limit: int = 100) -> dict[str, object]:
-        samples = get_state().store.metric_samples(mac, limit=limit)
+        samples = get_state().store.metric_samples(mac, limit=_clamp_limit(limit))
         return {
             "mac": mac,
             "samples": [
@@ -1057,6 +1158,7 @@ def create_app() -> FastAPI:
 
 def main() -> None:
     settings = load_settings()
+    require_token_for_bind(settings.api_host, settings.api_token)
     uvicorn.run(
         "netscan.api.app:create_app",
         factory=True,

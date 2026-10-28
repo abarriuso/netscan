@@ -16,7 +16,7 @@ from netscan.models import Device, PortInfo, ScanResult
 
 def _client(tmp_path, **settings) -> TestClient:
     deps.init_state(Settings(data_dir=tmp_path, **settings))
-    return TestClient(create_app())
+    return TestClient(create_app(), base_url="http://127.0.0.1")
 
 
 def _seed(state):

@@ -14,16 +14,47 @@ variables, never be committed to the YAML file.
 
 from __future__ import annotations
 
+import ipaddress
 import os
+import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_HOSTNAME_RE = re.compile(
+    r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,62}[A-Za-z0-9])?)*$"
+)
 
-class ProxmoxInstance(BaseModel):
+
+def _check_host(value: str) -> str:
+    """A bare hostname or IP: integration URLs are built as f"{scheme}://{host}:{port}/...",
+    so "evil.example/x?" or "user@evil.example" would send the credential elsewhere."""
+    value = value.strip()
+    candidate = value[1:-1] if value.startswith("[") and value.endswith("]") else value
+    try:
+        ipaddress.ip_address(candidate)
+        return value
+    except ValueError:
+        pass
+    if not _HOSTNAME_RE.fullmatch(value):
+        raise ValueError("host must be a hostname or an IP address (no scheme, port or path)")
+    return value
+
+
+class _HostInstance(BaseModel):
+    """Base for integrations reached at ``host``: validates it."""
+
+    @field_validator("host", check_fields=False)
+    @classmethod
+    def _valid_host(cls, value: str) -> str:
+        return _check_host(value)
+
+
+class ProxmoxInstance(_HostInstance):
     """One Proxmox VE node or cluster endpoint."""
 
     name: str
@@ -36,7 +67,7 @@ class ProxmoxInstance(BaseModel):
     enabled: bool = True
 
 
-class TrueNASInstance(BaseModel):
+class TrueNASInstance(_HostInstance):
     """One TrueNAS (CORE or SCALE) endpoint."""
 
     name: str
@@ -48,7 +79,7 @@ class TrueNASInstance(BaseModel):
     enabled: bool = True
 
 
-class AdGuardInstance(BaseModel):
+class AdGuardInstance(_HostInstance):
     """One AdGuard Home endpoint."""
 
     name: str
@@ -61,7 +92,7 @@ class AdGuardInstance(BaseModel):
     enabled: bool = True
 
 
-class PiholeInstance(BaseModel):
+class PiholeInstance(_HostInstance):
     """One Pi-hole endpoint (API v6 only — v5 is end-of-life)."""
 
     name: str
@@ -81,6 +112,15 @@ class CustomInstance(BaseModel):
     name: str
     url: str
     enabled: bool = True
+
+    @field_validator("url")
+    @classmethod
+    def _http_url(cls, value: str) -> str:
+        value = value.strip()
+        parts = urlsplit(value)
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            raise ValueError("url must be an http:// or https:// address")
+        return value
 
 
 class ScanDefaults(BaseModel):
@@ -151,6 +191,30 @@ class Settings(BaseSettings):
         if self.database_url:
             return self.database_url
         return f"sqlite:///{self.data_dir / 'netscan.db'}"
+
+
+def is_loopback_host(host: str) -> bool:
+    """True for localhost / 127.0.0.0/8 / ::1 (names or literal IPs)."""
+    host = host.strip().strip("[]").lower()
+    if host == "localhost" or host.endswith(".localhost"):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def require_token_for_bind(host: str, token: str) -> None:
+    """Refuse to listen beyond localhost without an API token.
+
+    Without a token every endpoint (scans, integrations and their stored
+    credentials) is open to anyone who can reach the port.
+    """
+    if not token and not is_loopback_host(host):
+        raise SystemExit(
+            f"Refusing to listen on {host} without an API token: anyone on the network "
+            "could use the API. Set NETSCAN_API_TOKEN, or listen on 127.0.0.1."
+        )
 
 
 def load_settings(config_path: str | os.PathLike[str] | None = None) -> Settings:

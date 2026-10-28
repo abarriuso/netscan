@@ -186,12 +186,21 @@ else
   install_tool masscan masscan
   install_tool whatweb whatweb
   install_tool testssl.sh testssl.sh
+  # Earlier versions of this script linked /usr/local/bin/testssl.sh to a
+  # clone under /tmp. /tmp is emptied on reboot and anyone can recreate that
+  # path, and the service runs testssl.sh as root: drop such a link.
+  TESTSSL_LINK="$(readlink /usr/local/bin/testssl.sh 2>/dev/null || true)"
+  case "$TESTSSL_LINK" in
+    /tmp/*) sudo rm -f /usr/local/bin/testssl.sh ;;
+  esac
   if ! command -v testssl.sh >/dev/null 2>&1; then
     # Not every distro's repo ships it (package name/version varies) — the
     # upstream repo always works and is what the README's manual steps use.
+    # Cloned as root under /opt so only root can change what the service runs.
     c_cyan "      testssl.sh is not in the repositories; cloning it from GitHub..."
-    git clone --depth 1 -q https://github.com/drwetter/testssl.sh.git /tmp/testssl.sh.$$ 2>/dev/null \
-      && sudo ln -sf /tmp/testssl.sh.$$/testssl.sh /usr/local/bin/testssl.sh \
+    sudo rm -rf /opt/testssl.sh
+    sudo git clone --depth 1 -q https://github.com/drwetter/testssl.sh.git /opt/testssl.sh 2>/dev/null \
+      && sudo ln -sf /opt/testssl.sh/testssl.sh /usr/local/bin/testssl.sh \
       || c_yellow "      Could not install testssl.sh; skipping it (graceful degradation)."
   fi
 
