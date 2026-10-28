@@ -174,12 +174,32 @@ def test_same_origin_write_allowed(tmp_path):
     assert resp.status_code == 404  # reached the endpoint: no such alert
 
 
-def test_websocket_cross_origin_refused(tmp_path):
+# TestClient.websocket_connect ignores base_url (always ws://testserver), so
+# the WebSocket tests set Host themselves.
+WS_PATHS = ["/ws/progress", "/ws/events"]
+
+
+@pytest.mark.parametrize("path", WS_PATHS)
+def test_websocket_same_origin_allowed(tmp_path, path):
     client = _client(tmp_path, token="")
-    with (
-        pytest.raises(WebSocketDisconnect),
-        client.websocket_connect("/ws/progress", headers={"Origin": "https://evil.example"}) as ws,
-    ):
+    headers = {"Host": "127.0.0.1:8600", "Origin": "http://127.0.0.1:8600"}
+    with client.websocket_connect(path, headers=headers) as ws:
+        assert ws.receive_json()
+
+
+@pytest.mark.parametrize("path", WS_PATHS)
+def test_websocket_cross_origin_refused(tmp_path, path):
+    client = _client(tmp_path, token="")
+    headers = {"Host": "127.0.0.1:8600", "Origin": "https://evil.example"}
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect(path, headers=headers) as ws:
+        ws.receive_text()
+
+
+@pytest.mark.parametrize("path", WS_PATHS)
+def test_websocket_foreign_host_refused_without_token(tmp_path, path):
+    client = _client(tmp_path, token="")
+    headers = {"Host": "rebind.attacker.example:8600"}
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect(path, headers=headers) as ws:
         ws.receive_text()
 
 
