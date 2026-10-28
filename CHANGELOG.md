@@ -25,9 +25,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   de loopback sin `NETSCAN_API_TOKEN` (el comentario de la configuración ya lo
   decía, pero no se comprobaba).
 - **Las peticiones que modifican algo desde otro origen se rechazan (CSRF)**, y
-  el WebSocket de progreso comprueba el `Origin`. Detrás de un proxy inverso se
-  tiene en cuenta `X-Forwarded-Host`. Las peticiones rechazadas aparecen en la
-  terminal de eventos.
+  los WebSockets de progreso y de eventos comprueban el `Origin` y, sin token,
+  el `Host`. Antes, cualquier web podía leer por `/ws/events` el flujo en vivo
+  (equipos escaneados, llamadas a la API, comandos). Detrás de un proxy inverso
+  se tiene en cuenta `X-Forwarded-Host`. Las peticiones rechazadas aparecen en
+  la terminal de eventos.
 - **`install.sh` ya no enlaza `testssl.sh` a un clon en `/tmp`.** El servicio lo
   ejecuta como root y `/tmp` se vacía al reiniciar: cualquier usuario podía
   recrear esa ruta. Ahora se clona en `/opt/testssl.sh` y el enlace antiguo se
