@@ -237,6 +237,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   garantizar que las 46 columnas de cada línea cuadran.
 
 ### Seguridad
+- Dependencias: `postcss-selector-parser` 6.1.5 en el dashboard
+  (GHSA-rj75-hqrm-r3gf, CPU por selectores planos; dependencia de
+  desarrollo vía tailwindcss) y suelos `urllib3>=2.8.0`
+  (PYSEC-2026-4175/6/7) y `oauthlib>=4.0.0` (CVE-2026-49272) en el backend,
+  transitivas de apprise. `pnpm audit` y `pip-audit` sin hallazgos.
 - Autenticación opcional por token (`NETSCAN_API_TOKEN`) en HTTP y WebSocket.
 - La API escucha en `127.0.0.1` por defecto; CORS restringido y configurable.
 - Los escaneos por API solo aceptan redes privadas (RFC 1918 / loopback / link-local).
