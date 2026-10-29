@@ -189,6 +189,7 @@ const en = {
 
   // Token dialog
   tokenRequired: 'This NetScan needs a token to talk to the API.',
+  tokenRejected: 'The server rejected the token saved in this browser.',
   tokenChange: 'Change the token saved in this browser.',
   tokenWhereBefore: 'It is in',
   tokenWhereInside: 'on the server (variable',
@@ -702,6 +703,7 @@ const es: Dict = {
   toastScanStartFailed: 'No se pudo iniciar el escaneo',
 
   tokenRequired: 'Este NetScan requiere un token para hablar con la API.',
+  tokenRejected: 'El servidor rechazó el token guardado en este navegador.',
   tokenChange: 'Cambia el token guardado en este navegador.',
   tokenWhereBefore: 'Está en',
   tokenWhereInside: 'dentro del servidor (variable',

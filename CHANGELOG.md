@@ -25,6 +25,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - **Dashboard sin token**: el stream de eventos reintentaba sin parar
   (WebSocket + sondeo cada 2 s), disparando el limitador anti fuerza bruta
   (429). Ahora espera al diálogo del token y se reconecta solo.
+- **El diálogo del token volvía a pedirlo en bucle**: "Ahora no" lo reabría
+  al instante, y con el servidor lento las peticiones enviadas antes de
+  guardar el token volvían con 401 y lo reabrían aunque el token fuera
+  correcto. Ahora un 401 de un token ya sustituido se reintenta con el nuevo,
+  un token rechazado no se reenvía (tampoco desde los WebSockets), "Ahora no"
+  deja el diálogo cerrado hasta abrirlo desde la cabecera, y se acepta pegar
+  la línea `NETSCAN_API_TOKEN=...` entera. El limitador solo cuenta
+  peticiones con un token incorrecto (las que no llevan ninguno ya no
+  bloquean la IP) y un token con caracteres no ASCII da 401 en vez de 500.
 
 ### Añadido — observabilidad, uptime, mapa, seguridad y herramientas
 - **Tutorial de primera visita** al estilo de los videojuegos: foco sobre cada

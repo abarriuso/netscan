@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import secrets
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import PlainTextResponse
@@ -42,12 +41,14 @@ def event_stats() -> dict[str, object]:
 async def ws_events(ws: WebSocket) -> None:
     """Live event stream. ``?since=N`` replays the buffered events after N
     first, so a reconnecting terminal has no hole in its scrollback."""
-    from netscan.api.app import _client_ip, _rate_limited
+    from netscan.api.app import _client_ip, _rate_limited, _token_matches
 
     state = get_state()
     token = state.settings.api_token
-    if token and not secrets.compare_digest(ws.query_params.get("token", ""), token):
-        await ws.close(code=4429 if _rate_limited(state, _client_ip(ws)) else 4401)
+    offered = ws.query_params.get("token", "")
+    if token and not _token_matches(offered, token):
+        limited = bool(offered) and _rate_limited(state, _client_ip(ws))
+        await ws.close(code=4429 if limited else 4401)
         return
     await ws.accept()
     try:
