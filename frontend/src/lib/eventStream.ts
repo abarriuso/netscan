@@ -5,7 +5,7 @@
 // /api/events and says so (state "polling").
 import type { BusEvent, FeedLine } from '@/types'
 import { logFront } from './telemetry'
-import { waitForAuth } from './api'
+import { markTokenRejected, tokenRejected, waitForNewToken } from './api'
 
 export type StreamState = 'connecting' | 'live' | 'polling' | 'offline'
 
@@ -89,13 +89,20 @@ function authToken(): string {
 }
 
 async function pollOnce() {
+  if (tokenRejected()) {
+    blockUntilAuth()
+    return
+  }
   try {
     const token = authToken()
     const resp = await fetch(`${BASE}/api/events?since=${lastSeq}&limit=1000`, {
       headers: token ? { 'X-API-Key': token } : {},
     })
-    if (resp.status === 401) {
-      blockUntilAuth()
+    if (resp.status === 401 || resp.status === 429) {
+      markTokenRejected(token)
+      // Not rejected after all if a new token was saved meanwhile: the next
+      // poll or reconnect already carries it.
+      if (tokenRejected()) blockUntilAuth()
       return
     }
     if (!resp.ok) {
@@ -118,7 +125,9 @@ function blockUntilAuth() {
   clearTimeout(retryTimer)
   setState('offline')
   logFront('ws', 'event stream needs the API token — waiting for it before reconnecting', 'warning')
-  waitForAuth().then(() => {
+  // Only a saved token unblocks it: resuming when the dialog is dismissed
+  // made the next failed poll reopen it straight away.
+  waitForNewToken().then(() => {
     authBlocked = false
     backoff = 1000
     if (refs > 0) connect()
@@ -138,6 +147,10 @@ function stopPolling() {
 
 function connect() {
   if (refs === 0 || authBlocked) return
+  if (tokenRejected()) {
+    blockUntilAuth()
+    return
+  }
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   const host = BASE ? new URL(BASE).host : location.host
   const token = authToken()

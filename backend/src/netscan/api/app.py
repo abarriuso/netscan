@@ -159,19 +159,33 @@ def setup_logging() -> None:
         asyncio_logger.addFilter(_ConnectionResetFilter())
 
 
-def _token_ok(headers, token: str) -> bool:
-    """Check X-API-Key / Bearer against the configured token (timing-safe)."""
+def _offered_token(headers) -> str:
+    """The token a client presented (X-API-Key, else Bearer), or ''."""
     provided = headers.get("x-api-key", "")
     auth = headers.get("authorization", "")
     if auth.startswith("Bearer "):
         provided = provided or auth[7:]
-    return secrets.compare_digest(provided, token)
+    return provided
+
+
+def _token_matches(provided: str, token: str) -> bool:
+    """Timing-safe comparison. Bytes, because compare_digest raises on a
+    non-ASCII str — a pasted token with a stray character was a 500."""
+    return secrets.compare_digest(provided.encode(), token.encode())
+
+
+def _token_ok(headers, token: str) -> bool:
+    """Check X-API-Key / Bearer against the configured token (timing-safe)."""
+    return _token_matches(_offered_token(headers), token)
 
 
 # Basic brute-force throttle for the auth endpoints: a handful of failed
 # attempts per client IP within a short window trips a 429 cooldown. This is
 # an in-memory, single-process limiter — good enough for a homelab box, not
 # a substitute for a real WAF/reverse-proxy rate limiter under heavier load.
+# Only a wrong token counts as an attempt: a request carrying none (the
+# dashboard's first load, before the token dialog) guesses nothing, and
+# counting those locked the browser out before the user had typed a thing.
 _AUTH_FAIL_WINDOW_S = 60.0
 _AUTH_FAIL_MAX = 10
 
@@ -472,7 +486,7 @@ def create_app() -> FastAPI:
 
             client_ip = _client_ip(request)
             emit("api", f"{request.method} {path} → 401 (bad or missing token) from {client_ip}", "warning")
-            if _rate_limited(state, client_ip):
+            if _offered_token(request.headers) and _rate_limited(state, client_ip):
                 return JSONResponse(
                     status_code=429,
                     content={"detail": "Too many failed authentication attempts"},
@@ -583,8 +597,9 @@ def create_app() -> FastAPI:
     async def ws_progress(ws: WebSocket) -> None:
         state = get_state()
         token = state.settings.api_token
-        if token and not secrets.compare_digest(ws.query_params.get("token", ""), token):
-            if _rate_limited(state, _client_ip(ws)):
+        offered = ws.query_params.get("token", "")
+        if token and not _token_matches(offered, token):
+            if offered and _rate_limited(state, _client_ip(ws)):
                 await ws.close(code=4429)
             else:
                 await ws.close(code=4401)
