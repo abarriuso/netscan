@@ -14,6 +14,10 @@ integraciones configurables desde la propia web para **Proxmox VE**,
 > Del escaneo puntual al vigilante permanente: descubre tu red, detecta
 > intrusos, vigila tus hipervisores y tu NAS — todo en un solo dashboard.
 
+![Dashboard de NetScan: cabecera, pestañas y la pestaña Resumen](docs/screenshots/dashboard.es.png)
+
+<sub>Las capturas salen de una instancia de demostración con un homelab ficticio (31 equipos en 192.168.10.0/24, 27 días de historial): los datos son inventados, pero cada panel y cada cifra los calcula el propio código de NetScan.</sub>
+
 > [!WARNING]
 > **Proyecto en desarrollo.** NetScan está en desarrollo activo: la API, el
 > esquema de la base de datos y la configuración pueden cambiar entre
@@ -67,6 +71,8 @@ pestaña que abriste.
 
 ### 1 · En vivo — "¿está todo arriba ahora mismo?"
 
+![Pestaña En vivo: cifras de latencia en vivo, gráfica LAN/gateway/Internet y tablero de uptime](docs/screenshots/live.es.png)
+
 - **Seis cifras en vivo**: equipos arriba (y cuántos respondieron al último
   tick), RTT medio de la LAN (equipos que responden ICMP/TCP), RTT del
   gateway, RTT de Internet (a `live_wan_targets`, 1.1.1.1 y 8.8.8.8 por
@@ -94,6 +100,8 @@ pestaña que abriste.
 
 ### 2 · Resumen — la red de un vistazo
 
+Es la pestaña de la captura del principio de este README.
+
 - **Tarjetas KPI**, cada una con una cifra real debajo: equipos en línea
   (nuevos en las últimas 24 h), equipos sin verificar, alertas sin leer,
   calidad media (y el peor equipo), latencia media (y p95), último escaneo
@@ -112,6 +120,8 @@ pestaña que abriste.
 
 ### 3 · Dispositivos — el inventario
 
+![Pestaña Dispositivos: inventario con rol, latencia, calidad, riesgo y puertos](docs/screenshots/devices.es.png)
+
 - Una fila por equipo: nombre, IP, MAC (clic en IP/MAC para copiar),
   fabricante, **rol inferido** (gateway, hipervisor, NAS, servidor, PC,
   móvil, impresora, multimedia, cámara, IoT, equipo de red, VM…), latencia,
@@ -128,6 +138,8 @@ pestaña que abriste.
 
 ### 4 · Mapa — dónde está cada equipo
 
+![Pestaña Mapa: radar de latencia y mapa de direcciones IP](docs/screenshots/map.es.png)
+
 - **Radar de latencia**: el gateway en el centro; cada equipo a una distancia
   igual a su RTT en vivo en escala logarítmica (anillos en 0,5 / 1 / 5 / 20 /
   100 ms). Sector y color = rol, tamaño del nodo = puertos abiertos, anillo
@@ -140,6 +152,8 @@ pestaña que abriste.
   direcciones).
 
 ### 5 · Seguridad — qué está expuesto y por qué importa
+
+![Pestaña Seguridad: resumen de riesgo, ranking, integridad del gateway y servicios expuestos](docs/screenshots/security.es.png)
 
 - Resumen del **riesgo de la red**: puntuación media, equipos no confiables,
   MACs aleatorias, certificados que caducan en < 30 días.
@@ -164,6 +178,8 @@ pestaña que abriste.
 
 ### 6 · Analítica — cómo evoluciona la red
 
+![Pestaña Analítica: tendencias por escaneo, top de fabricantes/SO/puertos y servicios web](docs/screenshots/analytics.es.png)
+
 - **Tendencias en el tiempo**, un punto por escaneo: latencia media, calidad
   media, throughput medio, equipos por escaneo, pérdida de paquetes y equipos
   que responden ICMP. Necesita al menos 2 escaneos; se guardan los últimos
@@ -176,6 +192,8 @@ pestaña que abriste.
   restantes, autofirmado) y sus hallazgos de seguridad.
 
 ### 7 · Herramientas — diagnóstico desde el host de NetScan
+
+![Pestaña Herramientas: resultados de tiempos HTTP, inspector TLS y consulta DNS](docs/screenshots/tools.es.png)
 
 Todo se ejecuta en el **servidor**, así que los resultados muestran la red
 vista desde la máquina que ejecuta NetScan, no desde tu navegador. No hacen
@@ -197,6 +215,8 @@ falta binarios externos, y cada sondeo se emite también a la terminal (filtro
 
 ### 8 · Integraciones — los servicios de tu homelab
 
+![Pestaña Integraciones: Proxmox VE, TrueNAS, AdGuard Home, Pi-hole y marcadores](docs/screenshots/integrations.es.png)
+
 - **Proxmox VE** (varios nodos/clústeres): invitados (VMs y CTs) con estado,
   vCPUs y memoria (se listan los 8 primeros), invitados en marcha/total y
   versión de PVE.
@@ -216,6 +236,8 @@ falta binarios externos, y cada sondeo se emite también a la terminal (filtro
 
 ### 9 · Sistema — ¿está sano el propio NetScan?
 
+![Pestaña Sistema: toolchain y consola de log en vivo](docs/screenshots/system.es.png)
+
 - **Toolchain y capacidades**: qué herramientas externas están instaladas
   (nmap, RustScan, nuclei, whatweb, testssl.sh, masscan), su versión, licencia
   y para qué sirven. `masscan` se detecta pero el motor aún no lo usa.
@@ -223,6 +245,8 @@ falta binarios externos, y cada sondeo se emite también a la terminal (filtro
   cada 5 s.
 
 ### Terminal (tecla `` ` ``)
+
+![Terminal acoplada: eventos del backend y del navegador con filtros](docs/screenshots/terminal.es.png)
 
 Un panel acoplado abajo en todas las pestañas con **todos los eventos**: cada
 sondeo ARP/ICMP, puerto abierto, respuesta DNS, petición HTTP, certificado, la
@@ -233,6 +257,8 @@ api, navegador, alertas, herramientas, logs) y nivel mínimo, busca por texto o
 `/regex/`, pausa, limpia y descarga como `.log` para un informe de fallo.
 
 ### Perfil del equipo
+
+<p align="center"><img src="docs/screenshots/device-profile.es.png" width="560" alt="Perfil del equipo, pestaña riesgo: cada factor con evidencia y solución"></p>
 
 Se abre desde el nombre de un equipo, un nodo del mapa, una alerta o el
 ranking de riesgo. Pestañas: **resumen** (rol y los motivos, tipo de MAC —
