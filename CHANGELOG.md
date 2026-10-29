@@ -5,6 +5,23 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Cambiado — identidad visual y documentación
+- **Logo y favicon nuevos**: una "N" dibujada como ruta de red (cuatro hosts
+  unidos por enlaces, cian → magenta); en la cabecera, un anillo de ping late
+  sobre el nodo superior derecho.
+- **Título**: el wordmark ASCII (figlet) se sustituye por "NETSCAN" en una
+  tipografía display (Unbounded 800) que se revela con un barrido de escáner,
+  repite un destello cada 9 s y lleva un lema traducido debajo. Todo CSS y
+  desactivado con `prefers-reduced-motion`.
+- **Paneles sin banda superior**: se elimina la línea cian sobre cada tarjeta
+  y sección (`.glass::before`).
+- **README (EN/ES)**: nueva sección "El dashboard, pestaña a pestaña" con la
+  cabecera, las nueve pestañas, la terminal, el perfil de equipo y el
+  tutorial, incluidos los límites reales (alcance de seguridad, cobertura de
+  uptime, herramientas solo Linux/WSL). Corregidos el endpoint de
+  integraciones (faltaban Pi-hole y marcadores) y lo que muestra el panel de
+  TrueNAS.
+
 ### Corregido — estabilidad en ejecución (LXC / Linux)
 - **Uptime lento que crecía con el histórico**: con 30 días de datos el informe
   tardaba ~4,4 s por petición (más en un LXC de 2 vCPU), acaparando el GIL y
