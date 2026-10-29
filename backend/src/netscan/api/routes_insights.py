@@ -21,6 +21,7 @@ from netscan import insights
 from netscan.api.deps import AppState, get_state
 from netscan.models import ScanResult
 from netscan.security import assess
+from netscan.timeutil import iso, localize
 
 router = APIRouter()
 
@@ -29,7 +30,7 @@ def _latest(state: AppState) -> dict[str, Any] | None:
     record = state.store.last_scan()
     if not record:
         return None
-    return ScanResult.model_validate_json(record.result_json).model_dump(mode="json")
+    return localize(ScanResult.model_validate_json(record.result_json).model_dump())
 
 
 def _network(state: AppState, latest: dict[str, Any] | None) -> str | None:
@@ -71,7 +72,7 @@ def device_timeline(mac: str, limit: int = 200) -> dict[str, object]:
         "mac": mac,
         "events": [
             {
-                "at": e.created_at.isoformat(timespec="seconds"),
+                "at": iso(e.created_at),
                 "kind": e.kind,
                 "detail": e.detail,
                 "data": json.loads(e.data_json or "{}"),
@@ -107,7 +108,7 @@ def device_profile(mac: str) -> dict[str, object]:
     if state.live is not None:
         live_row = next((d for d in state.live.snapshot()["devices"] if d["mac"] == mac), None)  # type: ignore[attr-defined]
     return {
-        "device": record.model_dump(mode="json"),
+        "device": localize(record.model_dump()),
         "classification": view["classification"],
         "mac_info": view["mac_info"],
         "ports": view["ports"],
@@ -178,8 +179,8 @@ def export_devices(format: str = "csv") -> Response:
                 "os_guess": record.os_guess,
                 "trusted": record.trusted,
                 "online": record.online,
-                "first_seen": record.first_seen.isoformat(timespec="seconds"),
-                "last_seen": record.last_seen.isoformat(timespec="seconds"),
+                "first_seen": iso(record.first_seen),
+                "last_seen": iso(record.last_seen),
                 "latency_ms": record.last_latency_ms,
                 "jitter_ms": record.jitter_ms,
                 "packet_loss_pct": record.packet_loss_pct,

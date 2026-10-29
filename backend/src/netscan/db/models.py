@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from sqlalchemy import Index
 from sqlmodel import DateTime, Field, SQLModel
 
 # Timestamps are naive local time (datetime.now()). sqlmodel >= 0.0.45 maps a
@@ -72,6 +73,9 @@ class UptimeBucket(SQLModel, table=True):
     """
 
     __tablename__ = "uptime_buckets"
+    # Covering index for the per-window totals (device, time range -> probes,
+    # up): without it every uptime query scanned the whole table.
+    __table_args__ = (Index("ix_uptime_mac_start", "device_mac", "bucket_start", "probes", "up"),)
 
     id: int | None = Field(default=None, primary_key=True)
     device_mac: str = Field(index=True)

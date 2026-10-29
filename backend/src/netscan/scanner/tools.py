@@ -18,6 +18,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from dataclasses import dataclass, field
 
@@ -147,9 +148,23 @@ def nmap_os_scan(ip: str, timeout: int = DEFAULT_TIMEOUT) -> str:
     return ""
 
 
+# RustScan is massively parallel on its own: ~4500 sockets per run by default.
+# The scan enriches up to 16 hosts at once, and 16 concurrent runs (~72k
+# connections) exhausted memory and the conntrack table of a small LXC —
+# the server stalled, got OOM-killed and the dashboard dropped off the LAN.
+# One run at a time with a modest batch keeps it fast enough and harmless.
+RUSTSCAN_BATCH = 1000
+_rustscan_slot = threading.Semaphore(1)
+
+
 def rustscan_ports(ip: str, timeout: int = 60) -> list[int]:
     """Fast full-range port discovery with RustScan (``-g`` greppable output)."""
-    out = run_tool("rustscan", ["-a", ip, "-g", "--ulimit", "5000"], timeout)
+    with _rustscan_slot:
+        out = run_tool(
+            "rustscan",
+            ["-a", ip, "-g", "-b", str(RUSTSCAN_BATCH), "--ulimit", str(RUSTSCAN_BATCH + 500)],
+            timeout,
+        )
     if not out:
         return []
     for line in out.splitlines():

@@ -252,6 +252,45 @@ def parse_neighbor_output(text: str, system: str) -> dict[str, str]:
     return table
 
 
+def parse_ip_neigh(text: str) -> dict[str, tuple[str, str]]:
+    """Parse ``ip -4 neigh show`` → {ip: (mac, NUD state)}.
+
+    e.g. "192.168.1.1 dev eth0 lladdr d4:86:60:f9:46:5e router REACHABLE",
+    "192.168.1.9 dev eth0 FAILED". The state is always the last word.
+    """
+    out: dict[str, tuple[str, str]] = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        try:
+            ipaddress.IPv4Address(parts[0])
+        except ValueError:
+            continue
+        mac = normalize_mac(parts[parts.index("lladdr") + 1]) if "lladdr" in parts[:-1] else ""
+        out[parts[0]] = (mac, parts[-1].upper())
+    return out
+
+
+def neighbor_states() -> dict[str, tuple[str, str]]:
+    """Linux neighbour table with NUD states ({} elsewhere or on error).
+
+    Used by the live monitor as an unprivileged layer-2 presence check: the
+    ICMP probe it just sent makes the kernel re-validate the entry, so a
+    host that drops ICMP but is present ends up REACHABLE, and one that left
+    goes FAILED within a few seconds.
+    """
+    if platform.system() != "Linux":
+        return {}
+    try:
+        text = subprocess.run(
+            ["ip", "-4", "neigh", "show"], capture_output=True, text=True, timeout=3, check=False
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    return parse_ip_neigh(text)
+
+
 def neighbor_table() -> dict[str, str]:
     """The OS ARP/neighbour cache as {ip: mac}. Unprivileged on every OS."""
     system = platform.system()
