@@ -140,6 +140,7 @@ const en = {
   locale: 'en-GB',
   switchTo: 'ES',
   switchToLabel: 'Ver en español',
+  heroTagline: 'Discover · Monitor · Secure',
 
   // Tabs
   tabLive: 'Live',
@@ -657,6 +658,7 @@ const es: Dict = {
   locale: 'es-ES',
   switchTo: 'EN',
   switchToLabel: 'Switch to English',
+  heroTagline: 'Descubre · Monitoriza · Protege',
 
   tabLive: 'En vivo',
   tabOverview: 'Resumen',

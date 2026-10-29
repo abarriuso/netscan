@@ -20,36 +20,214 @@ integrations you configure from the web itself for **Proxmox VE**,
 > backwards compatibility. Use it on your local network and do not expose the
 > dashboard to the Internet.
 
-## Screenshots
+## The dashboard, tab by tab
 
-The dashboard (`http://localhost:8600`) has nine views and a terminal docked
-at the bottom of every one of them:
+The dashboard (`http://localhost:8600`) is a single page with a header, nine
+tabs and a terminal docked at the bottom. Only the visible tab polls the API;
+the others are not even mounted. The last tab you opened is remembered in the
+browser.
 
-- **Live** — LAN, gateway and Internet RTT every 5 s and the **uptime board**:
-  availability per device over 1 h / 24 h / 7 d / 30 d with status-page bars,
-  coverage, outages and MTTR.
-- **Overview** — KPIs (each with a real sub-figure: new devices in 24 h, worst
-  quality, p95 latency, last/next scan), system status and alerts.
-- **Devices** — inventory with inferred role, latency, jitter, loss, quality,
-  risk, open ports and trust; CSV/JSON export.
-- **Map** — latency radar (gateway at the centre, distance = RTT, sector =
-  role, ring = risk) and the IP address map of the subnet.
-- **Security** — risk ranking with every factor explained, exposed services,
-  TLS certificates, scanner findings, gateway MAC integrity, IP conflicts.
-- **Analytics** — per-scan trends, top vendors/OS/ports, web services and TLS.
-- **Tools** — ping, traceroute, DNS lookup and resolver benchmark, TCP check,
-  port scan, HTTP phase timing, TLS inspector, subnet and MAC calculators.
-- **Integrations** — Proxmox/TrueNAS/AdGuard/Pi-hole and custom bookmarks,
-  configured from the web.
-- **System** — toolchain and the tail of `netscan.log`.
-- **Terminal** (key `` ` ``) — every backend event (each ARP/ICMP probe, open
-  port, HTTP request, certificate, exact external command, live-monitor tick,
-  API call) merged with the browser's own requests, with filters, search,
-  pause and `.log` export.
+> **Where the data comes from.** Almost everything below is built from two
+> sources: **scans** (discovery + per-device enrichment, on demand or every
+> `interval_minutes`, 60 by default) and the **live monitor** (one probe per
+> known device every 5 s). A device only exists for NetScan after a scan has
+> found it; the live monitor never discovers new hosts by itself. Panels that
+> say "run a scan" are empty until then — that is expected, not a bug.
 
-On the first visit a **guided tutorial** (video-game style: spotlight, mission
-counter, typed-out dialogue; → / ← / Esc) walks through every section; replay
-it any time with the **?** button in the header.
+### Header
+
+- **Logo, name and discovery mode.** The badge says how hosts are found:
+  `ARP discovery` (running as admin/root: raw ARP with scapy) or
+  `ICMP sweep (no admin)` (ping sweep + the OS ARP cache — same hosts on the
+  local segment, a bit slower, refused above a /20). `ICMP win-api`,
+  `dgram` or `raw` is the backend used for pings (native API or ICMP
+  sockets, not one `ping` process per probe); `subprocess` means it had to
+  fall back to the system `ping` command.
+- **Live / Polling / Offline.** State of the event stream: WebSocket, HTTP
+  fallback, or API unreachable.
+- **Run scan** menu (shortcuts **R** quick, **F** full):
+  - *Quick scan* — discovery, reverse DNS, mDNS, the 27 most common TCP ports,
+    HTTP/TLS fingerprint of web UIs and 5 ICMP echoes per host (plus
+    `nmap -sV` if installed). Roughly 20–60 s on a /24.
+  - *Full scan* — everything above on 58 TCP ports, plus every audit tool that
+    is installed (nuclei, whatweb, testssl.sh, each capped at 10–20 targets).
+    Minutes.
+  - *Individual tools* — run a single stage (ARP discovery only, mDNS, nmap,
+    RustScan, nuclei, whatweb, testssl.sh). Tools that are not installed are
+    shown greyed out with "not installed".
+- While a scan runs the header shows the stage, `done/total` hosts, elapsed
+  time, a linear ETA during the per-host stage, the last backend line (click
+  it to jump to Live) and a `fallback` badge if progress is arriving over
+  HTTP polling instead of WebSocket.
+- **ES/EN** switches the language (it starts in the browser's language),
+  **?** replays the tutorial and the **key** opens the API-token dialog.
+
+### 1 · Live — "is everything up right now?"
+
+- **Six live figures**: devices up (and how many answered the last tick), mean
+  LAN RTT (devices answering ICMP/TCP), gateway RTT, Internet RTT (to
+  `live_wan_targets`, 1.1.1.1 and 8.8.8.8 by default), Internet loss over the
+  last minute, and the probe cadence with the duration of the last tick.
+- **Live latency chart** of the last minutes (LAN mean, gateway, Internet and
+  the number of devices responding), refreshed every 3 s.
+- **How a device is probed:** ICMP echo → TCP connect to a port already known
+  to be open → ARP (Windows `SendARP`; on Linux the kernel neighbour table,
+  where `REACHABLE` counts as up). The ARP step proves the device is there but
+  gives no RTT. It is declared **down after 3 consecutive failed
+  probes (15 s)** and up again on the first answer. At most 120 devices are
+  probed per tick (`live_max_devices`).
+- **Uptime board**: one row per device with current state, availability,
+  status-page bars, outages and how long it has been up/down. Windows
+  **1 h / 24 h / 7 d / 30 d**; filters *all / down / < 99 %*; sort by
+  availability, name, outages or RTT. On top, fleet-wide mean availability,
+  **coverage** and outages in 24 h.
+- **Honest numbers:** availability is *probes answered / probes sent while
+  NetScan was running*. Time when NetScan was stopped is grey ("no data") and
+  never counted as down; **coverage** tells you how much of the window was
+  actually observed. A "≥" in front of a duration means the state started
+  before NetScan began watching. Data is kept in 5-minute buckets for 35 days.
+
+### 2 · Overview — the network at a glance
+
+- **KPI cards**, each with a real sub-figure: devices online (new in the last
+  24 h), unverified devices, unread alerts, average quality (and the worst
+  device), average latency (and p95), last scan (duration and next scheduled
+  scan). Hover a card for its exact formula.
+- **System status** of the NetScan host: CPU per core, RAM/swap, disks, live
+  traffic per interface with link speed, the NetScan process, requests served,
+  WebSocket clients, whether auth is on, whether the dashboard is built,
+  gateway, discovery mode, next scan, failed scans and events per minute.
+- **Alert feed**: new device, IP change, device down/back, ports opened or
+  closed, IP conflict and **gateway MAC changed**. Filter unread, mark one or
+  all as read; click an alert to open that device. The same alerts are sent
+  through Apprise if you configured `notify_urls`.
+
+### 3 · Devices — the inventory
+
+- One row per device: name, IP, MAC (click IP/MAC to copy), vendor, **inferred
+  role** (gateway, hypervisor, NAS, server, PC, phone, printer, media, camera,
+  IoT, network gear, VM…), latency, jitter, loss, **quality 0–100**, **risk
+  0–100**, open ports (with the `nmap -sV` version in the tooltip when known)
+  and trust.
+- Sortable columns (missing values always go last) and a text filter. On a
+  phone the table becomes stacked cards that keep every metric.
+- Per-row actions: **mark as trusted** (removes the "untrusted" risk factor and
+  the review flag), **speed test** (latency/jitter/loss/TCP handshake on
+  demand) and **Wake-on-LAN**.
+- **Export** CSV or JSON with role, risk and 24 h availability.
+- Clicking a name opens the **device profile** (see below).
+
+### 4 · Map — where every device sits
+
+- **Latency radar**: the gateway in the centre; each device at a distance equal
+  to its live RTT on a log scale (rings at 0.5 / 1 / 5 / 20 / 100 ms). Sector
+  and colour = role, node size = open ports, pulsing ring = high/critical risk,
+  red dot = not trusted, dashed = offline. Drag to pan, wheel to zoom, labels
+  by name, IP or none; click a node for its profile.
+- **IP address map** of the scanned subnet: every address coloured as network,
+  broadcast, gateway, this host, in use (online/offline) or free, with
+  utilisation. Supports up to a /22 (1024 addresses).
+
+### 5 · Security — what is exposed and why it matters
+
+- **Network risk** summary: mean score, devices not trusted, randomised MACs,
+  certificates expiring in < 30 days.
+- **Risk ranking**: every device with its 0–100 score and each factor itemised
+  with points, evidence and a fix. Scale: 0–19 low · 20–44 medium · 45–69 high
+  · 70–100 critical. The factors are heuristic and transparent, e.g. Telnet
+  (+30), Docker API / Redis / MongoDB without auth, VNC, FTP, RDP, MQTT, SMB,
+  databases reachable from the LAN, > 10 open ports, expired or soon-to-expire
+  certificates, TLS < 1.2, self-signed certificates, login pages over plain
+  HTTP, nuclei/testssl findings, IP conflicts, not trusted, joined in the last
+  24 h, randomised MAC. The total is capped at 100.
+- **Gateway integrity**: the gateway MAC is recorded on every scan; a change
+  means a replaced router — or ARP spoofing. IP conflicts (one IP answered from
+  several MACs) are listed here too.
+- **Exposed risky services** grouped by port, **TLS certificates** (subject,
+  issuer, expiry, self-signed) and **scanner findings**.
+- **Realistic scope:** this is an exposure review of your LAN, not a
+  penetration test. Findings only appear after a *full* scan with nuclei
+  and/or testssl.sh installed (testssl.sh and whatweb run on Linux/WSL only).
+
+### 6 · Analytics — how the network evolves
+
+- **Trends over time**, one point per scan: average latency, average quality,
+  average throughput, devices per scan, packet loss and devices answering
+  ICMP. Needs at least 2 scans; the last 200 scans are kept.
+- **Top vendors, operating systems and open ports** across the inventory (the
+  OS is an `nmap`/heuristic guess, not ground truth).
+- **Web services & TLS**: every web UI found in the last scan with its title,
+  server, certificate state (valid/expired, days left, self-signed) and its
+  security findings.
+
+### 7 · Tools — diagnostics run from the NetScan host
+
+Everything runs on the **server**, so results show the network as seen from
+the machine running NetScan, not from your browser. No external binaries are
+needed, and every probe also streams to the terminal (filter "tools").
+
+| Tool | What it does |
+|---|---|
+| Ping | Native ICMP echoes: min/avg/max, stddev, jitter, loss |
+| Traceroute | TTL-limited ICMP hop by hop with RTT and reverse names (up to 30 hops) |
+| HTTP timing | GET with DNS / TCP / TLS / TTFB / transfer phases, status, key headers and missing security headers |
+| TLS inspector | Protocol, cipher, ALPN, handshake time, chain trust (system store), SANs, key, expiry |
+| DNS lookup | Any record type against any resolver, timed (built-in RFC 1035 client) |
+| Resolver benchmark | Same query on the gateway, your AdGuard/Pi-hole and 1.1.1.1 / 8.8.8.8 / 9.9.9.9 — median of 3 |
+| TCP check | Handshake time to one port (×3) and the banner, if any |
+| Port scan | TCP connect scan of **one private IPv4** (RFC 1918 only, at most 4096 ports); empty = the 58 default ports |
+| Subnet calculator | Network, mask, wildcard, broadcast and host range of a CIDR |
+| MAC lookup | Vendor (OUI), randomised/private and virtual-NIC detection |
+
+### 8 · Integrations — your homelab services
+
+- **Proxmox VE** (several nodes/clusters): guests (VMs and CTs) with state,
+  vCPUs and memory (first 8 listed), guests running/total and PVE version.
+- **TrueNAS** CORE/SCALE: pools with used capacity and health, and system
+  alerts. (The API also collects disks and SMART results; the panel does not
+  draw them yet.)
+- **AdGuard Home**: queries today, blocked, block rate, average processing
+  time, clients.
+- **Pi-hole** (API v6): queries, blocked, domains on the blocklist, active /
+  total clients.
+- **Custom bookmarks**: name, URL and your own logo (PNG/SVG/JPG/WEBP, max
+  2 MB) with an up/down check.
+- Add, edit and delete them **from the web** — no YAML editing. Instances
+  defined in `netscan.yaml` are shown as "defined in config" and are read-only
+  here. Panels refresh every 30 s while the tab is open; an error shows the
+  reason (DNS, TLS, auth…).
+
+### 9 · System — is NetScan itself healthy?
+
+- **Toolchain & capabilities**: which external tools are installed (nmap,
+  RustScan, nuclei, whatweb, testssl.sh, masscan), their version, licence and
+  purpose. `masscan` is detected but not used by the engine yet.
+- **Live console**: the last 300 lines of `netscan.log`, refreshed every 5 s.
+
+### Terminal (key `` ` ``)
+
+A dock at the bottom of every tab with **every event**: each ARP/ICMP probe,
+open port, DNS answer, HTTP request, certificate, the exact external command
+line, live-monitor ticks and API calls (**BE**), merged with every request your
+browser makes (**FE**). Filter by group (scan, ports, web/tls, dns/icmp, live,
+api, browser, alerts, tools, logs) and minimum level, search by text or
+`/regex/`, pause, clear and download as `.log` for a bug report.
+
+### Device profile
+
+Opened from a device name, a map node, an alert or the risk ranking. Tabs:
+**overview** (role and the reasons for it, MAC type — vendor, randomised or
+virtual NIC — first/last seen, editable notes), **uptime** (24 h bars, outages,
+longest outage), **metrics** (latency/quality/loss history, one point per scan
+or speed test), **services** (ports with `nmap -sV` versions, web UIs and
+certificates), **risk** (each factor with evidence and fix) and **timeline**
+(every event recorded for that device).
+
+### First-run tutorial
+
+On the first visit a **guided tutorial** (spotlight, mission counter, typed-out
+dialogue; → / Enter, ← and Esc) walks through every section and offers to
+launch the first quick scan. Replay it any time with the **?** button.
 
 Every number has a defined unit and formula: see
 [docs/METRICS.md](docs/METRICS.md).
@@ -127,8 +305,9 @@ with all 6 tools) in [Quick start](#quick-start--a-single-command).
 - Notifications through Apprise: ntfy, Telegram, Discord and 80+ services
 
 **Homelab integrations**
-- **Proxmox VE** (several nodes/clusters): node, VM and CT status
-- **TrueNAS** CORE/SCALE: pools, disks, SMART, system alerts
+- **Proxmox VE** (several nodes/clusters): VM and CT status
+- **TrueNAS** CORE/SCALE: pools and system alerts (disks and SMART results are
+  collected by the API but not drawn in the panel yet)
 - **AdGuard Home** and **Pi-hole** (API v6): DNS queries, blocks, clients
   (cross-referenced with the network inventory)
 - Custom bookmarks for any other service: name, URL and your own logo, with an
@@ -534,7 +713,7 @@ NETSCAN_NOTIFY_URLS__0=ntfy://ntfy.sh/my-topic
 | `GET /api/scans/progress` · `WS /ws/progress` | Live progress |
 | `GET /api/devices` · `PATCH /api/devices/{mac}` | Inventory and trust |
 | `GET /api/alerts` · `POST /api/alerts/{id}/ack` | Alerts |
-| `GET /api/integrations/proxmox|truenas|adguard` | Integration health |
+| `GET /api/integrations/proxmox\|truenas\|adguard\|pihole\|custom` | Integration health |
 | `GET /api/overview` · `GET /api/capabilities` | Summary and toolchain |
 | `GET /api/system` · `GET /api/status` | Server/host/frontend status (all in one) |
 | `GET /api/metrics/summary` | Aggregated quality metrics |
@@ -634,7 +813,7 @@ frontend lint+build, dependency licence check, vulnerability audit
 │   ├── insights.py     # uptime, map, IP map, security report, Prometheus
 │   ├── classify.py · security.py · diag.py   # roles · risk score · toolbox
 │   ├── db/             # SQLModel: inventory, scans, alerts, metric samples
-│   ├── integrations/   # proxmox · truenas · adguard
+│   ├── integrations/   # proxmox · truenas · adguard · pihole
 │   ├── api/            # FastAPI + WebSocket + scheduler + static dashboard
 │   ├── alerts/         # Apprise
 │   ├── system.py       # host/process/frontend status (psutil)
@@ -642,7 +821,7 @@ frontend lint+build, dependency licence check, vulnerability audit
 │   └── cli.py          # typer: up · scan · speedtest · doctor · caps · serve · wake
 ├── frontend/src/
 │   ├── sections/       # Header, StatCards, SystemStatus, DevicesTable, Integrations…
-│   ├── components/     # metrics.tsx (animated number, gauge, quality badge)
+│   ├── components/     # Logo, HeroTitle, metrics.tsx (animated number, gauge, quality badge)
 │   ├── hooks/          # polling + WebSocket + animations
 │   └── lib/api.ts      # REST/WS client
 ├── packaging/
