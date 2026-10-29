@@ -21,6 +21,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   uptime, herramientas solo Linux/WSL). Corregidos el endpoint de
   integraciones (faltaban Pi-hole y marcadores) y lo que muestra el panel de
   TrueNAS.
+- **Capturas en el README**: una por pestaña más la terminal y el perfil de
+  equipo, en inglés y en español (`docs/screenshots/`). Salen de una
+  instancia de demostración con un homelab ficticio, así que no exponen
+  ninguna red real; los paneles y las cifras los calcula el código de NetScan.
+- **Título sin rectángulo de fondo**: el brillo de "SCAN" usaba `filter` sobre
+  un texto con `background-clip: text`, y Chrome sombreaba la caja entera.
+  Ahora el brillo va en el contenedor.
 
 ### Corregido — estabilidad en ejecución (LXC / Linux)
 - **Uptime lento que crecía con el histórico**: con 30 días de datos el informe

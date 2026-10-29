@@ -317,6 +317,9 @@
     letter-spacing: -0.035em;
     white-space: nowrap;
     padding: 0.06em 0.04em;
+    /* The glow lives here, not on .hero-scan: a filter on a background-clip:
+       text element shadows its whole box in Chrome (a visible rectangle). */
+    filter: drop-shadow(0 0 18px rgba(45, 226, 230, 0.22));
     animation: hero-reveal 1.1s cubic-bezier(0.65, 0, 0.35, 1) 0.15s both;
   }
   .hero-scan {
@@ -332,12 +335,14 @@
     -webkit-background-clip: text;
     color: transparent;
     -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 18px rgba(45, 226, 230, 0.25));
     animation: hero-drift 8s ease-in-out infinite alternate;
   }
+  /* Negative insets leave room for the glow (clip-path applies after filter);
+     the right edge tracks the beam and only lets the glow out at the end. */
   @keyframes hero-reveal {
-    from { clip-path: inset(0 100% 0 0); }
-    to { clip-path: inset(0 0 0 0); }
+    0% { clip-path: inset(-50% 100% -50% -20%); }
+    99.9% { clip-path: inset(-50% 0% -50% -20%); }
+    100% { clip-path: inset(-50% -20% -50% -20%); }
   }
   @keyframes hero-drift {
     to { background-position: 100% 0; }

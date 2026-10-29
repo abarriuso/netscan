@@ -14,6 +14,10 @@ integrations you configure from the web itself for **Proxmox VE**,
 > From one-off scans to a permanent watch: discover your network, spot
 > intruders, keep an eye on your hypervisors and your NAS — all in one dashboard.
 
+![NetScan dashboard: header, tabs and the Overview tab](docs/screenshots/dashboard.png)
+
+<sub>Screenshots come from a demo instance with a fictional homelab (31 devices on 192.168.10.0/24, 27 days of history): the data is invented, but every panel and number in them is computed by NetScan's own code.</sub>
+
 > [!WARNING]
 > **Work in progress.** NetScan is under active development: the API, the
 > database schema and the configuration may change between versions without
@@ -64,6 +68,8 @@ browser.
 
 ### 1 · Live — "is everything up right now?"
 
+![Live tab: live latency figures, LAN/gateway/Internet chart and the uptime board](docs/screenshots/live.png)
+
 - **Six live figures**: devices up (and how many answered the last tick), mean
   LAN RTT (devices answering ICMP/TCP), gateway RTT, Internet RTT (to
   `live_wan_targets`, 1.1.1.1 and 8.8.8.8 by default), Internet loss over the
@@ -89,6 +95,8 @@ browser.
 
 ### 2 · Overview — the network at a glance
 
+It is the tab in the screenshot at the top of this README.
+
 - **KPI cards**, each with a real sub-figure: devices online (new in the last
   24 h), unverified devices, unread alerts, average quality (and the worst
   device), average latency (and p95), last scan (duration and next scheduled
@@ -103,6 +111,8 @@ browser.
   through Apprise if you configured `notify_urls`.
 
 ### 3 · Devices — the inventory
+
+![Devices tab: inventory table with role, latency, quality, risk and ports](docs/screenshots/devices.png)
 
 - One row per device: name, IP, MAC (click IP/MAC to copy), vendor, **inferred
   role** (gateway, hypervisor, NAS, server, PC, phone, printer, media, camera,
@@ -119,6 +129,8 @@ browser.
 
 ### 4 · Map — where every device sits
 
+![Map tab: latency radar and IP address map](docs/screenshots/map.png)
+
 - **Latency radar**: the gateway in the centre; each device at a distance equal
   to its live RTT on a log scale (rings at 0.5 / 1 / 5 / 20 / 100 ms). Sector
   and colour = role, node size = open ports, pulsing ring = high/critical risk,
@@ -129,6 +141,8 @@ browser.
   utilisation. Supports up to a /22 (1024 addresses).
 
 ### 5 · Security — what is exposed and why it matters
+
+![Security tab: risk summary, risk ranking, gateway integrity and exposed services](docs/screenshots/security.png)
 
 - **Network risk** summary: mean score, devices not trusted, randomised MACs,
   certificates expiring in < 30 days.
@@ -151,6 +165,8 @@ browser.
 
 ### 6 · Analytics — how the network evolves
 
+![Analytics tab: trends per scan, top vendors/OS/ports and web services](docs/screenshots/analytics.png)
+
 - **Trends over time**, one point per scan: average latency, average quality,
   average throughput, devices per scan, packet loss and devices answering
   ICMP. Needs at least 2 scans; the last 200 scans are kept.
@@ -161,6 +177,8 @@ browser.
   security findings.
 
 ### 7 · Tools — diagnostics run from the NetScan host
+
+![Tools tab: HTTP timing, TLS inspector and DNS lookup results](docs/screenshots/tools.png)
 
 Everything runs on the **server**, so results show the network as seen from
 the machine running NetScan, not from your browser. No external binaries are
@@ -181,6 +199,8 @@ needed, and every probe also streams to the terminal (filter "tools").
 
 ### 8 · Integrations — your homelab services
 
+![Integrations tab: Proxmox VE, TrueNAS, AdGuard Home, Pi-hole and bookmarks](docs/screenshots/integrations.png)
+
 - **Proxmox VE** (several nodes/clusters): guests (VMs and CTs) with state,
   vCPUs and memory (first 8 listed), guests running/total and PVE version.
 - **TrueNAS** CORE/SCALE: pools with used capacity and health, and system
@@ -199,12 +219,16 @@ needed, and every probe also streams to the terminal (filter "tools").
 
 ### 9 · System — is NetScan itself healthy?
 
+![System tab: toolchain and live log console](docs/screenshots/system.png)
+
 - **Toolchain & capabilities**: which external tools are installed (nmap,
   RustScan, nuclei, whatweb, testssl.sh, masscan), their version, licence and
   purpose. `masscan` is detected but not used by the engine yet.
 - **Live console**: the last 300 lines of `netscan.log`, refreshed every 5 s.
 
 ### Terminal (key `` ` ``)
+
+![Terminal dock: backend and browser events with filters](docs/screenshots/terminal.png)
 
 A dock at the bottom of every tab with **every event**: each ARP/ICMP probe,
 open port, DNS answer, HTTP request, certificate, the exact external command
@@ -214,6 +238,8 @@ api, browser, alerts, tools, logs) and minimum level, search by text or
 `/regex/`, pause, clear and download as `.log` for a bug report.
 
 ### Device profile
+
+<p align="center"><img src="docs/screenshots/device-profile.png" width="560" alt="Device profile, risk tab: each factor with evidence and fix"></p>
 
 Opened from a device name, a map node, an alert or the risk ranking. Tabs:
 **overview** (role and the reasons for it, MAC type — vendor, randomised or
