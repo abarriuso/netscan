@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { api, progressSocket } from '@/lib/api'
+import { api, progressSocket, tokenRejected, waitForNewToken } from '@/lib/api'
 import type { ScanProgress, ScanStage } from '@/types'
 import { useI18n } from '@/i18n/context'
 
@@ -72,6 +72,12 @@ export function useScanProgress() {
     let retry: ReturnType<typeof setTimeout> | undefined
     const connect = () => {
       if (dead) return
+      if (tokenRejected()) {
+        // A handshake with a rejected token is one more failed login on the
+        // server (every 3 s, it tripped the 429 limiter on its own).
+        waitForNewToken().then(connect)
+        return
+      }
       const ws = progressSocket((p) => apply(p as ScanProgress))
       ws.onopen = () => {
         if (!dead) setWsConnected(true)

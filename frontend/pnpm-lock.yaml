@@ -811,10 +811,6 @@ packages:
     peerDependencies:
       '@babel/core': ^7.0.0-0
 
-  '@babel/runtime@7.28.4':
-    resolution: {integrity: sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ==}
-    engines: {node: '>=6.9.0'}
-
   '@babel/runtime@7.29.10':
     resolution: {integrity: sha512-NpugTzbKgGrNe45Ui32cN8vCFFMxVtP/9rtfwv0nP5FRDAjvYBxJcLVpYA9mr1jxP6cnIT7x9LUzuDTbWYYNRA==}
     engines: {node: '>=6.9.0'}
@@ -3275,8 +3271,8 @@ packages:
     peerDependencies:
       postcss: ^8.2.14
 
-  postcss-selector-parser@6.1.4:
-    resolution: {integrity: sha512-bIoJLOmjCO1S9XdY/DcnR5hJxvrDir1PbGChrzXG3vw0/FOliy/fA3dmdhQ441kah4gKv+TwckGzex6wNS5cnQ==}
+  postcss-selector-parser@6.1.5:
+    resolution: {integrity: sha512-TEHFzb5KRDKaOgJ4TYE+0jyJtFbjLvkdVOu0fZ2b6MTWzoqZd4Le+61aEppWkvTlYePgOX4ATL1wsAIPMLTw6Q==}
     engines: {node: '>=4'}
 
   postcss-value-parser@4.2.0:
@@ -4594,8 +4590,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@babel/runtime@7.28.4': {}
-
   '@babel/runtime@7.29.10': {}
 
   '@babel/template@7.29.7':
@@ -5894,7 +5888,7 @@ snapshots:
 
   '@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@babel/runtime': 7.28.4
+      '@babel/runtime': 7.29.10
       '@testing-library/dom': 10.4.2
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
@@ -5910,24 +5904,24 @@ snapshots:
 
   '@types/babel__core@7.20.5':
     dependencies:
-      '@babel/parser': 7.29.8
-      '@babel/types': 7.29.8
+      '@babel/parser': 7.29.11
+      '@babel/types': 7.29.11
       '@types/babel__generator': 7.27.0
       '@types/babel__template': 7.4.4
       '@types/babel__traverse': 7.28.0
 
   '@types/babel__generator@7.27.0':
     dependencies:
-      '@babel/types': 7.29.8
+      '@babel/types': 7.29.11
 
   '@types/babel__template@7.4.4':
     dependencies:
-      '@babel/parser': 7.29.8
-      '@babel/types': 7.29.8
+      '@babel/parser': 7.29.11
+      '@babel/types': 7.29.11
 
   '@types/babel__traverse@7.28.0':
     dependencies:
-      '@babel/types': 7.29.8
+      '@babel/types': 7.29.11
 
   '@types/chai@5.2.3':
     dependencies:
@@ -6382,7 +6376,7 @@ snapshots:
 
   dom-helpers@5.2.1:
     dependencies:
-      '@babel/runtime': 7.28.4
+      '@babel/runtime': 7.29.10
       csstype: 3.2.3
 
   dunder-proto@1.0.1:
@@ -6958,9 +6952,9 @@ snapshots:
   postcss-nested@6.2.0(postcss@8.5.26):
     dependencies:
       postcss: 8.5.26
-      postcss-selector-parser: 6.1.4
+      postcss-selector-parser: 6.1.5
 
-  postcss-selector-parser@6.1.4:
+  postcss-selector-parser@6.1.5:
     dependencies:
       cssesc: 3.0.0
       util-deprecate: 1.0.2
@@ -7065,7 +7059,7 @@ snapshots:
 
   react-transition-group@4.4.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
-      '@babel/runtime': 7.28.4
+      '@babel/runtime': 7.29.10
       dom-helpers: 5.2.1
       loose-envify: 1.4.0
       prop-types: 15.8.1
@@ -7255,7 +7249,7 @@ snapshots:
       postcss-js: 4.1.0(postcss@8.5.26)
       postcss-load-config: 6.0.1(jiti@1.21.7)(postcss@8.5.26)
       postcss-nested: 6.2.0(postcss@8.5.26)
-      postcss-selector-parser: 6.1.4
+      postcss-selector-parser: 6.1.5
       resolve: 1.22.11
       sucrase: 3.35.1
     transitivePeerDependencies:

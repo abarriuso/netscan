@@ -43,13 +43,16 @@ const BASE = import.meta.env.VITE_API_URL ?? ''
 
 /** Optional API token (only needed if the backend has NETSCAN_API_TOKEN set).
  *  Stored in localStorage; entered through <TokenDialog> (see components/TokenDialog.tsx). */
-function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem('netscan_token')
+function currentToken(): string {
+  return localStorage.getItem('netscan_token') ?? ''
+}
+
+function authHeaders(token = currentToken()): Record<string, string> {
   return token ? { 'X-API-Key': token } : {}
 }
 
 export function hasToken(): boolean {
-  return !!localStorage.getItem('netscan_token')
+  return !!currentToken()
 }
 
 type AuthListener = () => void
@@ -62,6 +65,16 @@ const authListeners = new Set<AuthListener>()
 // failing every 2.5-60s each read as a separate "auth failure" to the server.
 let pendingAuth: Promise<void> | null = null
 let resolvePending: (() => void) | null = null
+// The token value ('' = none) the server last turned down. While the saved
+// token is still that one, sending it again can only fail — and each failure
+// counts against the server's brute-force limiter — so requests wait for a
+// new token instead.
+let rejectedToken: string | null = null
+// The user chose "Not now" for the rejected token: stop reopening the dialog
+// and fail requests locally until they save a token (header key button).
+let authDismissed = false
+let tokenSaved: Promise<void> | null = null
+let resolveTokenSaved: (() => void) | null = null
 
 /** Subscribe to "a token is needed" events — <TokenDialog> uses this to auto-open. */
 export function onAuthRequired(cb: AuthListener): () => void {
@@ -81,18 +94,37 @@ export function requestTokenDialog() {
   manualOpenListeners.forEach((cb) => cb())
 }
 
+/** Accept the token however it was copied out of netscan.env: the whole
+ *  `NETSCAN_API_TOKEN=...` line or a quoted value would otherwise be saved
+ *  verbatim and rejected on every request. */
+export function normalizeToken(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^NETSCAN_API_TOKEN\s*=\s*/, '')
+    .replace(/^(['"])(.*)\1$/, '$2')
+    .trim()
+}
+
 /** Called by <TokenDialog> when the user submits a value. */
 export function submitToken(token: string) {
-  localStorage.setItem('netscan_token', token)
+  localStorage.setItem('netscan_token', normalizeToken(token))
+  // An explicit save is worth one more try even if it is the value the
+  // server rejected before (the server's token may have been changed back).
+  rejectedToken = null
+  authDismissed = false
   resolvePending?.()
   pendingAuth = null
   resolvePending = null
+  resolveTokenSaved?.()
+  tokenSaved = null
+  resolveTokenSaved = null
 }
 
-/** Called by <TokenDialog> when the user dismisses it without one — lets
- *  queued requests proceed (and fail with a normal, visible panel error)
- *  instead of hanging forever. */
+/** Called by <TokenDialog> when the user dismisses it without one — queued
+ *  requests fail with a normal, visible panel error instead of hanging, and
+ *  the dialog stays closed until the user opens it from the header. */
 export function cancelAuth() {
+  authDismissed = true
   resolvePending?.()
   pendingAuth = null
   resolvePending = null
@@ -100,6 +132,31 @@ export function cancelAuth() {
 
 export function clearToken() {
   localStorage.removeItem('netscan_token')
+}
+
+/** True while the saved token (or the lack of one) is the one the server
+ *  already rejected — sending it again would just be another failed login. */
+export function tokenRejected(): boolean {
+  return rejectedToken !== null && rejectedToken === currentToken()
+}
+
+/** Record that the server turned down `token` (a 401/429 for it). Ignored
+ *  when a newer token was saved while that request was in flight. */
+export function markTokenRejected(token: string): void {
+  if (token !== currentToken()) return
+  rejectedToken = token
+  if (!authDismissed) void ensureAuth()
+}
+
+/** Resolves the next time the user saves a token — for the sockets, which
+ *  must not retry with a rejected one in the meantime. */
+export function waitForNewToken(): Promise<void> {
+  if (!tokenSaved) {
+    tokenSaved = new Promise((resolve) => {
+      resolveTokenSaved = resolve
+    })
+  }
+  return tokenSaved
 }
 
 function ensureAuth(): Promise<void> {
@@ -180,18 +237,48 @@ async function traced(method: string, path: string, init: RequestInit): Promise<
   }
 }
 
+function authRequiredError(path: string): Error {
+  const err = new Error('Invalid or missing API token') as Error & { status?: number; path?: string }
+  err.status = 401
+  err.path = path
+  return err
+}
+
+/** traced() with the saved token, and one auth policy for every caller:
+ *  wait while the token dialog is open; never re-send a token the server
+ *  already rejected (prompt for a new one, or fail locally after "Not now");
+ *  and retry — instead of prompting again — a 401 for a token that was
+ *  replaced while the request was in flight. A slow or stalled server
+ *  answers the requests sent before the user typed the token only after it
+ *  was saved; treating those late 401s as "bad token" reopened the dialog
+ *  right after a correct one was entered. A 429 is the server's limiter on
+ *  failed tokens, so it counts as a rejection too. */
+async function authorized(
+  method: string,
+  path: string,
+  init: (headers: Record<string, string>) => RequestInit,
+): Promise<Response> {
+  for (;;) {
+    if (pendingAuth) await pendingAuth
+    const token = currentToken()
+    if (token === rejectedToken) {
+      if (authDismissed) throw authRequiredError(path)
+      await ensureAuth()
+      continue
+    }
+    const resp = await traced(method, path, init(authHeaders(token)))
+    if (resp.status !== 401 && resp.status !== 429) return resp
+    markTokenRejected(token)
+  }
+}
+
 async function get<T>(path: string): Promise<T> {
   const cached = _cache.get(path)
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value as T
   const existing = _inflight.get(path)
   if (existing) return existing as Promise<T>
   const run = (async () => {
-    if (pendingAuth) await pendingAuth
-    let resp = await traced('GET', path, { headers: authHeaders() })
-    if (resp.status === 401) {
-      await ensureAuth()
-      resp = await traced('GET', path, { headers: authHeaders() })
-    }
+    const resp = await authorized('GET', path, (headers) => ({ headers }))
     if (!resp.ok) throw await errorFromResponse(resp, path)
     const value = await resp.json()
     _cache.set(path, { at: Date.now(), value })
@@ -202,18 +289,11 @@ async function get<T>(path: string): Promise<T> {
 }
 
 async function send<T>(path: string, method: string, body?: unknown): Promise<T> {
-  const make = () =>
-    traced(method, path, {
-      method,
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-  if (pendingAuth) await pendingAuth
-  let resp = await make()
-  if (resp.status === 401) {
-    await ensureAuth()
-    resp = await make()
-  }
+  const resp = await authorized(method, path, (headers) => ({
+    method,
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  }))
   if (!resp.ok) throw await errorFromResponse(resp, path)
   // A successful mutation changes server state — drop cached GETs so the next
   // poll reflects it immediately instead of serving up to CACHE_TTL_MS stale.
@@ -226,7 +306,7 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
  *  is fetched and saved as a Blob (see downloadExport). */
 export async function downloadExport(format: 'csv' | 'json'): Promise<void> {
   const path = `/api/export/devices?format=${format}`
-  const resp = await traced('GET', path, { headers: authHeaders() })
+  const resp = await authorized('GET', path, (headers) => ({ headers }))
   if (!resp.ok) throw await errorFromResponse(resp, path)
   const blob = await resp.blob()
   const disposition = resp.headers.get('content-disposition') ?? ''
@@ -323,21 +403,10 @@ export const api = {
   uploadIntegrationLogo: async (id: number, file: File): Promise<{ ok: boolean; logo_url: string }> => {
     const form = new FormData()
     form.append('file', file)
-    if (pendingAuth) await pendingAuth
-    let resp = await fetch(`${BASE}/api/settings/integrations/${id}/logo`, {
-      method: 'POST',
-      headers: authHeaders(), // no Content-Type — the browser sets the multipart boundary
-      body: form,
-    })
-    if (resp.status === 401) {
-      await ensureAuth()
-      resp = await fetch(`${BASE}/api/settings/integrations/${id}/logo`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: form,
-      })
-    }
-    if (!resp.ok) throw await errorFromResponse(resp, `/api/settings/integrations/${id}/logo`)
+    const path = `/api/settings/integrations/${id}/logo`
+    // No Content-Type — the browser sets the multipart boundary.
+    const resp = await authorized('POST', path, (headers) => ({ method: 'POST', headers, body: form }))
+    if (!resp.ok) throw await errorFromResponse(resp, path)
     return resp.json()
   },
 }
@@ -384,7 +453,7 @@ export async function fetchLatestScan(): Promise<LatestScan | null> {
 export function progressSocket(onMessage: (p: { stage: string; done: number; total: number }) => void) {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
   const host = BASE ? new URL(BASE).host : location.host
-  const token = localStorage.getItem('netscan_token')
+  const token = currentToken()
   const qs = token ? `?token=${encodeURIComponent(token)}` : ''
   const ws = new WebSocket(`${proto}://${host}/ws/progress${qs}`)
   ws.onmessage = (ev) => {

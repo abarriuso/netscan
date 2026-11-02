@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=Unbounded:wght@800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -140,9 +140,8 @@
     );
   }
 
-  /* THE panel shell. Brutalist card: hard corners, a bright 1px border, a
-     solid offset drop shadow (no soft blur), and a top hairline in cyan so
-     every panel reads like a terminal window. Class stays `.glass` so all
+  /* THE panel shell. Brutalist card: hard corners, a bright 1px border and a
+     solid offset drop shadow (no soft blur). Class stays `.glass` so all
      existing usages restyle in place. */
   .glass {
     position: relative;
@@ -150,21 +149,6 @@
     border: 1px solid rgb(var(--border));
     border-radius: var(--radius);
     box-shadow: var(--hard-shadow);
-  }
-  .glass::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 2px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgb(var(--primary) / 0.55) 15%,
-      rgb(var(--primary) / 0.55) 85%,
-      transparent
-    );
-    opacity: 0.6;
-    pointer-events: none;
   }
 
   .glass-strong {
@@ -321,29 +305,122 @@
     to { transform: scaleX(1); }
   }
 
-  /* The big ASCII "NETSCAN" hero wordmark. Cyan→sky→magenta sweep with a slow
-     compositor-only sheen and a glow + hard cyber flicker seam. */
-  .hero-ascii {
+  /* The "NETSCAN" hero wordmark (HeroTitle.tsx). The word is wiped in by a
+     clip-path while a beam track slides across in lockstep (same duration and
+     easing), so the beam is always the reveal's leading edge. Afterwards the
+     beam re-sweeps faintly every 9 s and the "SCAN" gradient drifts. */
+  .hero-word {
+    font-family: 'Unbounded', 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.4rem, 8.5vw, 5.75rem);
+    line-height: 1;
+    letter-spacing: -0.035em;
+    white-space: nowrap;
+    padding: 0.06em 0.04em;
+    /* The glow lives here, not on .hero-scan: a filter on a background-clip:
+       text element shadows its whole box in Chrome (a visible rectangle). */
+    filter: drop-shadow(0 0 18px rgba(45, 226, 230, 0.22));
+    animation: hero-reveal 1.1s cubic-bezier(0.65, 0, 0.35, 1) 0.15s both;
+  }
+  .hero-scan {
     background-image: linear-gradient(
       100deg,
       var(--accent-cyan),
-      var(--accent-sky) 45%,
-      var(--accent-cyan) 68%,
-      var(--accent-magenta)
+      var(--accent-sky) 35%,
+      var(--accent-magenta) 70%,
+      var(--accent-cyan)
     );
-    background-size: 220% 100%;
+    background-size: 200% 100%;
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
     -webkit-text-fill-color: transparent;
-    opacity: 0.95;
-    filter: drop-shadow(0 0 14px rgba(45, 226, 230, 0.28)) drop-shadow(0 0 2px rgba(255, 47, 185, 0.25));
-    animation: hero-ascii-sheen 14s linear infinite;
+    animation: hero-drift 8s ease-in-out infinite alternate;
   }
-  @keyframes hero-ascii-sheen {
-    to {
-      background-position: -220% 0;
+  /* Negative insets leave room for the glow (clip-path applies after filter);
+     the right edge tracks the beam and only lets the glow out at the end. */
+  @keyframes hero-reveal {
+    0% { clip-path: inset(-50% 100% -50% -20%); }
+    99.9% { clip-path: inset(-50% 0% -50% -20%); }
+    100% { clip-path: inset(-50% -20% -50% -20%); }
+  }
+  @keyframes hero-drift {
+    to { background-position: 100% 0; }
+  }
+
+  /* The track spans the word; translating it by -100%..0 walks its right
+     edge (where the beam sits) across the word without measuring anything. */
+  .hero-beam-track {
+    position: absolute;
+    inset: -8% 0;
+    transform: translateX(-100%);
+    animation:
+      hero-beam-in 1.1s cubic-bezier(0.65, 0, 0.35, 1) 0.15s both,
+      hero-beam-idle 9s linear 2.5s infinite;
+  }
+  .hero-beam {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 3px;
+    background: var(--accent-cyan);
+    box-shadow:
+      0 0 10px var(--accent-cyan),
+      0 0 26px rgba(255, 47, 185, 0.55);
+  }
+  /* Soft trail behind the beam. */
+  .hero-beam::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 3px;
+    width: 90px;
+    background: linear-gradient(90deg, transparent, rgba(45, 226, 230, 0.16));
+  }
+  @keyframes hero-beam-in {
+    0% { transform: translateX(-100%); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translateX(0); opacity: 0; }
+  }
+  @keyframes hero-beam-idle {
+    0% { transform: translateX(-100%); opacity: 0; }
+    5% { opacity: 0.5; }
+    18% { transform: translateX(0); opacity: 0; }
+    100% { transform: translateX(0); opacity: 0; }
+  }
+
+  /* Ping ring around the logo's top-right host (Logo.tsx, `animated`). */
+  .logo-ping {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: logo-ping 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  @keyframes logo-ping {
+    0% { transform: scale(1); opacity: 0.9; }
+    80%, 100% { transform: scale(2.6); opacity: 0; }
+  }
+
+  .hero-tagline {
+    margin-top: 0.9rem;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: rgb(var(--muted-foreground));
+    animation: hero-tagline 0.6s ease-out 1.05s both;
+  }
+  @media (max-width: 480px) {
+    .hero-tagline {
+      font-size: 10px;
+      letter-spacing: 0.2em;
     }
+  }
+  @keyframes hero-tagline {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
   }
 
   /* Live scanline that sweeps down a panel — opt in with `.scan`. Purely

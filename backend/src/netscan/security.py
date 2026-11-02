@@ -119,6 +119,8 @@ def assess(
     if isinstance(first_seen, str):
         try:
             first_seen = datetime.fromisoformat(first_seen)
+            if first_seen.tzinfo is not None:  # API strings carry an offset
+                first_seen = first_seen.astimezone().replace(tzinfo=None)
         except ValueError:
             first_seen = None
     if isinstance(first_seen, datetime) and now - first_seen < timedelta(hours=24):

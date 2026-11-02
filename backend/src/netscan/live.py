@@ -37,11 +37,20 @@ from statistics import fmean
 
 from netscan.db.models import AlertRecord
 from netscan.events import emit, fmt_ms
-from netscan.scanner import icmp, speed
+from netscan.scanner import discovery, icmp, speed
+from netscan.timeutil import iso
 
 logger = logging.getLogger(__name__)
 
 BUCKET_S = 300  # uptime bucket width (5 min)
+# Probe "method" meaning "no verdict this tick" (kernel still verifying L2).
+HOLD = "arp-check"
+
+
+def _answered(method: str) -> bool:
+    return bool(method) and method != HOLD
+
+
 _FLUSH_EVERY_S = 30.0
 _ARP_RETRY_TICKS = 4  # a device already down is ARP-probed only every Nth tick (a miss costs ~4 s)
 
@@ -198,12 +207,13 @@ class LiveMonitor:
             except Exception:
                 wan = {}
         now = datetime.now()
+        results = self._neighbor_fallback(results)
 
         transitions = self._apply(results, now)
         self._accumulate(results, now)
 
         alive_rtts = [rtt for (_, rtt, method) in results.values() if rtt is not None]
-        up_count = sum(1 for (_, _, method) in results.values() if method)
+        up_count = sum(1 for (_, _, method) in results.values() if _answered(method))
         agg = round(fmean(alive_rtts), 3) if alive_rtts else None
         gateway_ms = wan.get(self.gateway_ip) if self.gateway_ip else None
         wan_values = [wan.get(t) for t in self.wan_targets]
@@ -219,11 +229,11 @@ class LiveMonitor:
                     "vendor": dev.vendor,
                     "trusted": dev.trusted,
                     "up": bool(st.up),
-                    "answered": bool(method),
+                    "answered": _answered(method),
                     "latency_ms": rtt,
                     "method": method,
                     "failures": st.failures,
-                    "since": st.since.isoformat() if st.since else None,
+                    "since": iso(st.since),
                     "since_exact": st.since_exact,
                     "recent_up_pct": self._recent_pct(st),
                 }
@@ -232,7 +242,7 @@ class LiveMonitor:
         self.last_tick_ms = round((time.perf_counter() - tick_start) * 1000, 1)
         wan_ms = round(fmean(wan_ok), 3) if wan_ok else None
         point = {
-            "t": now.isoformat(timespec="seconds"),
+            "t": iso(now),
             "latency_ms": agg,
             "online": up_count,
             "total": len(results),
@@ -246,7 +256,7 @@ class LiveMonitor:
         with self._lock:
             self._series.append(point)
             self._devices = rows
-            self._updated_at = now.isoformat()
+            self._updated_at = iso(now)
 
         emit(
             "live",
@@ -257,13 +267,47 @@ class LiveMonitor:
             "debug",
             **{k: v for k, v in point.items() if k != "t"},
         )
-        self._persist(transitions, [mac for mac, (_, _, m) in results.items() if m], now)
+        self._persist(transitions, [mac for mac, (_, _, m) in results.items() if _answered(m)], now)
+
+    def _neighbor_fallback(self, results: dict[str, tuple]) -> dict[str, tuple]:
+        """Linux: devices that answered neither ICMP nor TCP are checked
+        against the kernel's ARP table (refreshed by the probe just sent).
+
+        REACHABLE with the inventory MAC → up via "arp-cache" (no RTT).
+        STALE / DELAY / PROBE → HOLD: the kernel is still verifying, so the
+        tick counts neither as success nor as failure. Without this, Wi-Fi
+        devices in power-save and PCs whose firewall drops ICMP flapped
+        down/up on Linux, where SendARP (the Windows fallback) does not exist.
+        """
+        silent = [mac for mac, (dev, _rtt, method) in results.items() if not method and dev.mac]
+        if not silent or icmp.IS_WINDOWS:
+            return results
+        states = discovery.neighbor_states()
+        if not states:
+            return results
+        out = dict(results)
+        for mac in silent:
+            dev = results[mac][0]
+            seen_mac, state = states.get(dev.ip, ("", ""))
+            if seen_mac != dev.mac:
+                continue
+            if state == "REACHABLE":
+                out[mac] = (dev, None, "arp-cache")
+            elif state in ("STALE", "DELAY", "PROBE"):
+                out[mac] = (dev, None, HOLD)
+        return out
 
     def _apply(self, results: dict[str, tuple], now: datetime) -> list[tuple]:
         """Run the hysteresis state machine; return confirmed transitions."""
         transitions = []
         for mac, (dev, rtt, method) in results.items():
             st = self._states.get(mac)
+            if method == HOLD:
+                if st is None:
+                    st = _DeviceState(up=bool(dev.online), since=None)
+                    self._states[mac] = st
+                st.last_method = method
+                continue
             if st is None:
                 # Seed from the inventory so a restart does not re-announce
                 # every device as "up".
@@ -304,6 +348,8 @@ class LiveMonitor:
         start = bucket_start(now)
         with self._lock:
             for mac, (_dev, rtt, method) in results.items():
+                if method == HOLD:
+                    continue  # no verdict this tick: not a probe outcome
                 p = self._pending.setdefault((mac, start), _Pending())
                 p.probes += 1
                 if method:
@@ -410,7 +456,7 @@ class LiveMonitor:
                 "gateway_ip": self.gateway_ip,
                 "wan_targets": self.wan_targets,
                 "tick_ms": self.last_tick_ms,
-                "monitoring_since": self.started_at.isoformat(timespec="seconds"),
+                "monitoring_since": iso(self.started_at),
             }
 
 

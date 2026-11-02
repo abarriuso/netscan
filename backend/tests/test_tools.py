@@ -26,6 +26,41 @@ def test_rustscan_no_output(monkeypatch):
     assert tools.rustscan_ports("192.168.1.1") == []
 
 
+def test_rustscan_runs_one_at_a_time_with_a_bounded_batch(monkeypatch):
+    """The scan enriches 16 hosts in parallel; 16 concurrent RustScan runs
+    (~4500 sockets each) took a 2 GB LXC down. Runs must be serialized and
+    the batch capped."""
+    import threading
+    import time as _time
+
+    active = 0
+    peak = 0
+    seen_args: list[list[str]] = []
+    lock = threading.Lock()
+
+    def fake_run_tool(binary, args, timeout=0):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+            seen_args.append(args)
+        _time.sleep(0.02)
+        with lock:
+            active -= 1
+        return None
+
+    monkeypatch.setattr(tools, "run_tool", fake_run_tool)
+    threads = [threading.Thread(target=tools.rustscan_ports, args=(f"10.0.0.{i}",)) for i in range(16)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert peak == 1
+    assert len(seen_args) == 16
+    batch = int(seen_args[0][seen_args[0].index("-b") + 1])
+    assert batch <= 1000
+
+
 def test_nuclei_parse_line():
     line = (
         '{"template-id":"proxmox-panel","info":{"severity":"medium","name":"Proxmox Panel"},'
