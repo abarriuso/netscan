@@ -63,7 +63,7 @@ export default function TokenDialog() {
             <DialogTitle>{t('apiToken')}</DialogTitle>
           </div>
           <DialogDescription>
-            {required ? t('tokenRequired') : t('tokenChange')}{' '}
+            {required ? (hasToken() ? t('tokenRejected') : t('tokenRequired')) : t('tokenChange')}{' '}
             {t('tokenWhereBefore')} <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-[11px]">/etc/netscan/netscan.env</code>{' '}
             {t('tokenWhereInside')} <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-[11px]">NETSCAN_API_TOKEN</code>).
           </DialogDescription>

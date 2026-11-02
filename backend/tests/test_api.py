@@ -61,6 +61,27 @@ def test_auth_required_when_token_set(tmp_path):
     assert client.get("/api/devices", headers={"Authorization": "Bearer secret123"}).status_code == 200
 
 
+def test_auth_limiter_counts_only_wrong_tokens(tmp_path):
+    deps.init_state(Settings(data_dir=tmp_path, api_token="secret123"))
+    client = TestClient(create_app())
+    # The dashboard's first load fires a dozen requests before the token
+    # dialog is even shown: none of them carries a guess, none may lock out.
+    for _ in range(20):
+        assert client.get("/api/devices").status_code == 401
+    statuses = [client.get("/api/devices", headers={"X-API-Key": "wrong"}).status_code for _ in range(12)]
+    assert statuses[:10] == [401] * 10
+    assert statuses[-1] == 429
+    # Throttled for wrong guesses, but the right token still gets through.
+    assert client.get("/api/devices", headers={"X-API-Key": "secret123"}).status_code == 200
+
+
+def test_non_ascii_token_is_a_401_not_a_500(tmp_path):
+    deps.init_state(Settings(data_dir=tmp_path, api_token="secret123"))
+    client = TestClient(create_app())
+    resp = client.get("/api/devices", headers={"X-API-Key": "sécret".encode()})
+    assert resp.status_code == 401
+
+
 def test_scan_rejects_public_cidr(tmp_path):
     client = _client(tmp_path)
     resp = client.post("/api/scans", json={"network": "8.8.8.0/24"})

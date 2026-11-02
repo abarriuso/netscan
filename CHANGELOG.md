@@ -5,6 +5,60 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [Unreleased]
 
+### Cambiado — identidad visual y documentación
+- **Logo y favicon nuevos**: una "N" dibujada como ruta de red (cuatro hosts
+  unidos por enlaces, cian → magenta); en la cabecera, un anillo de ping late
+  sobre el nodo superior derecho.
+- **Título**: el wordmark ASCII (figlet) se sustituye por "NETSCAN" en una
+  tipografía display (Unbounded 800) que se revela con un barrido de escáner,
+  repite un destello cada 9 s y lleva un lema traducido debajo. Todo CSS y
+  desactivado con `prefers-reduced-motion`.
+- **Paneles sin banda superior**: se elimina la línea cian sobre cada tarjeta
+  y sección (`.glass::before`).
+- **README (EN/ES)**: nueva sección "El dashboard, pestaña a pestaña" con la
+  cabecera, las nueve pestañas, la terminal, el perfil de equipo y el
+  tutorial, incluidos los límites reales (alcance de seguridad, cobertura de
+  uptime, herramientas solo Linux/WSL). Corregidos el endpoint de
+  integraciones (faltaban Pi-hole y marcadores) y lo que muestra el panel de
+  TrueNAS.
+- **Capturas en el README**: una por pestaña más la terminal y el perfil de
+  equipo, en inglés y en español (`docs/screenshots/`). Salen de una
+  instancia de demostración con un homelab ficticio, así que no exponen
+  ninguna red real; los paneles y las cifras los calcula el código de NetScan.
+- **Título sin rectángulo de fondo**: el brillo de "SCAN" usaba `filter` sobre
+  un texto con `background-clip: text`, y Chrome sombreaba la caja entera.
+  Ahora el brillo va en el contenedor.
+
+### Corregido — estabilidad en ejecución (LXC / Linux)
+- **Uptime lento que crecía con el histórico**: con 30 días de datos el informe
+  tardaba ~4,4 s por petición (más en un LXC de 2 vCPU), acaparando el GIL y
+  frenando WebSockets y API. Ahora: índice cubriente
+  `(device_mac, bucket_start, probes, up)` (también se crea en bases
+  existentes), totales por ventana agregados en SQL y línea de tiempo en una
+  sola pasada → ~0,2 s para la vista de 24 h.
+- **Zona horaria**: el LXC corre en UTC y la API enviaba horas sin
+  desfase, así que el navegador (hora de España) desplazaba una hora los
+  "hace X", la duración de los estados y el orden de la terminal. Todas las
+  horas de la API llevan ahora el desfase del servidor (`+00:00`).
+- **Falsas caídas en Linux**: dispositivos que ignoran el ping (PCs con
+  firewall, móviles en ahorro de energía) caían y volvían en bucle porque el
+  respaldo ARP solo existía en Windows. Ahora el monitor consulta la tabla de
+  vecinos del kernel (`ip neigh`): `REACHABLE` cuenta como arriba y los
+  estados en verificación (`STALE`/`DELAY`/`PROBE`) no cuentan ni a favor ni
+  en contra.
+- **Dashboard sin token**: el stream de eventos reintentaba sin parar
+  (WebSocket + sondeo cada 2 s), disparando el limitador anti fuerza bruta
+  (429). Ahora espera al diálogo del token y se reconecta solo.
+- **El diálogo del token volvía a pedirlo en bucle**: "Ahora no" lo reabría
+  al instante, y con el servidor lento las peticiones enviadas antes de
+  guardar el token volvían con 401 y lo reabrían aunque el token fuera
+  correcto. Ahora un 401 de un token ya sustituido se reintenta con el nuevo,
+  un token rechazado no se reenvía (tampoco desde los WebSockets), "Ahora no"
+  deja el diálogo cerrado hasta abrirlo desde la cabecera, y se acepta pegar
+  la línea `NETSCAN_API_TOKEN=...` entera. El limitador solo cuenta
+  peticiones con un token incorrecto (las que no llevan ninguno ya no
+  bloquean la IP) y un token con caracteres no ASCII da 401 en vez de 500.
+
 ### Añadido — observabilidad, uptime, mapa, seguridad y herramientas
 - **Tutorial de primera visita** al estilo de los videojuegos: foco sobre cada
   elemento (el resto se oscurece), diálogo que se escribe solo, contador
@@ -207,6 +261,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   garantizar que las 46 columnas de cada línea cuadran.
 
 ### Seguridad
+- Dependencias: `postcss-selector-parser` 6.1.5 en el dashboard
+  (GHSA-rj75-hqrm-r3gf, CPU por selectores planos; dependencia de
+  desarrollo vía tailwindcss) y suelos `urllib3>=2.8.0`
+  (PYSEC-2026-4175/6/7) y `oauthlib>=4.0.0` (CVE-2026-49272) en el backend,
+  transitivas de apprise. `pnpm audit` y `pip-audit` sin hallazgos.
 - Autenticación opcional por token (`NETSCAN_API_TOKEN`) en HTTP y WebSocket.
 - La API escucha en `127.0.0.1` por defecto; CORS restringido y configurable.
 - Los escaneos por API solo aceptan redes privadas (RFC 1918 / loopback / link-local).

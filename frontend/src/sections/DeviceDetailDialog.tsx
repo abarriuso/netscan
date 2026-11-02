@@ -235,12 +235,18 @@ function DeviceDetailDialog({ mac }: { mac: string }) {
         </div>
 
         <Tabs defaultValue="overview" className="mt-1">
-          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-0 rounded-none border border-border bg-card p-0">
+          {/* A grid, not flex-wrap: the triggers' base height is a percentage
+              of the list, so a wrapped second row didn't grow the list and
+              was painted over the tab content. */}
+          <TabsList
+            data-testid="device-tabs"
+            className="grid h-auto w-full grid-cols-3 gap-0 rounded-none border border-border bg-card p-0 sm:grid-cols-6"
+          >
             {(['overview', 'uptime', 'metrics', 'services', 'risk', 'timeline'] as const).map((k) => (
               <TabsTrigger
                 key={k}
                 value={k}
-                className="rounded-none border-r border-border/70 px-3 py-2 font-mono text-[11px] uppercase tracking-wider data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary"
+                className="h-auto min-w-0 truncate rounded-none border-r border-border/70 px-3 py-2 font-mono text-[11px] uppercase tracking-wider data-[state=active]:bg-primary/[0.08] data-[state=active]:text-primary"
               >
                 {t(`dd_${k}` as const)}
               </TabsTrigger>

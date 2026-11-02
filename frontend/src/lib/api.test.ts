@@ -1,5 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { api, hasToken, submitToken, clearToken, invalidateCache, errorFromResponse } from './api'
+import {
+  api,
+  hasToken,
+  submitToken,
+  clearToken,
+  cancelAuth,
+  onAuthRequired,
+  normalizeToken,
+  invalidateCache,
+  errorFromResponse,
+} from './api'
 
 // ---- helpers -------------------------------------------------------------
 function jsonResponse(body: unknown, status = 200): Response {
@@ -57,6 +67,69 @@ describe('api client', () => {
       submitToken('secret-123')
       clearToken()
       expect(hasToken()).toBe(false)
+    })
+  })
+
+  describe('auth', () => {
+    const rejected = () => jsonResponse({ detail: 'Invalid or missing API token' }, 401)
+    let prompts: ReturnType<typeof vi.fn<() => void>>
+    let off: () => void
+
+    beforeEach(() => {
+      // Reset the module's rejected/dismissed state left by other tests.
+      submitToken('reset')
+      clearToken()
+      prompts = vi.fn<() => void>()
+      off = onAuthRequired(prompts)
+    })
+
+    afterEach(() => off())
+
+    it('retries a late 401 with the token saved meanwhile instead of prompting again', async () => {
+      let answerFirst!: (r: Response) => void
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockImplementationOnce(() => new Promise<Response>((resolve) => (answerFirst = resolve)))
+        .mockResolvedValue(jsonResponse({ v: 1 }))
+      const pending = api.overview() // sent without a token; the server is slow to answer
+      submitToken('good')
+      answerFirst(rejected())
+      await expect(pending).resolves.toEqual({ v: 1 })
+      expect(prompts).not.toHaveBeenCalled()
+      expect((fetchMock.mock.calls[1][1]?.headers as Record<string, string>)['X-API-Key']).toBe('good')
+    })
+
+    it('after "Not now", fails locally without re-sending the rejected token or reopening the dialog', async () => {
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(rejected())
+      const first = api.overview()
+      await vi.waitFor(() => expect(prompts).toHaveBeenCalledTimes(1))
+      cancelAuth()
+      await expect(first).rejects.toMatchObject({ status: 401 })
+      await expect(api.devices()).rejects.toMatchObject({ status: 401 })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(prompts).toHaveBeenCalledTimes(1)
+
+      fetchMock.mockResolvedValue(jsonResponse([]))
+      submitToken('good')
+      await expect(api.devices()).resolves.toEqual([])
+    })
+
+    it('treats the 429 limiter as a rejected token and prompts', async () => {
+      vi.spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce(jsonResponse({ detail: 'Too many failed authentication attempts' }, 429))
+        .mockResolvedValue(jsonResponse({ v: 2 }))
+      submitToken('wrong')
+      const pending = api.overview()
+      await vi.waitFor(() => expect(prompts).toHaveBeenCalledTimes(1))
+      submitToken('good')
+      await expect(pending).resolves.toEqual({ v: 2 })
+    })
+
+    it('accepts the token pasted as the whole netscan.env line or quoted', () => {
+      expect(normalizeToken('  NETSCAN_API_TOKEN=abc-123_x \n')).toBe('abc-123_x')
+      expect(normalizeToken('"abc"')).toBe('abc')
+      expect(normalizeToken("NETSCAN_API_TOKEN='abc'")).toBe('abc')
+      expect(normalizeToken('abc')).toBe('abc')
     })
   })
 

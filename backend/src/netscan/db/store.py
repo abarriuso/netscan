@@ -12,7 +12,8 @@ import threading
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, event, inspect, text
+from sqlalchemy import delete, event, func, inspect, text
+from sqlalchemy import select as sa_select
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from netscan.db.models import (
@@ -27,6 +28,7 @@ from netscan.db.models import (
 )
 from netscan.events import emit
 from netscan.models import Device, ScanResult
+from netscan.timeutil import iso
 
 # How many historical scans to keep in the DB (oldest are pruned).
 SCAN_RETENTION = 200
@@ -89,6 +91,13 @@ class InventoryStore:
                 for name, sqltype in columns.items():
                     if name not in existing[table]:
                         conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sqltype}"))
+            # Indexes added after a table already existed (create_all skips them).
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_uptime_mac_start "
+                    "ON uptime_buckets (device_mac, bucket_start, probes, up)"
+                )
+            )
 
     def _setup_sqlite_pragmas(self) -> None:
         """WAL mode + busy timeout: the API and scheduler hit the DB concurrently."""
@@ -540,7 +549,7 @@ class InventoryStore:
             samples = buckets[ts]
             points.append(
                 {
-                    "t": ts.isoformat(),
+                    "t": iso(ts),
                     "avg_latency_ms": _avg([sm.latency_ms for sm in samples]),
                     "avg_quality": _avg_int([sm.quality for sm in samples]),
                     "avg_packet_loss_pct": _avg([sm.packet_loss_pct for sm in samples]),
@@ -563,7 +572,7 @@ class InventoryStore:
             )
         return [
             {
-                "started_at": r.started_at.isoformat(),
+                "started_at": iso(r.started_at),
                 "duration_s": r.duration_s,
                 "total_devices": r.total_devices,
                 "network": r.network,
@@ -677,6 +686,38 @@ class InventoryStore:
                         setattr(bucket, attr, value if current is None else pick(current, value))
                 session.add(bucket)
             session.commit()
+
+    def uptime_sums(self, since: datetime, mac: str | None = None) -> dict[str, tuple[int, int]]:
+        """(probes, up) per device since ``since``, aggregated in SQL."""
+        bucket = UptimeBucket.__table__.c  # type: ignore[attr-defined]
+        stmt = sa_select(bucket.device_mac, func.sum(bucket.probes), func.sum(bucket.up)).where(
+            bucket.bucket_start >= since
+        )
+        if mac:
+            stmt = stmt.where(bucket.device_mac == mac)
+        with Session(self.engine) as session:
+            rows = session.execute(stmt.group_by(bucket.device_mac)).all()
+        return {str(m): (int(p or 0), int(u or 0)) for m, p, u in rows}
+
+    def uptime_rows(self, since: datetime, mac: str | None = None) -> list[tuple]:
+        """Raw bucket tuples (mac, start, probes, up, rtt_sum, rtt_count,
+        rtt_min, rtt_max) since ``since`` — plain tuples, not ORM objects:
+        building 200k model instances was most of the uptime report's cost."""
+        bucket = UptimeBucket.__table__.c  # type: ignore[attr-defined]
+        stmt = sa_select(
+            bucket.device_mac,
+            bucket.bucket_start,
+            bucket.probes,
+            bucket.up,
+            bucket.rtt_sum_ms,
+            bucket.rtt_count,
+            bucket.rtt_min_ms,
+            bucket.rtt_max_ms,
+        ).where(bucket.bucket_start >= since)
+        if mac:
+            stmt = stmt.where(bucket.device_mac == mac)
+        with Session(self.engine) as session:
+            return [tuple(r) for r in session.execute(stmt).all()]
 
     def uptime_buckets(self, since: datetime, mac: str | None = None) -> list[UptimeBucket]:
         with Session(self.engine) as session:

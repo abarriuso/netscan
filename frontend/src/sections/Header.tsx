@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Kbd } from '@/components/ui/kbd'
+import Logo from '@/components/Logo'
 import { toast } from 'sonner'
 import { usePoll, useScanProgress } from '@/hooks/useNetscan'
 import { useLastBackLine, useStreamState } from '@/hooks/useFeed'
@@ -145,22 +146,7 @@ export default function Header({ onScanDone, onNavigate }: { onScanDone: () => v
   return (
     <header className="glass hud flex flex-wrap items-center justify-between gap-4 px-6 py-3.5">
       <div className="flex items-center gap-3">
-        <div
-          role="img"
-          aria-label="NetScan"
-          className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-none border-2 font-mono text-[15px] font-bold leading-[0.85] tracking-tight"
-          style={{
-            background: 'rgba(45,226,230,0.08)',
-            borderColor: 'rgba(45,226,230,0.5)',
-            color: 'var(--accent-cyan)',
-            textAlign: 'center',
-            boxShadow: '3px 3px 0 0 rgba(45,226,230,0.15)',
-          }}
-        >
-          ◜◝
-          <br />
-          ◟◞
-        </div>
+        <Logo size={40} animated />
         <div className="flex flex-col leading-tight">
           <span className="font-display text-[19px] font-extrabold tracking-tight">
             NetScan<span className="text-primary">.</span>

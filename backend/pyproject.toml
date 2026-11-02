@@ -35,6 +35,10 @@ dependencies = [
     "httpx>=0.27.0",
     "PyYAML>=6.0.1",
     "apprise>=1.7.0",
+    # Transitive via apprise -> requests / requests-oauthlib; floors so an
+    # existing venv is upgraded too.
+    "urllib3>=2.8.0",  # <2.8.0: PYSEC-2026-4175/6/7
+    "oauthlib>=4.0.0",  # <4.0.0: CVE-2026-49272
     "zeroconf>=0.149.17",  # <0.149.17: PYSEC-2026-3435/6/7/8/9
     "mac-vendor-lookup>=0.1.12",
     "cryptography>=49.0.0",  # <49.0.0: multiple PYSEC/GHSA advisories, see pip-audit
