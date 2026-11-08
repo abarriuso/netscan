@@ -41,10 +41,15 @@ def event_stats() -> dict[str, object]:
 async def ws_events(ws: WebSocket) -> None:
     """Live event stream. ``?since=N`` replays the buffered events after N
     first, so a reconnecting terminal has no hole in its scrollback."""
-    from netscan.api.app import _client_ip, _rate_limited, _token_matches
+    from netscan.api.app import _client_ip, _rate_limited, _request_guard, _token_matches
 
     state = get_state()
     token = state.settings.api_token
+    # The HTTP middleware doesn't see WebSockets: without this, any website
+    # could read the feed (scanned hosts, API calls, commands) cross-origin.
+    if _request_guard(state, "WEBSOCKET", ws.headers):
+        await ws.close(code=4403)
+        return
     offered = ws.query_params.get("token", "")
     if token and not _token_matches(offered, token):
         limited = bool(offered) and _rate_limited(state, _client_ip(ws))
